@@ -23,7 +23,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
   const [texto, setTexto] = useState("");
   const visibles = useMemo(() => {
     const t = texto.trim().toLowerCase();
-    const base = t ? filas.filter((f) => columnas.some((c) => !esNumero(c.tipo) && String(f[c.clave] ?? "").toLowerCase().includes(t))) : filas;
+    const base = t ? filas.filter((f) => columnas.some((c) => !esNumero(c.tipo) && String(c.tipo === "estado" ? ESTADOS[f[c.clave] as keyof typeof ESTADOS] ?? "" : f[c.clave] ?? "").toLowerCase().includes(t))) : filas;
     if (!orden) return base;
     return [...base].sort((a, b) => {
       const x = a[orden.clave], y = b[orden.clave];

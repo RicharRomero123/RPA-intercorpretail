@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CalendarCheck, ChartLine, Clock, Gauge, LayoutDashboard, LogOut, Package, PanelLeftClose, PanelLeftOpen, Store,
+  CalendarCheck, Clock, LayoutDashboard, LogOut, Package, PanelLeftClose, PanelLeftOpen, Store,
   Warehouse, type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, type Transition } from "motion/react";
@@ -9,8 +9,7 @@ import Image from "next/image";
 import { useState, useSyncExternalStore } from "react";
 
 const ICONOS: Record<string, LucideIcon> = {
-  resumen: LayoutDashboard, rotacion: Gauge, evolucion: ChartLine, productos: Package, locales: Store,
-  stock: Warehouse, cargas: Clock,
+  resumen: LayoutDashboard, locales: Store, productos: Package, stock: Warehouse, cargas: Clock,
 };
 const ANCHO = { abierto: 236, cerrado: 76 };
 /** Resorte suave: el menú se acomoda sin rebote brusco. */

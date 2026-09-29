@@ -4,11 +4,12 @@ import {
   Banknote, Boxes, Coins, Gauge, PackageCheck, Timer, type LucideIcon,
 } from "lucide-react";
 import {
-  Area, AreaChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { fechaCorta } from "@/lib/periodos";
 import type { ClaveGlosario } from "@/lib/glosario";
+import { useState } from "react";
 import { Ayuda } from "./Ayuda";
 import { Variacion } from "./ui";
 
@@ -40,63 +41,67 @@ function Recuadro({ active, payload, label, titulo, formato }: {
   );
 }
 
-/** Venta por periodo en área con degradado; la comparación va como línea punteada gris. */
-export function AreaVentas({ datos, agrupar, conPrevio, nombrePrevio }: {
-  datos: { periodo: string; actual: number | null; previo?: number | null }[]; agrupar: string;
-  conPrevio: boolean; nombrePrevio: string;
-}) {
-  const et = etiquetaPeriodo(agrupar);
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <AreaChart data={datos} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-        <defs>
-          <linearGradient id="grad-venta" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--serie-1)" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="var(--serie-1)" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
-        <XAxis dataKey="periodo" tickFormatter={et} tick={EJE} axisLine={false} tickLine={false} minTickGap={16} dy={6} />
-        <YAxis tick={EJE} axisLine={false} tickLine={false} tickFormatter={(v) => compacto(Number(v))} width={48} />
-        <Tooltip wrapperStyle={{ zIndex: 20 }} cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
-                 content={<Recuadro titulo={et} formato={soles} />} />
-        {conPrevio && (
-          <Area type="monotone" dataKey="previo" name={nombrePrevio} stroke="var(--serie-gris)" strokeWidth={1.5}
-                strokeDasharray="5 4" fill="none" dot={false} activeDot={{ r: 3 }} connectNulls />
-        )}
-        <Area type="monotone" dataKey="actual" name="Venta al público" stroke="var(--serie-1)" strokeWidth={2.2}
-              fill="url(#grad-venta)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--superficie)" }} />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-}
+export type PuntoTendencia = {
+  periodo: string; venta: number; costo: number; und: number;
+  venta_c: number | null; costo_c: number | null; und_c: number | null;
+};
+const METRICAS = {
+  venta: { nombre: "Venta al público", formato: soles, info: "venta" },
+  costo: { nombre: "Ingreso Calderón", formato: soles, info: "ingreso" },
+  und: { nombre: "Unidades", formato: entero, info: "unidades" },
+} as const;
 
-/** Líneas de varias series (p. ej. unidades por producto). */
-export function Lineas({ datos, series, agrupar }: {
-  datos: Record<string, unknown>[]; series: { clave: string; nombre: string; color: string }[]; agrupar: string;
+/** Gráfico principal: una métrica a la vez (selector), con total, promedio, mejor periodo y la comparación punteada. */
+export function GraficoTendencia({ datos, agrupar, conPrevio, nombrePrevio, rango }: {
+  datos: PuntoTendencia[]; agrupar: string; conPrevio: boolean; nombrePrevio: string; rango: string;
 }) {
+  const [m, setM] = useState<keyof typeof METRICAS>("venta");
+  const met = METRICAS[m];
   const et = etiquetaPeriodo(agrupar);
+  const serie = datos.map((d) => ({ periodo: d.periodo, actual: d[m], previo: d[`${m}_c` as const] }));
+  const total = serie.reduce((a, d) => a + d.actual, 0);
+  const mejor = serie.reduce<(typeof serie)[number] | null>((x, d) => (!x || d.actual > x.actual ? d : x), null);
+  const unidad = agrupar === "dia" ? "día" : agrupar;
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap gap-4 text-xs text-[var(--tenue)]">
-        {series.map((s) => (
-          <span key={s.clave} className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded" style={{ background: s.color }} />{s.nombre}</span>
-        ))}
-      </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={datos} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+    <section className="tarjeta p-5 grid gap-4 min-w-0">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1 min-w-0">
+          <span className="flex items-center gap-1.5 text-[15px] font-semibold">{met.nombre} · {rango}<Ayuda clave="evolucion" /></span>
+          <span className="text-xs text-[var(--tenue)]">
+            Total <b className="num text-[var(--tinta)]">{met.formato(total)}</b>
+            {" · "}Promedio por {unidad} <b className="num text-[var(--tinta)]">{met.formato(serie.length ? total / serie.length : 0)}</b>
+            {mejor && <>{" · "}Mejor {unidad} <b className="text-[var(--tinta)]">{et(mejor.periodo)}</b> ({met.formato(mejor.actual)})</>}
+            {conPrevio && <>{" · "}punteado: {nombrePrevio.toLowerCase()}</>}
+          </span>
+        </div>
+        <div className="segmento" role="group" aria-label="Métrica del gráfico">
+          {(Object.keys(METRICAS) as (keyof typeof METRICAS)[]).map((k) => (
+            <button key={k} type="button" aria-pressed={m === k} onClick={() => setM(k)}>{METRICAS[k].nombre.split(" ")[0]}</button>
+          ))}
+        </div>
+      </header>
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={serie} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+          <defs>
+            <linearGradient id="grad-tendencia" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--serie-1)" stopOpacity={0.28} />
+              <stop offset="100%" stopColor="var(--serie-1)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
           <XAxis dataKey="periodo" tickFormatter={et} tick={EJE} axisLine={false} tickLine={false} minTickGap={16} dy={6} />
           <YAxis tick={EJE} axisLine={false} tickLine={false} tickFormatter={(v) => compacto(Number(v))} width={48} />
           <Tooltip wrapperStyle={{ zIndex: 20 }} cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
-                   content={<Recuadro titulo={et} formato={(v) => `${entero(v)} und`} />} />
-          {series.map((s) => (
-            <Line key={s.clave} type="monotone" dataKey={s.clave} name={s.nombre} stroke={s.color} strokeWidth={2.2}
-                  dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--superficie)" }} connectNulls />
-          ))}
-        </LineChart>
+                   content={<Recuadro titulo={et} formato={met.formato} />} />
+          {conPrevio && (
+            <Area type="monotone" dataKey="previo" name={nombrePrevio} stroke="var(--serie-gris)" strokeWidth={1.5}
+                  strokeDasharray="5 4" fill="none" dot={false} activeDot={{ r: 3 }} connectNulls />
+          )}
+          <Area type="monotone" dataKey="actual" name={met.nombre} stroke="var(--serie-1)" strokeWidth={2.2}
+                fill="url(#grad-tendencia)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--superficie)" }} />
+        </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </section>
   );
 }
 
