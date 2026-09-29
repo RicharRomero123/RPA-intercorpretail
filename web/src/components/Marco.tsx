@@ -3,6 +3,7 @@
 import {
   ChartLine, Clock, Gauge, LayoutDashboard, LogOut, Package, Store, Warehouse, type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 
 const ICONOS: Record<string, LucideIcon> = {
@@ -21,13 +22,10 @@ export function Marco({ secciones, encabezado, usuario, salir, datosAl }: {
   return (
     <div className="min-h-screen xl:grid xl:grid-cols-[224px_1fr]">
       <aside className="bg-[var(--lateral)] text-[var(--lateral-tinta)] sticky top-0 z-20 xl:h-screen flex xl:flex-col items-center xl:items-stretch gap-2 px-3 py-2 xl:p-3 overflow-x-auto">
-        <span className="xl:hidden grid place-items-center size-8 shrink-0 rounded-lg bg-[var(--acento)] text-white font-extrabold">C</span>
-        <div className="hidden xl:flex items-center gap-2.5 px-2 py-3 mb-2">
-          <span className="grid place-items-center size-9 rounded-lg bg-[var(--acento)] text-white font-extrabold font-[family-name:var(--font-archivo)]">C</span>
-          <div className="leading-tight">
-            <p className="text-white font-semibold text-sm">Calderón Retail</p>
-            <p className="text-[11px]">Sell-out · SPSA</p>
-          </div>
+        <Image src="/assets/logo-calderon.png" alt="Calderón" width={71} height={40} className="xl:hidden shrink-0 h-9 w-auto mr-1" priority />
+        <div className="hidden xl:grid justify-items-center gap-2 px-2 pt-3 pb-4 mb-2 border-b border-white/10">
+          <Image src="/assets/logo-calderon.png" alt="Turrones y Panetones Calderón" width={176} height={100} className="h-auto w-44 drop-shadow" priority />
+          <p className="text-[11px] tracking-wide uppercase text-[#f7b36a] font-semibold">Retail · Sell-out SPSA</p>
         </div>
         <p className="hidden xl:block etiqueta px-3 !text-[var(--lateral-tinta)] opacity-70">Análisis</p>
         <nav className="flex xl:flex-col gap-1 xl:flex-1" aria-label="Secciones">

@@ -2,54 +2,54 @@
 
 /* Neutros con leve tinte azul; acento azul y naranja de series, los mismos del dashboard de Streamlit. */
 :root {
-  --fondo: #f4f6f9;
+  --fondo: #faf6f2;
   --superficie: #ffffff;
-  --superficie-2: #f8fafc;
-  --lateral: #0f1b2d;
-  --lateral-tinta: #c9d4e3;
-  --lateral-activo: #1c2d46;
-  --tinta: #0f1b2d;
-  --tenue: #5b6b80;
-  --linea: #e3e8ef;
-  --acento: #2563eb;
-  --acento-suave: #e8f0fe;
-  --serie-1: #2563eb;
-  --serie-2: #f07c3a;
-  --serie-3: #14b8a6;
-  --serie-gris: #a3afbf;
+  --superficie-2: #fcf8f4;
+  --lateral: #3a1005;
+  --lateral-tinta: #f1d6c2;
+  --lateral-activo: #56200d;
+  --tinta: #2a160c;
+  --tenue: #6f5b4f;
+  --linea: #eadfd6;
+  --acento: #b35a09;
+  --acento-suave: #fdeedd;
+  --serie-1: #ec8416;
+  --serie-2: #5c1a07;
+  --serie-3: #c9a227;
+  --serie-gris: #b8a79a;
   --bueno: #0f8a4a;
   --bueno-suave: #e3f5ea;
   --alerta: #a45f00;
   --alerta-suave: #fdf0d9;
   --critico: #c42b1c;
   --critico-suave: #fde8e5;
-  --neutro-suave: #eef1f5;
-  --sombra: 0 1px 2px rgb(15 27 45 / 0.05), 0 1px 3px rgb(15 27 45 / 0.04);
+  --neutro-suave: #f3ebe4;
+  --sombra: 0 1px 2px rgb(58 16 5 / 0.05), 0 1px 3px rgb(58 16 5 / 0.05);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --fondo: #0b1220;
-    --superficie: #111a2b;
-    --superficie-2: #0e1626;
-    --lateral: #080e1a;
-    --lateral-tinta: #9fb0c6;
-    --lateral-activo: #16233a;
-    --tinta: #e6edf6;
-    --tenue: #93a3b8;
-    --linea: #1f2b40;
-    --acento: #5b8def;
-    --acento-suave: #172a4a;
-    --serie-1: #5b8def;
-    --serie-2: #f59462;
-    --serie-3: #2dd4bf;
-    --serie-gris: #52627a;
+    --fondo: #140b07;
+    --superficie: #1e120c;
+    --superficie-2: #180e09;
+    --lateral: #2a0b03;
+    --lateral-tinta: #e2c3ad;
+    --lateral-activo: #4a1b0b;
+    --tinta: #f5e9df;
+    --tenue: #b9a393;
+    --linea: #3a261b;
+    --acento: #f59a3a;
+    --acento-suave: #3a220f;
+    --serie-1: #f59a3a;
+    --serie-2: #d98b6a;
+    --serie-3: #e3c35a;
+    --serie-gris: #6e5a4d;
     --bueno: #4ade80;
     --bueno-suave: #11301f;
     --alerta: #f5b544;
     --alerta-suave: #362610;
     --critico: #f87171;
     --critico-suave: #3b1716;
-    --neutro-suave: #1a2436;
+    --neutro-suave: #2c1c13;
     --sombra: 0 1px 2px rgb(0 0 0 / 0.3);
     color-scheme: dark;
   }
@@ -99,7 +99,7 @@ h1, h2, h3 { font-family: var(--font-archivo), "Segoe UI", system-ui, sans-serif
   font-size: 13.5px; color: var(--lateral-tinta); cursor: pointer; text-align: left; }
 .nav-item:hover { background: var(--lateral-activo); color: #fff; }
 .nav-item[aria-current="page"] { background: var(--lateral-activo); color: #fff; font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--acento); }
+  box-shadow: inset 3px 0 0 #f48c1a; }
 
 table.datos { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
 table.datos th, table.datos td { padding: 9px 12px; border-bottom: 1px solid var(--linea); white-space: nowrap; }
