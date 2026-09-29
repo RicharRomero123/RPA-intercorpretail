@@ -1,10 +1,12 @@
 import { TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
+import type { ClaveGlosario } from "@/lib/glosario";
 import { porcentaje } from "@/lib/formato";
+import { Ayuda } from "./Ayuda";
 
 /** Tarjeta con encabezado (ícono, título, subtítulo) y contenido. */
-export function Tarjeta({ titulo, subtitulo, icono: Icono, accion, children, className = "" }: {
+export function Tarjeta({ titulo, subtitulo, icono: Icono, accion, children, className = "", info }: {
   titulo?: string; subtitulo?: React.ReactNode; icono?: LucideIcon; accion?: React.ReactNode;
-  children: React.ReactNode; className?: string;
+  children: React.ReactNode; className?: string; info?: ClaveGlosario;
 }) {
   return (
     <section className={`tarjeta p-5 grid gap-4 content-start min-w-0 ${className}`}>
@@ -17,7 +19,7 @@ export function Tarjeta({ titulo, subtitulo, icono: Icono, accion, children, cla
               </span>
             )}
             <div className="min-w-0">
-              {titulo && <h3 className="text-[15px] font-semibold leading-tight">{titulo}</h3>}
+              {titulo && <h3 className="text-[15px] font-semibold leading-tight flex items-center gap-1.5">{titulo}{info && <Ayuda clave={info} />}</h3>}
               {subtitulo && <p className="text-xs text-[var(--tenue)] mt-0.5">{subtitulo}</p>}
             </div>
           </div>

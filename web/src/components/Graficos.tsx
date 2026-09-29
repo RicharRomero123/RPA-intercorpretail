@@ -8,6 +8,8 @@ import {
 } from "recharts";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { fechaCorta } from "@/lib/periodos";
+import type { ClaveGlosario } from "@/lib/glosario";
+import { Ayuda } from "./Ayuda";
 import { Variacion } from "./ui";
 
 const EJE = { fontSize: 11.5, fill: "var(--tenue)" };
@@ -143,9 +145,9 @@ export function Dona({ datos, total, etiquetaTotal, formato = "soles" }: {
 const ICONOS: Record<string, LucideIcon> = { venta: Banknote, ingreso: Coins, unidades: Boxes, rotacion: Gauge, instock: PackageCheck, cobertura: Timer };
 
 /** Indicador principal: ícono, valor, variación y minigráfico de tendencia. */
-export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia, ayuda, comparadoCon = "comparación" }: {
+export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia, ayuda, comparadoCon = "comparación", info }: {
   icono: keyof typeof ICONOS; titulo: string; valor: string; variacion?: number | null; detalle?: string;
-  tendencia?: number[]; ayuda?: string; comparadoCon?: string;
+  tendencia?: number[]; ayuda?: string; comparadoCon?: string; info?: ClaveGlosario;
 }) {
   const Icono = ICONOS[icono];
   const puntos = (tendencia ?? []).map((v, i) => ({ i, v }));
@@ -153,7 +155,7 @@ export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia,
   return (
     <div className="tarjeta p-4 grid gap-2 min-w-0 content-start overflow-hidden" title={ayuda}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-[var(--tenue)] truncate">{titulo}</span>
+        <span className="flex items-center gap-1.5 min-w-0 text-[13px] font-medium text-[var(--tenue)]"><span className="truncate">{titulo}</span>{info && <Ayuda clave={info} />}</span>
         <span className="grid place-items-center size-8 shrink-0 rounded-lg bg-[var(--acento-suave)] text-[var(--acento)]">
           <Icono size={16} strokeWidth={2} aria-hidden />
         </span>
@@ -162,6 +164,7 @@ export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia,
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--tenue)] min-h-5">
         <Variacion valor={variacion} />
         <span>{hayVariacion ? `vs. ${comparadoCon}` : detalle}</span>
+        {hayVariacion && <Ayuda clave="variacion" tamano={12} />}
       </div>
       {/* Tendencia diaria del periodo: franja a todo el ancho, debajo del valor, para no quitarle espacio al texto */}
       {puntos.length > 1 && (

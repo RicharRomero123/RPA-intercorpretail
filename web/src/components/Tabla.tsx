@@ -3,9 +3,11 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatear, type TipoColumna } from "@/lib/formato";
+import type { ClaveGlosario } from "@/lib/glosario";
 import { ESTADOS } from "@/lib/kpi";
+import { Ayuda } from "./Ayuda";
 
-export type Columna = { clave: string; titulo: string; tipo: TipoColumna };
+export type Columna = { clave: string; titulo: string; tipo: TipoColumna; info?: ClaveGlosario };
 type Fila = Record<string, unknown>;
 
 const esNumero = (t: TipoColumna) => !["texto", "estado"].includes(t);
@@ -80,7 +82,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
                   <th key={c.clave} className={esNumero(c.tipo) ? "n" : ""} onClick={() => ordenar(c)}
                       aria-sort={orden?.clave === c.clave ? (orden.dir === 1 ? "ascending" : "descending") : "none"}>
                     <span className={`inline-flex items-center gap-1 ${esNumero(c.tipo) ? "flex-row-reverse" : ""}`}>
-                      {c.titulo}<Icono size={12} className={orden?.clave === c.clave ? "text-[var(--acento)]" : "opacity-40"} aria-hidden />
+                      {c.titulo}{c.info && <Ayuda clave={c.info} tamano={12} />}<Icono size={12} className={orden?.clave === c.clave ? "text-[var(--acento)]" : "opacity-40"} aria-hidden />
                     </span>
                   </th>
                 );
