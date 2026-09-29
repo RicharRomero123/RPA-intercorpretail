@@ -6,6 +6,7 @@ import { Filtros } from "@/components/Filtros";
 import { Dona, GraficoTendencia, Indicador } from "@/components/Graficos";
 import { Marco } from "@/components/Marco";
 import { Tabla, type Columna } from "@/components/Tabla";
+import { VolumenValor, type FilaVV } from "@/components/VolumenValor";
 import { Encabezado, ListaBarras, Tarjeta } from "@/components/ui";
 import * as db from "@/lib/datos";
 import { decimal1, entero, porcentaje, soles } from "@/lib/formato";
@@ -123,6 +124,10 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
     const semanas = s && s.undDia > 0 ? s.inv / (s.undDia * 7) : null;
     return { ...r, local: r.clave, inv_und: s?.inv ?? null, semanas, estado: s ? estadoDe(s.inv, s.undV, semanas) : null };
   }).sort((a, b) => b.venta - a.venta);
+  // Volumen vs valor: unidades e ingreso por cadena, zona, local y producto.
+  const aVV = (claves: Parameters<typeof rotacionPor>[1]): FilaVV[] =>
+    rotacionPor(L, claves).map((r) => ({ nombre: r.clave, und: r.und, venta: r.venta, costo: r.costo, locales: r.locales }));
+  const volumenValor = { cadena: aVV(["cadena"]), zona: aVV(["zona"]), local: aVV(["local"]), producto: aVV(["producto"]) };
   const coberturaProducto = [...new Set(cob.map((c) => c.producto))].map((p) => {
     const f = cob.filter((c) => c.producto === p);
     const i = f.reduce((a, c) => a + c.inv_und, 0), ud = f.reduce((a, c) => a + c.und_dia, 0);
@@ -242,6 +247,16 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
     </>
   );
 
+  // Volumen vs valor: ¿quién vende más unidades y quién deja más dinero?
+  const seccionValor = (
+    <>
+      <Encabezado titulo="Volumen vs valor" descripcion={<>Quién vende más unidades y quién deja más dinero a Calderón. Sirve para ver
+        oportunidades: lugares que venden mucho pero dejan poco por unidad (mejorar el mix) y lugares que dejan mucho por unidad pero venden poco
+        (ganar volumen). El dinero es el <b>ingreso Calderón</b>; el portal no trae el costo de producción, así que no es la ganancia neta.</>} />
+      {L.length === 0 ? vacio : <VolumenValor datos={volumenValor} archivo={archivo("volumen_valor")} />}
+    </>
+  );
+
   // Locales: ¿dónde vende mejor y dónde no?
   const seccionLocales = (
     <>
@@ -335,6 +350,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   return (
     <Marco encabezado={encabezado} usuario={user?.email} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
       { id: "resumen", titulo: "Resumen", contenido: seccionResumen },
+      { id: "valor", titulo: "Volumen vs valor", contenido: seccionValor },
       { id: "locales", titulo: "Locales", contenido: seccionLocales },
       { id: "productos", titulo: "Productos", contenido: seccionProductos },
       { id: "stock", titulo: "Stock y quiebres", contenido: seccionStock },

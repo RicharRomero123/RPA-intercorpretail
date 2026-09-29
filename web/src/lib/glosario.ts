@@ -113,6 +113,26 @@ export const GLOSARIO = {
     formula: "Unidades vendidas en los últimos N días ÷ N.  N = 14 por defecto (Filtros → Parámetros).",
     uso: "Es la base para calcular la cobertura y la venta perdida.",
   },
+  volumenValor: {
+    titulo: "Volumen vs valor",
+    que: "Compara cuánto se vende en unidades con cuánto dinero deja. Cada punto es una cadena, zona, local o producto.",
+    formula: "Horizontal: unidades vendidas. Vertical: ingreso Calderón por caja (ingreso ÷ unidades). Tamaño del punto: ingreso total. Las líneas punteadas son la mediana de cada eje (el valor del medio) y parten el gráfico en 4 cuadrantes.",
+    uso: "Estrellas: cuidarlas. Volumen: venden mucho pero dejan poco por unidad → subir el valor (mix, precio). Valor: dejan mucho por unidad pero venden poco → ganar volumen (exhibición, stock). Por desarrollar: revisar si conviene seguir.",
+  },
+  ingresoUnidad: {
+    titulo: "Ingreso por unidad",
+    que: "Cuánto dinero recibe Calderón, en promedio, por cada caja vendida en ese lugar.",
+    formula: "Ingreso Calderón ÷ unidades vendidas.",
+    ejemplo: "S/ 7,000 de ingreso con 700 cajas → S/ 10 por caja.",
+    uso: "Si es más alto que el promedio, ahí se vende una mezcla de mayor valor (por ejemplo, más cajas grandes).",
+  },
+  brecha: {
+    titulo: "Diferencia valor − volumen",
+    que: "Compara su parte del dinero con su parte de las unidades.",
+    formula: "% del ingreso total − % de las unidades totales (en puntos porcentuales).",
+    ejemplo: "Aporta 20% del ingreso con 15% de las unidades → +5 pts: deja más dinero del que su volumen haría esperar.",
+    uso: "Positivo = vende productos de mayor valor. Negativo = vende mucho pero de menor valor: oportunidad de mejorar el mix.",
+  },
   cargas: {
     titulo: "Cargas",
     que: "Registro de cada día que el robot descargó del portal de Intercorp.",
