@@ -1,5 +1,5 @@
 import {
-  CalendarDays, CircleAlert, Clock, MapPinned, Package, PackageX, PieChart, Store, Timer, TriangleAlert, Warehouse,
+  CalendarDays, CircleAlert, MapPinned, Package, PackageX, PieChart, Store, Timer, TriangleAlert, Warehouse,
 } from "lucide-react";
 import { salir } from "@/app/login/actions";
 import { Filtros } from "@/components/Filtros";
@@ -72,13 +72,12 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   const filtro: db.Filtro = { skus: lista(sp.prod), cadenas: lista(sp.cad), zonas: lista(sp.zona), locales: lista(sp.loc).map(Number) };
 
   // --------------------------------------------------------------- datos
-  const [maestro, actual, previo, recientes, inv, cargas] = await Promise.all([
+  const [maestro, actual, previo, recientes, inv] = await Promise.all([
     db.maestros(sb),
     db.ventas(sb, desde, hasta, filtro),
     comp ? db.ventas(sb, comp[0], comp[1], filtro) : Promise.resolve([]),
     db.ventas(sb, sumarDias(ultimo, -(ventana - 1)), ultimo, filtro),
     lim.fechaInventario ? db.inventario(sb, lim.fechaInventario, filtro) : Promise.resolve([]),
-    db.cargas(sb),
   ]);
   const L = filtrarDias(actual, dias);
   const LC = filtrarDias(previo, dias);
@@ -331,27 +330,12 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
     </>
   );
 
-  // Cargas: ¿los datos están completos?
-  const seccionCargas = (
-    <>
-      <Encabezado titulo="Cargas" descripcion="Cada día descargado del portal de Intercorp. El detalle por local solo se guarda si cuadra al céntimo con el TOTAL del portal." />
-      <Tarjeta info="cargas" icono={Clock} titulo="Historial de cargas">
-        <Tabla archivo="retail_spsa_cargas.xlsx" hoja="Cargas" alto={620} buscar filas={cargas}
-               columnas={[{ clave: "cuando", titulo: "Cargado", tipo: "texto" }, { clave: "fecha", titulo: "Día", tipo: "texto" },
-                 { clave: "nivel", titulo: "Nivel", tipo: "texto" }, { clave: "estado", titulo: "Estado", tipo: "texto" },
-                 { clave: "filas", titulo: "Filas", tipo: "entero" }, COL.und, { clave: "venta", titulo: "Venta S/", tipo: "soles" },
-                 { clave: "detalle", titulo: "Detalle", tipo: "texto" }]} />
-      </Tarjeta>
-    </>
-  );
-
   return (
     <Marco encabezado={encabezado} usuario={user?.email} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
       { id: "resumen", titulo: "Resumen", contenido: seccionResumen },
       { id: "locales", titulo: "Locales", contenido: seccionLocales },
       { id: "productos", titulo: "Productos", contenido: seccionProductos },
       { id: "stock", titulo: "Stock y quiebres", contenido: seccionStock },
-      { id: "cargas", titulo: "Cargas", contenido: seccionCargas },
     ]} />
   );
 }

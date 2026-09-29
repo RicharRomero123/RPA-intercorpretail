@@ -1,15 +1,16 @@
 "use client";
 
 import {
-  CalendarCheck, Clock, LayoutDashboard, LogOut, Package, PanelLeftClose, PanelLeftOpen, Store,
+  CalendarCheck, LayoutDashboard, Package, PanelLeftClose, PanelLeftOpen, Store,
   Warehouse, type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, type Transition } from "motion/react";
 import Image from "next/image";
+import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
 
 const ICONOS: Record<string, LucideIcon> = {
-  resumen: LayoutDashboard, locales: Store, productos: Package, stock: Warehouse, cargas: Clock,
+  resumen: LayoutDashboard, locales: Store, productos: Package, stock: Warehouse,
 };
 const ANCHO = { abierto: 236, cerrado: 76 };
 /** Resorte suave: el menú se acomoda sin rebote brusco. */
@@ -35,19 +36,6 @@ function suscribirPantalla(aviso: () => void) {
 }
 
 export type Seccion = { id: keyof typeof ICONOS; titulo: string; contenido: React.ReactNode };
-
-function Usuario({ usuario, salir }: { usuario?: string; salir: () => Promise<void> }) {
-  const inicial = (usuario ?? "?").slice(0, 1).toUpperCase();
-  return (
-    <form action={salir} className="flex items-center gap-2 min-w-0">
-      <span className="grid place-items-center size-8 shrink-0 rounded-full bg-[var(--lateral)] text-[#f7b36a] text-sm font-bold" aria-hidden>{inicial}</span>
-      <span className="hidden md:block text-sm truncate max-w-56" title={usuario}>{usuario}</span>
-      <button type="submit" className="boton !px-2.5" title="Cerrar sesión" aria-label="Cerrar sesión">
-        <LogOut size={15} aria-hidden /> <span className="hidden sm:inline">Salir</span>
-      </button>
-    </form>
-  );
-}
 
 /** Estructura de la app: menú lateral contraíble (barra superior en pantallas chicas), barra con la fecha de los datos
  *  y el usuario, y la sección elegida. */
@@ -144,7 +132,7 @@ export function Marco({ secciones, encabezado, usuario, salir, datosAl }: {
                 <span className="hidden sm:inline-flex items-center gap-1.5 text-xs rounded-full border border-[var(--linea)] bg-[var(--superficie)] px-2.5 py-1">
                   <CalendarCheck size={13} className="text-[var(--acento)]" aria-hidden /> Datos al <b>{datosAl}</b>
                 </span>
-                <Usuario usuario={usuario} salir={salir} />
+                <MenuUsuario usuario={usuario} salir={salir} />
               </div>
             </div>
           </div>
