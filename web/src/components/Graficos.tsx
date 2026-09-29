@@ -56,7 +56,7 @@ export function AreaVentas({ datos, agrupar, conPrevio, nombrePrevio }: {
         <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
         <XAxis dataKey="periodo" tickFormatter={et} tick={EJE} axisLine={false} tickLine={false} minTickGap={16} dy={6} />
         <YAxis tick={EJE} axisLine={false} tickLine={false} tickFormatter={(v) => compacto(Number(v))} width={48} />
-        <Tooltip cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
+        <Tooltip wrapperStyle={{ zIndex: 20 }} cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
                  content={<Recuadro titulo={et} formato={soles} />} />
         {conPrevio && (
           <Area type="monotone" dataKey="previo" name={nombrePrevio} stroke="var(--serie-gris)" strokeWidth={1.5}
@@ -86,7 +86,7 @@ export function Lineas({ datos, series, agrupar }: {
           <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
           <XAxis dataKey="periodo" tickFormatter={et} tick={EJE} axisLine={false} tickLine={false} minTickGap={16} dy={6} />
           <YAxis tick={EJE} axisLine={false} tickLine={false} tickFormatter={(v) => compacto(Number(v))} width={48} />
-          <Tooltip cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
+          <Tooltip wrapperStyle={{ zIndex: 20 }} cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
                    content={<Recuadro titulo={et} formato={(v) => `${entero(v)} und`} />} />
           {series.map((s) => (
             <Line key={s.clave} type="monotone" dataKey={s.clave} name={s.nombre} stroke={s.color} strokeWidth={2.2}
@@ -107,16 +107,22 @@ export function Dona({ datos, total, etiquetaTotal, formato = "soles" }: {
   return (
     <div className="grid gap-4">
       <div className="relative h-48">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={datos} dataKey="valor" nameKey="nombre" innerRadius="68%" outerRadius="95%" paddingAngle={2}
-                 stroke="var(--superficie)" strokeWidth={2} startAngle={90} endAngle={-270}>
-              {datos.map((d, i) => <Cell key={d.nombre} fill={colores[i % colores.length]} />)}
-            </Pie>
-            <Tooltip content={<Recuadro titulo={() => "Participación"} formato={fmt} />} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="absolute inset-0 grid place-content-center text-center pointer-events-none">
+        {/* El total va debajo del gráfico (z-0) y el gráfico con su recuadro emergente encima (z-10), para que el
+            recuadro al pasar el mouse nunca quede tapado por el texto del centro. */}
+        <div className="absolute inset-0 z-10">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={datos} dataKey="valor" nameKey="nombre" innerRadius="68%" outerRadius="95%" paddingAngle={2}
+                   stroke="var(--superficie)" strokeWidth={2} startAngle={90} endAngle={-270}>
+                {datos.map((d, i) => <Cell key={d.nombre} fill={colores[i % colores.length]} />)}
+              </Pie>
+              <Tooltip content={<Recuadro titulo={() => "Participación"} formato={(v) => `${fmt(v)} · ${porcentaje(total ? v / total : 0)}`} />}
+                       wrapperStyle={{ zIndex: 20 }}
+                       allowEscapeViewBox={{ x: true, y: true }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="absolute inset-0 z-0 grid place-content-center text-center pointer-events-none">
           <span className="text-[11px] text-[var(--tenue)]">{etiquetaTotal}</span>
           <b className="num text-base">{fmt(total)}</b>
         </div>
