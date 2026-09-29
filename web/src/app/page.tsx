@@ -150,7 +150,6 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
             {nConDatos !== nDias && ` (${nConDatos} con venta)`}{comp && <> · comparado con {textoComp}</>} · sin IGV
           </p>
         </div>
-        <span className="text-xs text-[var(--tenue)] xl:hidden">Datos al <b>{fechaLarga(ultimo)}</b></span>
       </div>
       <Filtros productos={maestro.productos.map((p) => ({ valor: p.sku, texto: p.nombre }))}
                cadenas={[...new Set(maestro.locales.map((l) => l.cadena))].sort()} zonas={[...new Set(maestro.locales.map((l) => l.zona))].sort()}
