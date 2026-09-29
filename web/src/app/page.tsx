@@ -218,8 +218,10 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
               <GraficoTendencia datos={tendencia} agrupar={agrupar} conPrevio={!!comp && LC.length > 0} nombrePrevio={COMPARAR[comparar]} rango={rango} />
             </div>
             <Tarjeta info="ventaCadena" icono={Store} titulo="Venta por cadena" subtitulo={rango}>
-              <ListaBarras formato={(v) => soles(v)} filas={[...porCadena].sort((a, b) => b.venta - a.venta)
-                .map((c) => ({ etiqueta: `${c.cadena} · ${c.locales}`, valor: c.venta, detalle: `${c.locales} locales · ${entero(c.und)} und` }))} />
+              <ListaBarras formato={(v) => `${soles(v)} · ${porcentaje(R.venta ? v / R.venta : 0)}`} filas={[...porCadena].sort((a, b) => b.venta - a.venta)
+                .map((c) => ({ etiqueta: `${c.cadena} · ${c.locales} ${c.locales === 1 ? "local" : "locales"}`, valor: c.venta,
+                               detalle: `${c.locales} locales con venta · ${entero(c.und)} und` }))} />
+              <p className="text-xs text-[var(--tenue)]">Junto a cada cadena: cuántos de sus locales vendieron en el periodo. A la derecha: su venta y su % del total.</p>
             </Tarjeta>
           </div>
           <div className="grid gap-4 @5xl:grid-cols-3">
