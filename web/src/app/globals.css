@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* Paleta: neutros con leve tinte azul; el azul y naranja de series son los mismos del dashboard de Streamlit. */
+:root {
+  --fondo: #f5f6f8;
+  --superficie: #ffffff;
+  --tinta: #17212b;
+  --tenue: #5a6572;
+  --linea: #d8dde3;
+  --acento: #2a78d6;
+  --acento-suave: #e4eefa;
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-gris: #9aa3ad;
+  --bueno: #0f7b3f;
+  --bueno-suave: #e3f3e8;
+  --alerta: #9a5b00;
+  --alerta-suave: #fbefd9;
+  --critico: #b42318;
+  --critico-suave: #fde7e4;
+  --neutro-suave: #eceff2;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0f141a;
+    --superficie: #161d25;
+    --tinta: #e6ebf0;
+    --tenue: #9aa6b2;
+    --linea: #2b3540;
+    --acento: #6ea8ec;
+    --acento-suave: #1a2b3f;
+    --serie-1: #6ea8ec;
+    --serie-2: #f08a5d;
+    --serie-gris: #5e6a76;
+    --bueno: #6fcf97;
+    --bueno-suave: #16301f;
+    --alerta: #f0b45a;
+    --alerta-suave: #3a2a10;
+    --critico: #f28b7d;
+    --critico-suave: #3d1a16;
+    --neutro-suave: #222b35;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --font-sans: var(--font-plex);
+  --font-mono: var(--font-plex-mono);
+  --font-display: var(--font-archivo);
+}
+
+body {
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font-plex), "Segoe UI", system-ui, sans-serif;
+}
+h1, h2, h3 { font-family: var(--font-archivo), "Segoe UI", system-ui, sans-serif; text-wrap: balance; }
+.num { font-family: var(--font-plex-mono), ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+.tarjeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: 8px; }
+.campo {
+  background: var(--superficie); color: var(--tinta); border: 1px solid var(--linea); border-radius: 6px;
+  padding: 6px 10px; font-size: 14px; min-width: 0;
+}
+.campo:focus-visible, .boton:focus-visible, .boton-primario:focus-visible, .chip-filtro:focus-visible {
+  outline: 2px solid var(--acento); outline-offset: 2px;
+}
+.boton {
+  background: var(--superficie); color: var(--tinta); border: 1px solid var(--linea); border-radius: 6px;
+  padding: 6px 12px; font-size: 14px; cursor: pointer;
+}
+.boton:hover { border-color: var(--acento); }
+.boton-primario {
+  background: var(--acento); color: #fff; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer;
+}
+.boton-primario:disabled { opacity: .6; cursor: wait; }
+.chip-filtro {
+  border: 1px solid var(--linea); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer;
+  background: var(--superficie);
+}
+.chip-filtro[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: #fff; }
+.etiqueta { font-size: 12px; color: var(--tenue); text-transform: uppercase; letter-spacing: .06em; }
+
+table.datos { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+table.datos th, table.datos td { padding: 7px 10px; border-bottom: 1px solid var(--linea); white-space: nowrap; }
+table.datos th { font-size: 12px; font-weight: 600; color: var(--tenue); background: var(--fondo); text-align: left;
+  position: sticky; top: 0; cursor: pointer; user-select: none; white-space: normal; vertical-align: bottom; }
+table.datos td.n, table.datos th.n { text-align: right; font-variant-numeric: tabular-nums;
+  font-family: var(--font-plex-mono), ui-monospace, Consolas, monospace; }
+table.datos tr.total td { font-weight: 600; background: var(--fondo); }
+table.datos tbody tr:hover td { background: var(--acento-suave); }
+
+.estado { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.estado::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.estado-quiebre { color: var(--tinta); background: var(--neutro-suave); }
+.estado-sin, .estado-bajo { color: var(--critico); background: var(--critico-suave); }
+.estado-ok { color: var(--bueno); background: var(--bueno-suave); }
+.estado-sobre { color: var(--alerta); background: var(--alerta-suave); }

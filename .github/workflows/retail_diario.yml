@@ -1,0 +1,53 @@
+# Carga diaria del sell-out de Supermercados Peruanos (portal B2B de Intercorp) a Supabase.
+# SPSA publica una vez al día la venta del día anterior: se intenta varias veces en la mañana; si el día ya
+# está cargado, el robot termina en segundos. A las 12:00 (Lima), si ayer sigue sin publicarse, el flujo
+# falla a propósito y GitHub avisa por correo.
+# Horas en UTC (Lima = UTC-5): 12 = 7:00, 13 = 8:00 ... 17 = 12:00.
+name: Retail SPSA diario
+
+on:
+  schedule:
+    - cron: "0 12,13,14,15,16 * * *"
+    - cron: "0 17 * * *"
+  workflow_dispatch:   # botón "Run workflow" para correrlo a mano
+    inputs:
+      desde:
+        description: "Desde (AAAA-MM-DD), vacío = lo que falte"
+        required: false
+      hasta:
+        description: "Hasta (AAAA-MM-DD), vacío = último publicado"
+        required: false
+
+concurrency:
+  group: retail-diario
+  cancel-in-progress: false
+
+jobs:
+  cargar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: America/Lima
+      INTERCORP_USUARIO: ${{ secrets.INTERCORP_USUARIO }}
+      INTERCORP_CLAVE: ${{ secrets.INTERCORP_CLAVE }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MARCA: CALDERON
+    defaults:
+      run:
+        working-directory: rpa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: rpa/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Cargar días pendientes
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.desde }}" ]; then ARGS="$ARGS --desde ${{ github.event.inputs.desde }}"; fi
+          if [ -n "${{ github.event.inputs.hasta }}" ]; then ARGS="$ARGS --hasta ${{ github.event.inputs.hasta }}"; fi
+          # En la corrida de las 12:00 se exige que ayer ya esté cargado (si no, falla y llega el aviso).
+          if [ "$(date +%H)" = "12" ]; then ARGS="$ARGS --avisar-si-falta"; fi
+          python retail_diario.py $ARGS

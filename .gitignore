@@ -1,0 +1,23 @@
+# Credenciales: nunca se suben
+.env
+.env.*
+!.env.example
+
+# Datos y descargas del robot (viven en Supabase, no en el repositorio)
+rpa/datos/
+rpa/descargas/
+rpa/capturas/
+*.db
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+.vercel
