@@ -2,13 +2,17 @@
 # SPSA publica una vez al día la venta del día anterior: se intenta varias veces en la mañana; si el día ya
 # está cargado, el robot termina en segundos. A las 12:00 (Lima), si ayer sigue sin publicarse, el flujo
 # falla a propósito y GitHub avisa por correo.
-# Horas en UTC (Lima = UTC-5): 12 = 7:00, 13 = 8:00 ... 17 = 12:00.
+# Además corre a las 23:59 como respaldo: el portal no tiene la venta del día en curso (SPSA publica el día
+# anterior), pero recoge lo que se haya publicado tarde o lo que una corrida de la mañana no pudo cargar.
+# Horas en UTC (Lima = UTC-5): 12 = 7:00, 13 = 8:00 ... 17 = 12:00; 4:59 UTC = 23:59 del día anterior en Lima.
+# GitHub puede iniciar las corridas programadas con algunos minutos de retraso.
 name: Retail SPSA diario
 
 on:
   schedule:
-    - cron: "0 12,13,14,15,16 * * *"
-    - cron: "0 17 * * *"
+    - cron: "0 12,13,14,15,16 * * *"   # 7:00 a 11:00 (Lima)
+    - cron: "0 17 * * *"               # 12:00 (Lima): avisa por correo si ayer sigue sin publicarse
+    - cron: "59 4 * * *"               # 23:59 (Lima): respaldo del cierre del día
   workflow_dispatch:   # botón "Run workflow" para correrlo a mano
     inputs:
       desde:
