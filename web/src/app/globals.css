@@ -95,11 +95,10 @@ h1, h2, h3 { font-family: var(--font-archivo), "Segoe UI", system-ui, sans-serif
 
 .etiqueta { font-size: 11.5px; color: var(--tenue); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
 
-.nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border-radius: 8px;
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px;
   font-size: 13.5px; color: var(--lateral-tinta); cursor: pointer; text-align: left; }
 .nav-item:hover { background: var(--lateral-activo); color: #fff; }
-.nav-item[aria-current="page"] { background: var(--lateral-activo); color: #fff; font-weight: 600;
-  box-shadow: inset 3px 0 0 #f48c1a; }
+.nav-item[aria-current="page"] { color: #fff; font-weight: 600; }
 
 table.datos { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
 table.datos th, table.datos td { padding: 9px 12px; border-bottom: 1px solid var(--linea); white-space: nowrap; }
