@@ -1,16 +1,18 @@
+import {
+  Banknote, ChartLine, CircleAlert, Clock, Gauge, MapPinned, Package, PackageX, PieChart, Store, Timer, TriangleAlert,
+  Warehouse,
+} from "lucide-react";
 import { salir } from "@/app/login/actions";
 import { Filtros } from "@/components/Filtros";
-import { BarrasH, BarrasSerie, Lineas } from "@/components/Graficos";
-import { Pestanas } from "@/components/Pestanas";
+import { AreaVentas, Dona, Indicador, Lineas } from "@/components/Graficos";
+import { Marco } from "@/components/Marco";
 import { Tabla, type Columna } from "@/components/Tabla";
+import { Encabezado, ListaBarras, Tarjeta } from "@/components/ui";
 import * as db from "@/lib/datos";
 import { decimal1, entero, porcentaje, soles } from "@/lib/formato";
+import { cobertura, diasConDatos, ESTADOS, filtrarDias, resumen, rotacionPor, serie, type Agrupar, type Estado } from "@/lib/kpi";
 import {
-  acumulado, cobertura, diasConDatos, ESTADOS, filtrarDias, resumen, rotacionPor, serie, type Agrupar, type Estado,
-} from "@/lib/kpi";
-import {
-  COMPARAR, DIAS_SEM, diasEntre, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, sumarDias,
-  type Comparar, type Periodo,
+  COMPARAR, DIAS_SEM, diasEntre, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, sumarDias, type Comparar, type Periodo,
 } from "@/lib/periodos";
 import { clienteSupabase } from "@/lib/supabase/server";
 
@@ -21,24 +23,7 @@ const numero = (v: string | string[] | undefined, def: number, min: number, max:
   const n = Number(uno(v));
   return Number.isFinite(n) && n >= min && n <= max ? n : def;
 };
-
-function Indicador({ titulo, valor, delta, ayuda, sub }: {
-  titulo: string; valor: string; delta?: number | null; ayuda?: string; sub?: string;
-}) {
-  return (
-    <div className="tarjeta p-4 grid gap-1" title={ayuda}>
-      <span className="text-xs text-[var(--tenue)]">{titulo}</span>
-      <b className="num text-xl font-semibold whitespace-nowrap">{valor}</b>
-      {delta !== undefined && delta !== null && Number.isFinite(delta) ? (
-        <span className={`text-xs font-semibold ${delta >= 0 ? "text-[var(--bueno)]" : "text-[var(--critico)]"}`}>
-          {delta >= 0 ? "▲" : "▼"} {porcentaje(Math.abs(delta))} <span className="font-normal text-[var(--tenue)]">vs. comparación</span>
-        </span>
-      ) : sub ? <span className="text-xs text-[var(--tenue)]">{sub}</span> : null}
-    </div>
-  );
-}
-
-const variacion = (a: number | null, b: number | null) => (a !== null && b ? a / b - 1 : null);
+const variacion = (a: number | null, b: number | null | undefined) => (a !== null && b ? a / b - 1 : null);
 
 const COL = {
   und: { clave: "und", titulo: "Unidades", tipo: "entero" },
@@ -48,7 +33,13 @@ const COL = {
   locales: { clave: "locales", titulo: "Locales con venta", tipo: "entero" },
   rotacion: { clave: "rotacion", titulo: "Und/local/semana", tipo: "decimal1" },
   pct: { clave: "pct", titulo: "% venta", tipo: "porcentaje" },
+  local: { clave: "local", titulo: "Local", tipo: "texto" },
+  cadena: { clave: "cadena", titulo: "Cadena", tipo: "texto" },
+  zona: { clave: "zona", titulo: "Zona", tipo: "texto" },
+  producto: { clave: "producto", titulo: "Producto", tipo: "texto" },
 } satisfies Record<string, Columna>;
+
+const ICONO_ESTADO: Record<Estado, typeof PackageX> = { quiebre: PackageX, sin: CircleAlert, bajo: TriangleAlert, ok: Package, sobre: Warehouse };
 
 export default async function Inicio({ searchParams }: { searchParams: Params }) {
   const sp = await searchParams;
@@ -58,8 +49,8 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
 
   if (!lim.ultimo) {
     return (
-      <main className="p-6 grid gap-2">
-        <h1 className="text-2xl font-bold">Retail SPSA</h1>
+      <main className="p-8 grid gap-2">
+        <h1 className="text-2xl font-bold">Calderón Retail</h1>
         <p>La base todavía no tiene datos. Ejecuta la migración o la carga diaria del robot.</p>
       </main>
     );
@@ -80,12 +71,11 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   const filtro: db.Filtro = { skus: lista(sp.prod), cadenas: lista(sp.cad), zonas: lista(sp.zona), locales: lista(sp.loc).map(Number) };
 
   // --------------------------------------------------------------- datos
-  const inicioVentana = sumarDias(ultimo, -(ventana - 1));
   const [maestro, actual, previo, recientes, inv, cargas] = await Promise.all([
     db.maestros(sb),
     db.ventas(sb, desde, hasta, filtro),
     comp ? db.ventas(sb, comp[0], comp[1], filtro) : Promise.resolve([]),
-    db.ventas(sb, inicioVentana, ultimo, filtro),
+    db.ventas(sb, sumarDias(ultimo, -(ventana - 1)), ultimo, filtro),
     lim.fechaInventario ? db.inventario(sb, lim.fechaInventario, filtro) : Promise.resolve([]),
     db.cargas(sb),
   ]);
@@ -93,8 +83,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   const LC = filtrarDias(previo, dias);
   const R = resumen(L);
   const RC = comp ? resumen(LC) : null;
-  const listados = recientes.filter((f) => f.fecha === ultimo);
-  const cob = cobertura(listados, inv, recientes, ventana, cobBaja, cobAlta);
+  const cob = cobertura(recientes.filter((f) => f.fecha === ultimo), inv, recientes, ventana, cobBaja, cobAlta);
   const conStock = cob.filter((c) => c.inv_und > 0).length;
   const instock = cob.length ? conStock / cob.length : null;
   const invTot = cob.reduce((a, c) => a + c.inv_und, 0);
@@ -102,218 +91,300 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   const semanasTot = undDiaTot > 0 ? invTot / (undDiaTot * 7) : null;
   const quiebres = cob.filter((c) => c.estado === "quiebre" && c.und_v > 0).sort((a, b) => b.perdida_dia - a.perdida_dia);
   const perdidaDia = quiebres.reduce((a, c) => a + c.perdida_dia, 0);
-
-  const nDias = diasEntre(desde, hasta);
-  const nConDatos = diasConDatos(L);
-  const nombresProd = maestro.productos.map((p) => ({ valor: p.sku, texto: p.nombre }));
-  const cadenas = [...new Set(maestro.locales.map((l) => l.cadena))].sort();
-  const zonas = [...new Set(maestro.locales.map((l) => l.zona))].sort();
-  const etiquetas = [
-    `${PERIODOS[periodo]}: ${fechaLarga(desde)} al ${fechaLarga(hasta)} (${nDias} días${nConDatos !== nDias ? `, ${nConDatos} con venta` : ""})`,
-    comp ? `comparado con ${fechaLarga(comp[0])} al ${fechaLarga(comp[1])}` : "sin comparación",
-    dias.length < 7 ? `días: ${dias.map((d) => DIAS_SEM[d]).join(", ")}` : "",
-    filtro.skus.length ? `producto: ${nombresProd.filter((p) => filtro.skus.includes(p.valor)).map((p) => p.texto).join(", ")}` : "",
-    filtro.cadenas.length ? `cadena: ${filtro.cadenas.join(", ")}` : "",
-    filtro.zonas.length ? `zona: ${filtro.zonas.join(", ")}` : "",
-    filtro.locales.length ? `${filtro.locales.length} local(es)` : "",
-  ].filter(Boolean);
-
-  // --------------------------------------------------------------- tablas y series
-  const rotCadena = rotacionPor(L, ["cadena"]).map((r) => ({ ...r, detalle: `${r.locales} locales · ${entero(r.und)} und` }));
-  const rotZona = rotacionPor(L, ["zona"]).map((r) => ({ ...r, detalle: `${r.locales} locales · ${entero(r.und)} und` }));
-  const rotProdCadena = rotacionPor(L, ["producto", "cadena"]);
-  const rotLocal = rotacionPor(L, ["local"]).map((r) => ({ ...r, local: r.clave }));
-  const conVenta = rotLocal.filter((r) => r.und > 0);
-  const invLocal = new Map<string, number>();
-  for (const c of cob) invLocal.set(c.local, (invLocal.get(c.local) ?? 0) + c.inv_und);
-  const tablaLocales = rotLocal.map((r) => ({ ...r, margen: r.venta - r.costo, inv_und: invLocal.get(r.local) ?? 0 }))
-    .sort((a, b) => b.venta - a.venta);
-
-  const serieActual = serie(L, agrupar);
-  const serieProd = serie(L, agrupar, true);
-  const nombresSerie = [...new Set(serieProd.map((s) => s.producto!))];
-  const lineasProd = [...new Set(serieProd.map((s) => s.periodo))].map((periodo) => ({
-    periodo, ...Object.fromEntries(nombresSerie.map((n) => [n, serieProd.find((s) => s.periodo === periodo && s.producto === n)?.und ?? null])),
-  }));
-  const accA = acumulado(L), accB = comp ? acumulado(LC) : [];
-  const comparacion = Array.from({ length: Math.max(accA.length, accB.length) }, (_, i) => ({ dia: i + 1, actual: accA[i] ?? null, previo: accB[i] ?? null }));
-  const porProducto = rotacionPor(L, ["producto"]).map((r) => ({
-    ...r, precio: r.und ? r.venta / r.und : null, margen_pct: r.venta ? (r.venta - r.costo) / r.venta : null,
-  })).sort((a, b) => b.venta - a.venta);
-
-  const resumenEstados = (Object.keys(ESTADOS) as Estado[]).map((e) => {
+  const porEstado = (Object.keys(ESTADOS) as Estado[]).map((e) => {
     const f = cob.filter((c) => c.estado === e);
     return { estado: e, filas: f.length, inv_und: f.reduce((a, c) => a + c.inv_und, 0) };
   });
+
+  // --------------------------------------------------------------- series y tablas
+  const serieA = serie(L, agrupar), serieB = comp ? serie(LC, agrupar) : [];
+  const area = serieA.map((s, i) => ({ periodo: s.periodo, actual: s.venta, previo: serieB[i]?.venta ?? null }));
+  const diaria = serie(L, "dia");
+  const serieProd = serie(L, agrupar, true);
+  const nombresProd = [...new Set(serieProd.map((s) => s.producto!))];
+  const lineasProd = [...new Set(serieProd.map((s) => s.periodo))].map((p) => ({
+    periodo: p, ...Object.fromEntries(nombresProd.map((n) => [n, serieProd.find((s) => s.periodo === p && s.producto === n)?.und ?? null])),
+  }));
+  const coloresProd = ["var(--serie-1)", "var(--serie-2)", "var(--serie-3)"];
+  const porProducto = rotacionPor(L, ["producto"]).map((r) => ({
+    ...r, producto: r.clave, precio: r.und ? r.venta / r.und : null, margen_pct: r.venta ? (r.venta - r.costo) / r.venta : null,
+  })).sort((a, b) => b.venta - a.venta);
+  const porCadena = rotacionPor(L, ["cadena"]).map((r) => ({ ...r, cadena: r.clave }));
+  const porZona = rotacionPor(L, ["zona"]);
+  const prodCadena = rotacionPor(L, ["producto", "cadena"]);
+  const invLocal = new Map<string, number>();
+  for (const c of cob) invLocal.set(c.local, (invLocal.get(c.local) ?? 0) + c.inv_und);
+  const porLocal = rotacionPor(L, ["local"]).map((r) => ({ ...r, local: r.clave, margen: r.venta - r.costo, inv_und: invLocal.get(r.clave) ?? 0 }));
+  const conVenta = porLocal.filter((r) => r.und > 0);
   const coberturaProducto = [...new Set(cob.map((c) => c.producto))].map((p) => {
     const f = cob.filter((c) => c.producto === p);
-    const inv = f.reduce((a, c) => a + c.inv_und, 0), ud = f.reduce((a, c) => a + c.und_dia, 0);
-    const listadosP = f.length, stockP = f.filter((c) => c.inv_und > 0).length;
-    return { producto: p, listados: listadosP, con_stock: stockP, instock: listadosP ? stockP / listadosP : null, inv_und: inv, und_dia: ud, semanas: ud > 0 ? inv / (ud * 7) : null };
+    const i = f.reduce((a, c) => a + c.inv_und, 0), ud = f.reduce((a, c) => a + c.und_dia, 0);
+    const st = f.filter((c) => c.inv_und > 0).length;
+    return { producto: p, listados: f.length, con_stock: st, instock: f.length ? st / f.length : null, inv_und: i, und_dia: ud, semanas: ud > 0 ? i / (ud * 7) : null };
   });
 
   const totalFila = (extra: Record<string, unknown> = {}) => ({ und: R.und, venta: R.venta, costo: R.costo, margen: R.margen, locales: R.locales, rotacion: R.rotacion, pct: R.venta ? 1 : null, ...extra });
   const archivo = (n: string) => `retail_spsa_${n}_${desde}_${hasta}.xlsx`;
+  const nDias = diasEntre(desde, hasta), nConDatos = diasConDatos(L);
+  const vacio = <p className="text-sm text-[var(--tenue)]">No hay ventas con estos filtros.</p>;
+  const textoComp = comp ? `${fechaLarga(comp[0])} – ${fechaLarga(comp[1])}` : "";
 
-  // --------------------------------------------------------------- pestañas
-  const indicadores = (
-    <>
-      <section className="grid gap-3">
-        <div>
-          <h2 className="text-lg font-bold">1 · Rotación: unidades por local por semana</h2>
-          <p className="text-sm text-[var(--tenue)]">Qué tan bien vende el producto donde ya está, comparable entre cadenas, zonas y locales.
-            Promedio del periodo: <b className="num">{decimal1(R.rotacion)}</b> und/local/semana en {R.locales} locales con venta.</p>
-        </div>
-        {L.length === 0 ? <p className="text-sm">Sin ventas con estos filtros.</p> : (
-          <>
-            <div className="grid gap-3 md:grid-cols-2">
-              <BarrasH titulo="Por cadena" datos={rotCadena} etiqueta="clave" valor="rotacion" />
-              <BarrasH titulo="Por zona" datos={rotZona} etiqueta="clave" valor="rotacion" />
-            </div>
-            <Tabla archivo={archivo("rotacion")} hoja="Rotación" filas={rotProdCadena}
-                   columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "cadena", titulo: "Cadena", tipo: "texto" },
-                     COL.rotacion, COL.locales, COL.und, COL.venta, COL.pct]} total={{ producto: "TOTAL", ...totalFila() }} />
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2"><h3 className="text-sm font-semibold">Locales con mayor rotación</h3>
-                <Tabla archivo={archivo("top_locales")} hoja="Mayor rotación" filas={conVenta.slice(0, 10)}
-                       columnas={[{ clave: "local", titulo: "Local", tipo: "texto" }, { clave: "cadena", titulo: "Cadena", tipo: "texto" }, COL.rotacion, COL.und]} /></div>
-              <div className="grid gap-2"><h3 className="text-sm font-semibold">Locales con menor rotación (con alguna venta)</h3>
-                <Tabla archivo={archivo("menor_rotacion")} hoja="Menor rotación" filas={conVenta.slice(-10).reverse()}
-                       columnas={[{ clave: "local", titulo: "Local", tipo: "texto" }, { clave: "cadena", titulo: "Cadena", tipo: "texto" }, COL.rotacion, COL.und]} /></div>
-            </div>
-          </>
-        )}
-      </section>
-      <section className="grid gap-3">
-        <div>
-          <h2 className="text-lg font-bold">2 · Instock y venta perdida por quiebres</h2>
-          <p className="text-sm text-[var(--tenue)]">Foto de inventario al {lim.fechaInventario ? fechaLarga(lim.fechaInventario) : "—"}.
-            Quiebre = sin stock en un local que vendía en los últimos {ventana} días; venta perdida = su venta promedio por día × precio promedio.</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Indicador titulo="Instock total" valor={porcentaje(instock)} sub={`${conStock} de ${cob.length} locales-producto con stock`} />
-          <Indicador titulo="Quiebres con venta previa" valor={entero(quiebres.length)} />
-          <Indicador titulo="Venta perdida estimada por día" valor={soles(perdidaDia)} sub={quiebres.length ? `≈ ${soles(perdidaDia * 7)} por semana` : "Sin quiebres"} />
-        </div>
-        <Tabla archivo={archivo("instock")} hoja="Instock" filas={coberturaProducto}
-               columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "listados", titulo: "Locales reportados", tipo: "entero" },
-                 { clave: "con_stock", titulo: "Con stock", tipo: "entero" }, { clave: "instock", titulo: "Instock", tipo: "porcentaje" }]} />
-        {quiebres.length > 0 && (
-          <Tabla archivo={archivo("quiebres")} hoja="Quiebres" filas={quiebres}
-                 columnas={[{ clave: "local", titulo: "Local", tipo: "texto" }, { clave: "cadena", titulo: "Cadena", tipo: "texto" },
-                   { clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "und_dia", titulo: "Venta und/día", tipo: "decimal2" },
-                   { clave: "perdida_dia", titulo: "Venta perdida S/ por día", tipo: "soles" }]} />
-        )}
-      </section>
-      <section className="grid gap-3">
-        <div>
-          <h2 className="text-lg font-bold">3 · Semanas de cobertura y stock sin movimiento</h2>
-          <p className="text-sm text-[var(--tenue)]">Semanas = inventario ÷ (venta promedio por día de los últimos {ventana} días × 7).
-            Baja: menos de {cobBaja} · Sobrestock: más de {cobAlta} · Sin movimiento: con stock y sin venta en {ventana} días (se cambia en ⚙ Parámetros).</p>
-        </div>
-        <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-          {resumenEstados.map((e) => (
-            <div key={e.estado} className="tarjeta p-3 grid gap-1">
-              <span className={`estado estado-${e.estado} w-fit`}>{ESTADOS[e.estado]}</span>
-              <b className="num text-lg">{entero(e.filas)}</b>
-              <span className="text-xs text-[var(--tenue)]">{entero(e.inv_und)} und en stock</span>
-            </div>
-          ))}
-        </div>
-        <Tabla archivo={archivo("cobertura_producto")} hoja="Cobertura" filas={coberturaProducto}
-               columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "inv_und", titulo: "Inventario und", tipo: "entero" },
-                 { clave: "und_dia", titulo: `Venta und/día (${ventana} días)`, tipo: "decimal1" }, { clave: "semanas", titulo: "Semanas de cobertura", tipo: "decimal1" }]} />
-      </section>
-    </>
-  );
+  // --------------------------------------------------------------- encabezado
+  const chips = [
+    dias.length < 7 && `Días: ${dias.map((d) => DIAS_SEM[d]).join(", ")}`,
+    filtro.skus.length && `Producto: ${maestro.productos.filter((p) => filtro.skus.includes(p.sku)).map((p) => p.nombre).join(", ")}`,
+    filtro.cadenas.length && `Cadena: ${filtro.cadenas.join(", ")}`,
+    filtro.zonas.length && `Zona: ${filtro.zonas.join(", ")}`,
+    filtro.locales.length && `${filtro.locales.length} local(es)`,
+  ].filter(Boolean) as string[];
 
-  const evolucion = L.length === 0 ? <p className="text-sm">Sin ventas con estos filtros.</p> : (
-    <>
-      <BarrasSerie titulo={`Venta al público por ${agrupar === "dia" ? "día" : agrupar} (S/ sin IGV)`} datos={serieActual} agrupar={agrupar} />
-      {comp && LC.length > 0 && (
-        <Lineas titulo={`Venta acumulada: actual vs. ${COMPARAR[comparar].toLowerCase()}`} datos={comparacion} x="dia" formatoY="soles"
-                series={[{ clave: "actual", nombre: "Actual", color: "var(--serie-1)" }, { clave: "previo", nombre: COMPARAR[comparar], color: "var(--serie-gris)" }]} />
+  const encabezado = (
+    <header className="grid gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-1">
+          <p className="etiqueta">Canal retail · Turrones Calderón</p>
+          <h1 className="text-[28px] font-extrabold leading-tight">Supermercados Peruanos</h1>
+          <p className="text-sm text-[var(--tenue)]">
+            <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {fechaLarga(desde)} – {fechaLarga(hasta)} · {nDias} días
+            {nConDatos !== nDias && ` (${nConDatos} con venta)`}{comp && <> · comparado con {textoComp}</>} · sin IGV
+          </p>
+        </div>
+        <span className="text-xs text-[var(--tenue)] lg:hidden">Datos al <b>{fechaLarga(ultimo)}</b></span>
+      </div>
+      <Filtros productos={maestro.productos.map((p) => ({ valor: p.sku, texto: p.nombre }))}
+               cadenas={[...new Set(maestro.locales.map((l) => l.cadena))].sort()} zonas={[...new Set(maestro.locales.map((l) => l.zona))].sort()}
+               ultimo={ultimo} primero={primero}
+               locales={maestro.locales.map((l) => ({ valor: String(l.cod_local), texto: l.nombre, cadena: l.cadena, zona: l.zona }))} />
+      {chips.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {chips.map((c) => <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-[var(--acento-suave)] text-[var(--acento)] font-medium">{c}</span>)}
+        </div>
       )}
-      <Tabla archivo={archivo("evolucion")} hoja="Evolución" filas={serieActual.map((s) => ({ ...s, margen: s.venta - s.costo, periodo: fechaLarga(s.periodo) }))}
-             columnas={[{ clave: "periodo", titulo: agrupar === "dia" ? "Día" : agrupar === "semana" ? "Semana (lunes)" : "Mes", tipo: "texto" },
-               COL.und, COL.venta, COL.costo, COL.margen]} total={{ periodo: "TOTAL", ...totalFila() }} />
-    </>
+    </header>
   );
 
-  const productoTab = L.length === 0 ? <p className="text-sm">Sin ventas con estos filtros.</p> : (
+  // --------------------------------------------------------------- secciones
+  const indicadores = (
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <Indicador icono="venta" titulo="Venta al público" valor={soles(R.venta)} variacion={variacion(R.venta, RC?.venta)}
+                 tendencia={diaria.map((d) => d.venta)} ayuda="Lo que pagó el consumidor final, sin IGV." />
+      <Indicador icono="ingreso" titulo="Ingreso Calderón" valor={soles(R.costo)} variacion={variacion(R.costo, RC?.costo)}
+                 tendencia={diaria.map((d) => d.costo)} ayuda="Venta a costo del portal: lo que SPSA paga a Calderón por lo vendido, sin IGV." />
+      <Indicador icono="unidades" titulo="Unidades vendidas" valor={entero(R.und)} variacion={variacion(R.und, RC?.und)}
+                 tendencia={diaria.map((d) => d.und)} />
+      <Indicador icono="rotacion" titulo="Und por local / semana" valor={decimal1(R.rotacion)} variacion={variacion(R.rotacion, RC?.rotacion)}
+                 detalle={`${R.locales} locales con venta`} ayuda="Unidades ÷ locales con venta ÷ semanas del periodo." />
+      <Indicador icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} con stock`}
+                 ayuda="Locales-producto con inventario mayor a cero." />
+      <Indicador icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`}
+                 ayuda={`Inventario ÷ venta semanal promedio de los últimos ${ventana} días.`} />
+    </div>
+  );
+
+  const alertas = (
+    <ul className="grid gap-2">
+      {(["quiebre", "sin", "bajo", "sobre"] as Estado[]).map((e) => {
+        const d = porEstado.find((x) => x.estado === e)!;
+        const Icono = ICONO_ESTADO[e];
+        return (
+          <li key={e} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--linea)] px-3 py-2.5">
+            <span className="flex items-center gap-2.5 text-sm">
+              <span className={`grid place-items-center size-8 rounded-lg estado-${e}`}><Icono size={15} aria-hidden /></span>
+              <span className="grid leading-tight"><b className="font-medium">{ESTADOS[e]}</b>
+                <span className="text-xs text-[var(--tenue)]">{entero(d.inv_und)} und en stock</span></span>
+            </span>
+            <b className="num text-lg">{d.filas}</b>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const seccionResumen = (
     <>
-      <Lineas titulo={`Unidades por ${agrupar === "dia" ? "día" : agrupar} y producto`} datos={lineasProd} x="periodo" tipoX={agrupar}
-              series={nombresSerie.map((n, i) => ({ clave: n, nombre: n, color: i === 0 ? "var(--serie-1)" : "var(--serie-2)" }))} />
-      <Tabla archivo={archivo("productos")} hoja="Productos" filas={porProducto}
-             columnas={[{ clave: "clave", titulo: "Producto", tipo: "texto" }, COL.und, COL.venta, COL.costo,
-               { clave: "precio", titulo: "Precio prom. público S/", tipo: "decimal2" }, { clave: "margen_pct", titulo: "Margen SPSA", tipo: "porcentaje" }, COL.pct]}
-             total={{ clave: "TOTAL", ...totalFila({ precio: R.und ? R.venta / R.und : null, margen_pct: R.venta ? R.margen / R.venta : null }) }} />
+      {indicadores}
+      {L.length === 0 ? vacio : (
+        <>
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Tarjeta className="xl:col-span-2" icono={ChartLine} titulo="Venta al público"
+                     subtitulo={`Por ${agrupar === "dia" ? "día" : agrupar}${comp ? ` · línea punteada: ${COMPARAR[comparar].toLowerCase()}` : ""}`}>
+              <AreaVentas datos={area} agrupar={agrupar} conPrevio={!!comp && LC.length > 0} nombrePrevio={COMPARAR[comparar]} />
+            </Tarjeta>
+            <Tarjeta icono={PieChart} titulo="Mix por producto" subtitulo="Participación en la venta al público">
+              <Dona datos={porProducto.map((p) => ({ nombre: p.producto, valor: p.venta }))} total={R.venta} etiquetaTotal="Venta total" />
+            </Tarjeta>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Tarjeta icono={Store} titulo="Venta por cadena" subtitulo="Venta al público del periodo">
+              <ListaBarras formato={(v) => soles(v)} filas={[...porCadena].sort((a, b) => b.venta - a.venta)
+                .map((c) => ({ etiqueta: c.cadena, valor: c.venta, detalle: `${c.locales} locales · ${entero(c.und)} und` }))} />
+            </Tarjeta>
+            <Tarjeta icono={MapPinned} titulo="Rotación por zona" subtitulo="Unidades por local por semana">
+              <ListaBarras formato={(v) => decimal1(v)} filas={porZona.map((z) => ({ etiqueta: z.clave, valor: z.rotacion ?? 0, detalle: `${z.locales} locales` }))} />
+            </Tarjeta>
+            <Tarjeta icono={TriangleAlert} titulo="Alertas de stock" subtitulo={`Locales-producto · inventario al ${lim.fechaInventario ? fechaLarga(lim.fechaInventario) : "—"}`}>
+              {alertas}
+            </Tarjeta>
+          </div>
+        </>
+      )}
     </>
   );
 
-  const localesTab = L.length === 0 ? <p className="text-sm">Sin ventas con estos filtros.</p> : (
+  const seccionRotacion = (
     <>
-      <BarrasH titulo="Venta al público por cadena (S/)" datos={rotacionPor(L, ["cadena"]).sort((a, b) => b.venta - a.venta)
-        .map((r) => ({ ...r, detalle: `${r.locales} locales · ${entero(r.und)} und` }))} etiqueta="clave" valor="venta" formato="soles" />
-      <Tabla archivo={archivo("locales")} hoja="Locales" alto={560} filas={tablaLocales}
-             columnas={[{ clave: "local", titulo: "Local", tipo: "texto" }, { clave: "cadena", titulo: "Cadena", tipo: "texto" }, { clave: "zona", titulo: "Zona", tipo: "texto" },
-               COL.und, COL.rotacion, COL.venta, COL.costo, COL.margen, { clave: "inv_und", titulo: "Inventario und", tipo: "entero" }]}
-             total={{ local: "TOTAL", ...totalFila({ inv_und: invTot }) }} />
+      <Encabezado titulo="Rotación" descripcion={<>Unidades por local por semana: qué tan bien vende el producto donde ya está. Promedio del periodo:{" "}
+        <b className="num text-[var(--tinta)]">{decimal1(R.rotacion)}</b> en {R.locales} locales con venta.</>} />
+      {L.length === 0 ? vacio : (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Tarjeta icono={Store} titulo="Por cadena" subtitulo="Und/local/semana">
+              <ListaBarras formato={(v) => decimal1(v)} filas={porCadena.map((c) => ({ etiqueta: c.cadena, valor: c.rotacion ?? 0, detalle: `${c.locales} locales` }))} />
+            </Tarjeta>
+            <Tarjeta icono={MapPinned} titulo="Por zona" subtitulo="Und/local/semana">
+              <ListaBarras formato={(v) => decimal1(v)} filas={porZona.map((z) => ({ etiqueta: z.clave, valor: z.rotacion ?? 0, detalle: `${z.locales} locales` }))} />
+            </Tarjeta>
+          </div>
+          <Tarjeta icono={Gauge} titulo="Producto y cadena">
+            <Tabla archivo={archivo("rotacion")} hoja="Rotación" filas={prodCadena}
+                   columnas={[COL.producto, COL.cadena, COL.rotacion, COL.locales, COL.und, COL.venta, COL.pct]} total={{ producto: "TOTAL", ...totalFila() }} />
+          </Tarjeta>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Tarjeta titulo="Mayor rotación" subtitulo="Los 10 locales que más rotan">
+              <Tabla archivo={archivo("mayor_rotacion")} hoja="Mayor rotación" filas={conVenta.slice(0, 10)} columnas={[COL.local, COL.cadena, COL.rotacion, COL.und]} />
+            </Tarjeta>
+            <Tarjeta titulo="Menor rotación" subtitulo="Los 10 locales que menos rotan (con alguna venta)">
+              <Tabla archivo={archivo("menor_rotacion")} hoja="Menor rotación" filas={conVenta.slice(-10).reverse()} columnas={[COL.local, COL.cadena, COL.rotacion, COL.und]} />
+            </Tarjeta>
+          </div>
+        </>
+      )}
     </>
   );
 
-  const coberturaTab = cob.length === 0 ? <p className="text-sm">Todavía no hay inventario cargado.</p> : (
-    <Tabla archivo={archivo("cobertura")} hoja="Cobertura" alto={620}
-           filas={[...cob].sort((a, b) => (b.semanas ?? Infinity) - (a.semanas ?? Infinity))}
-           columnas={[{ clave: "local", titulo: "Local", tipo: "texto" }, { clave: "cadena", titulo: "Cadena", tipo: "texto" }, { clave: "zona", titulo: "Zona", tipo: "texto" },
-             { clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "inv_und", titulo: "Inventario und", tipo: "entero" },
-             { clave: "und_v", titulo: `Venta ${ventana} días`, tipo: "entero" }, { clave: "und_dia", titulo: "Und por día", tipo: "decimal2" },
-             { clave: "semanas", titulo: "Semanas de cobertura", tipo: "decimal1" }, { clave: "estado", titulo: "Estado", tipo: "estado" }]} />
+  const seccionEvolucion = (
+    <>
+      <Encabezado titulo="Evolución" descripcion="Venta del periodo por día, semana o mes, comparada con el periodo elegido." />
+      {L.length === 0 ? vacio : (
+        <>
+          <Tarjeta icono={ChartLine} titulo="Venta al público" subtitulo={comp ? `Línea punteada: ${COMPARAR[comparar].toLowerCase()} (${textoComp})` : undefined}>
+            <AreaVentas datos={area} agrupar={agrupar} conPrevio={!!comp && LC.length > 0} nombrePrevio={COMPARAR[comparar]} />
+          </Tarjeta>
+          <Tarjeta icono={Banknote} titulo={`Detalle por ${agrupar === "dia" ? "día" : agrupar}`}>
+            <Tabla archivo={archivo("evolucion")} hoja="Evolución" filas={serieA.map((s) => ({ ...s, margen: s.venta - s.costo, periodo: fechaLarga(s.periodo) }))}
+                   columnas={[{ clave: "periodo", titulo: agrupar === "dia" ? "Día" : agrupar === "semana" ? "Semana (lunes)" : "Mes", tipo: "texto" }, COL.und, COL.venta, COL.costo, COL.margen]}
+                   total={{ periodo: "TOTAL", ...totalFila() }} />
+          </Tarjeta>
+        </>
+      )}
+    </>
   );
 
-  const cargasTab = (
-    <Tabla archivo="retail_spsa_cargas.xlsx" hoja="Cargas" alto={560} filas={cargas}
-           columnas={[{ clave: "cuando", titulo: "Cargado", tipo: "texto" }, { clave: "fecha", titulo: "Día", tipo: "texto" },
-             { clave: "nivel", titulo: "Nivel", tipo: "texto" }, { clave: "estado", titulo: "Estado", tipo: "texto" },
-             { clave: "filas", titulo: "Filas", tipo: "entero" }, COL.und, { clave: "venta", titulo: "Venta S/", tipo: "soles" },
-             { clave: "detalle", titulo: "Detalle", tipo: "texto" }]} />
+  const seccionProductos = (
+    <>
+      <Encabezado titulo="Productos" descripcion="Unidades, precio promedio de venta al público y margen del retailer por producto." />
+      {L.length === 0 ? vacio : (
+        <>
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Tarjeta className="xl:col-span-2" icono={ChartLine} titulo={`Unidades por ${agrupar === "dia" ? "día" : agrupar}`}>
+              <Lineas datos={lineasProd} agrupar={agrupar} series={nombresProd.map((n, i) => ({ clave: n, nombre: n, color: coloresProd[i % 3] }))} />
+            </Tarjeta>
+            <Tarjeta icono={PieChart} titulo="Mix en unidades">
+              <Dona datos={porProducto.map((p) => ({ nombre: p.producto, valor: p.und }))} total={R.und} etiquetaTotal="Unidades" formato="entero" />
+            </Tarjeta>
+          </div>
+          <Tarjeta icono={Package} titulo="Resumen por producto">
+            <Tabla archivo={archivo("productos")} hoja="Productos" filas={porProducto}
+                   columnas={[COL.producto, COL.und, COL.venta, COL.costo, { clave: "precio", titulo: "Precio prom. público S/", tipo: "decimal2" },
+                     { clave: "margen_pct", titulo: "Margen SPSA", tipo: "porcentaje" }, COL.pct]}
+                   total={{ producto: "TOTAL", ...totalFila({ precio: R.und ? R.venta / R.und : null, margen_pct: R.venta ? R.margen / R.venta : null }) }} />
+          </Tarjeta>
+        </>
+      )}
+    </>
+  );
+
+  const seccionLocales = (
+    <>
+      <Encabezado titulo="Cadenas y locales" descripcion="Venta, rotación e inventario de cada local del periodo." />
+      {L.length === 0 ? vacio : (
+        <>
+          <Tarjeta icono={Store} titulo="Venta por cadena">
+            <ListaBarras formato={(v) => soles(v)} filas={[...porCadena].sort((a, b) => b.venta - a.venta)
+              .map((c) => ({ etiqueta: `${c.cadena} · ${c.locales} locales`, valor: c.venta }))} />
+          </Tarjeta>
+          <Tarjeta icono={Store} titulo="Locales" subtitulo={`${porLocal.length} locales`}>
+            <Tabla archivo={archivo("locales")} hoja="Locales" alto={560} buscar filas={[...porLocal].sort((a, b) => b.venta - a.venta)}
+                   columnas={[COL.local, COL.cadena, COL.zona, COL.und, COL.rotacion, COL.venta, COL.costo, COL.margen, { clave: "inv_und", titulo: "Inventario und", tipo: "entero" }]}
+                   total={{ local: "TOTAL", ...totalFila({ inv_und: invTot }) }} />
+          </Tarjeta>
+        </>
+      )}
+    </>
+  );
+
+  const seccionStock = (
+    <>
+      <Encabezado titulo="Stock y quiebres" descripcion={<>Foto de inventario al {lim.fechaInventario ? fechaLarga(lim.fechaInventario) : "—"}. Semanas de cobertura = inventario ÷
+        (venta promedio por día de los últimos {ventana} días × 7). Baja: menos de {cobBaja} · Sobrestock: más de {cobAlta}.</>} />
+      {cob.length === 0 ? <p className="text-sm">Todavía no hay inventario cargado.</p> : (
+        <>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+            <Indicador icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} locales-producto`} />
+            <Indicador icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`} />
+            <Indicador icono="venta" titulo="Venta perdida por quiebres" valor={soles(perdidaDia)}
+                       detalle={quiebres.length ? `por día · ${quiebres.length} quiebres` : "Sin quiebres"} />
+          </div>
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Tarjeta icono={TriangleAlert} titulo="Estado del stock">{alertas}</Tarjeta>
+            <Tarjeta className="xl:col-span-2" icono={Timer} titulo="Cobertura por producto">
+              <Tabla archivo={archivo("cobertura_producto")} hoja="Cobertura" filas={coberturaProducto}
+                     columnas={[COL.producto, { clave: "listados", titulo: "Locales", tipo: "entero" }, { clave: "instock", titulo: "Instock", tipo: "porcentaje" },
+                       { clave: "inv_und", titulo: "Inventario und", tipo: "entero" }, { clave: "und_dia", titulo: `Venta und/día (${ventana} d)`, tipo: "decimal1" },
+                       { clave: "semanas", titulo: "Semanas", tipo: "decimal1" }]} />
+            </Tarjeta>
+          </div>
+          {quiebres.length > 0 && (
+            <Tarjeta icono={PackageX} titulo="Quiebres a reponer primero" subtitulo="Ordenados por venta perdida por día">
+              <Tabla archivo={archivo("quiebres")} hoja="Quiebres" filas={quiebres}
+                     columnas={[COL.local, COL.cadena, COL.producto, { clave: "und_dia", titulo: "Venta und/día", tipo: "decimal2" },
+                       { clave: "perdida_dia", titulo: "Venta perdida S/ por día", tipo: "soles" }]} />
+            </Tarjeta>
+          )}
+          <Tarjeta icono={Warehouse} titulo="Cobertura por local y producto">
+            <Tabla archivo={archivo("cobertura")} hoja="Cobertura" alto={620} buscar
+                   filas={[...cob].sort((a, b) => (b.semanas ?? Infinity) - (a.semanas ?? Infinity))}
+                   columnas={[COL.local, COL.cadena, COL.zona, COL.producto, { clave: "inv_und", titulo: "Inventario", tipo: "entero" },
+                     { clave: "und_v", titulo: `Venta ${ventana} d`, tipo: "entero" }, { clave: "und_dia", titulo: "Und/día", tipo: "decimal2" },
+                     { clave: "semanas", titulo: "Semanas", tipo: "decimal1" }, { clave: "estado", titulo: "Estado", tipo: "estado" }]} />
+          </Tarjeta>
+        </>
+      )}
+    </>
+  );
+
+  const seccionCargas = (
+    <>
+      <Encabezado titulo="Cargas" descripcion="Cada día cargado desde el portal de Intercorp. El detalle por local solo se guarda si cuadra al céntimo con el TOTAL del portal." />
+      <Tarjeta icono={Clock} titulo="Historial de cargas">
+        <Tabla archivo="retail_spsa_cargas.xlsx" hoja="Cargas" alto={620} buscar filas={cargas}
+               columnas={[{ clave: "cuando", titulo: "Cargado", tipo: "texto" }, { clave: "fecha", titulo: "Día", tipo: "texto" },
+                 { clave: "nivel", titulo: "Nivel", tipo: "texto" }, { clave: "estado", titulo: "Estado", tipo: "texto" },
+                 { clave: "filas", titulo: "Filas", tipo: "entero" }, COL.und, { clave: "venta", titulo: "Venta S/", tipo: "soles" },
+                 { clave: "detalle", titulo: "Detalle", tipo: "texto" }]} />
+      </Tarjeta>
+    </>
   );
 
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-4 py-6 grid gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="etiqueta">Turrones Calderón · canal retail</p>
-          <h1 className="text-3xl font-extrabold tracking-tight">Supermercados Peruanos</h1>
-          <p className="text-sm text-[var(--tenue)]">Datos hasta el <b>{fechaLarga(ultimo)}</b> · SPSA publica con un día de atraso · montos sin IGV</p>
-        </div>
-        <form action={salir} className="flex items-center gap-2 text-sm">
-          <span className="text-[var(--tenue)]">{user?.email}</span>
-          <button type="submit" className="boton">Salir</button>
-        </form>
-      </header>
-
-      <Filtros productos={nombresProd} cadenas={cadenas} zonas={zonas} ultimo={ultimo} primero={primero}
-               locales={maestro.locales.map((l) => ({ valor: String(l.cod_local), texto: l.nombre, cadena: l.cadena, zona: l.zona }))} />
-      <p className="text-sm" aria-live="polite">{etiquetas.join(" · ")}</p>
-
-      <section className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Indicadores principales">
-        <Indicador titulo="Venta al público" valor={soles(R.venta)} delta={RC && variacion(R.venta, RC.venta)} ayuda="Lo que pagó el consumidor final, sin IGV." />
-        <Indicador titulo="Ingreso Calderón" valor={soles(R.costo)} delta={RC && variacion(R.costo, RC.costo)} ayuda="Venta a costo del portal: lo que SPSA paga a Calderón por lo vendido, sin IGV." />
-        <Indicador titulo="Unidades" valor={entero(R.und)} delta={RC && variacion(R.und, RC.und)} />
-        <Indicador titulo="Und por local por semana" valor={decimal1(R.rotacion)} delta={RC && variacion(R.rotacion, RC.rotacion)} ayuda="Unidades ÷ locales con venta ÷ semanas del periodo." />
-        <Indicador titulo="Instock" valor={porcentaje(instock)} sub={`${conStock} de ${cob.length} con stock`} ayuda="Locales-producto con inventario > 0." />
-        <Indicador titulo="Semanas de cobertura" valor={decimal1(semanasTot)} sub={`Inventario ${entero(invTot)} und`} ayuda={`Inventario ÷ venta semanal de los últimos ${ventana} días.`} />
-      </section>
-
-      <Pestanas pestanas={[
-        { id: "kpi", titulo: "🎯 Indicadores", contenido: indicadores },
-        { id: "evo", titulo: "📈 Evolución", contenido: evolucion },
-        { id: "prod", titulo: "📦 Por producto", contenido: productoTab },
-        { id: "loc", titulo: "🏬 Cadena y local", contenido: localesTab },
-        { id: "cob", titulo: "📊 Cobertura y quiebres", contenido: coberturaTab },
-        { id: "cargas", titulo: "🧾 Cargas", contenido: cargasTab },
-      ]} />
-    </main>
+    <Marco encabezado={encabezado} usuario={user?.email} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
+      { id: "resumen", titulo: "Resumen", contenido: seccionResumen },
+      { id: "rotacion", titulo: "Rotación", contenido: seccionRotacion },
+      { id: "evolucion", titulo: "Evolución", contenido: seccionEvolucion },
+      { id: "productos", titulo: "Productos", contenido: seccionProductos },
+      { id: "locales", titulo: "Cadenas y locales", contenido: seccionLocales },
+      { id: "stock", titulo: "Stock y quiebres", contenido: seccionStock },
+      { id: "cargas", titulo: "Cargas", contenido: seccionCargas },
+    ]} />
   );
 }
