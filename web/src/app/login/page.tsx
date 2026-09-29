@@ -1,12 +1,13 @@
 "use client";
 
-import { LogIn } from "lucide-react";
+import { Eye, EyeOff, LogIn } from "lucide-react";
 import Image from "next/image";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { ingresar } from "./actions";
 
 export default function Login() {
   const [estado, accion, enviando] = useActionState(ingresar, {});
+  const [verClave, setVerClave] = useState(false);
   return (
     <main className="min-h-screen grid place-items-center px-4 bg-[var(--fondo)]">
       <div className="w-full max-w-sm grid gap-6">
@@ -22,7 +23,16 @@ export default function Login() {
           </label>
           <label className="grid gap-1 text-sm">
             Contraseña
-            <input id="clave" name="clave" type="password" required autoComplete="current-password" className="campo" />
+            <span className="relative">
+              <input id="clave" name="clave" type={verClave ? "text" : "password"} required autoComplete="current-password"
+                     className="campo w-full !pr-10" />
+              <button type="button" onClick={() => setVerClave((v) => !v)}
+                      className="absolute inset-y-0 right-0 grid w-10 place-items-center text-[var(--tenue)] hover:text-[var(--acento)] focus-visible:text-[var(--acento)] rounded-r-lg"
+                      aria-label={verClave ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={verClave}
+                      title={verClave ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                {verClave ? <EyeOff size={17} aria-hidden /> : <Eye size={17} aria-hidden />}
+              </button>
+            </span>
           </label>
           {estado.error && <p className="text-sm text-[var(--critico)]" role="alert">{estado.error}</p>}
           <button type="submit" disabled={enviando} className="boton-primario">
