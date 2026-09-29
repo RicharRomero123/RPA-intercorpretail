@@ -30,7 +30,11 @@ jobs:
       TZ: America/Lima
       INTERCORP_USUARIO: ${{ secrets.INTERCORP_USUARIO }}
       INTERCORP_CLAVE: ${{ secrets.INTERCORP_CLAVE }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Contraseña de la base tal cual (sin codificar); el robot arma la dirección del pooler de Supabase.
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: eyqeitzesywaukvfllyc
+      SUPABASE_POOLER_HOST: aws-0-us-east-1.pooler.supabase.com
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}   # alternativa: dirección completa (se usa si no hay contraseña)
       MARCA: CALDERON
     defaults:
       run:

@@ -24,6 +24,7 @@ import sys
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -45,16 +46,29 @@ api.log = log
 
 
 # ----------------------------------------------------------------------------- base de datos
+def url_base(cfg: dict) -> str | None:
+    """Dirección de la base. Con SUPABASE_DB_PASSWORD (la contraseña tal cual, sin codificar) se arma sola con el
+    usuario y el servidor del pooler de Supabase; si no, se usa DATABASE_URL completa."""
+    if cfg.get("SUPABASE_DB_PASSWORD"):
+        ref = cfg.get("SUPABASE_PROJECT_REF") or "eyqeitzesywaukvfllyc"
+        host = cfg.get("SUPABASE_POOLER_HOST") or "aws-0-us-east-1.pooler.supabase.com"
+        return f"postgresql://postgres.{ref}:{quote(cfg['SUPABASE_DB_PASSWORD'].strip(), safe='')}@{host}:5432/postgres"
+    return (cfg.get("DATABASE_URL") or "").strip() or None
+
+
 class Base:
-    """Conexión a PostgreSQL (Supabase) o, sin DATABASE_URL, a un SQLite local. Las consultas se escriben con
+    """Conexión a PostgreSQL (Supabase) o, sin dirección, a un SQLite local. Las consultas se escriben con
     %s y la misma sintaxis de 'upsert' (ON CONFLICT), que ambos aceptan."""
 
     def __init__(self, url: str | None):
         self.pg = bool(url)
         if self.pg:
             import psycopg
+            p = urlsplit(url)
+            log(f"Base: PostgreSQL | usuario {p.username} | servidor {p.hostname}:{p.port} | "
+                f"contraseña de {len(unquote(p.password or ''))} caracteres")
             self.con = psycopg.connect(url, autocommit=False)
-            log("Base: PostgreSQL (Supabase)")
+            log("Base: conectada a Supabase")
         else:
             ruta = CARPETA / "datos" / "retail_spsa.db"
             ruta.parent.mkdir(exist_ok=True)
@@ -217,7 +231,7 @@ def ultimo_cargado(bd: Base) -> date | None:
 
 def ejecutar(desde: date | None, hasta: date | None) -> int:
     cfg = api.leer_env()
-    bd = Base(cfg.get("DATABASE_URL"))
+    bd = Base(url_base(cfg))
     t0 = time.perf_counter()
     try:
         portal = api.ingresar(cfg)
@@ -268,7 +282,7 @@ def main() -> None:
     if codigo == 0 and a.avisar_si_falta:
         ayer = datetime.now(LIMA).date() - timedelta(days=1)
         cfg = api.leer_env()
-        ultimo = ultimo_cargado(Base(cfg.get("DATABASE_URL")))
+        ultimo = ultimo_cargado(Base(url_base(cfg)))
         if not ultimo or ultimo < ayer:
             log(f"AVISO: SPSA aún no publica el {ayer:%d-%m-%Y} (la base llega hasta el {ultimo}).")
             codigo = 3

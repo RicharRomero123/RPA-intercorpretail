@@ -9,10 +9,11 @@ from pathlib import Path
 import psycopg
 
 import api_intercorp as api
+from retail_diario import url_base
 
 SQL = Path(__file__).resolve().parent.parent / "supabase" / "001_retail.sql"
 
-with psycopg.connect(api.leer_env()["DATABASE_URL"], autocommit=True) as con:
+with psycopg.connect(url_base(api.leer_env()), autocommit=True) as con:
     con.execute(SQL.read_text(encoding="utf-8"))
     tablas = [r[0] for r in con.execute(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY 1")]

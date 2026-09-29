@@ -40,7 +40,8 @@ def leer_env() -> dict[str, str]:
             if linea and not linea.startswith("#") and "=" in linea:
                 k, v = linea.split("=", 1)
                 cfg[k.strip()] = v.strip()
-    for k in ("INTERCORP_USUARIO", "INTERCORP_CLAVE", "INTERCORP_JSESSIONID", "MARCA", "DATABASE_URL"):
+    for k in ("INTERCORP_USUARIO", "INTERCORP_CLAVE", "INTERCORP_JSESSIONID", "MARCA", "DATABASE_URL",
+              "SUPABASE_DB_PASSWORD", "SUPABASE_PROJECT_REF", "SUPABASE_POOLER_HOST"):
         if os.environ.get(k):
             cfg[k] = os.environ[k]
     return cfg

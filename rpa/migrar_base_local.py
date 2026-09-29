@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 import api_intercorp as api
-from retail_diario import CLIENTE, Base, ZONA, cadena, log, nombre_local, nombre_producto
+from retail_diario import CLIENTE, Base, ZONA, cadena, log, nombre_local, nombre_producto, url_base
 
 
 def main() -> None:
@@ -21,7 +21,7 @@ def main() -> None:
     with sqlite3.connect(a.origen) as o:
         t = {n: pd.read_sql(f"SELECT * FROM {n}", o) for n in
              ("productos", "locales", "venta_producto_dia", "venta_local_dia", "inventario_local", "cargas")}
-    bd = Base(api.leer_env().get("DATABASE_URL"))
+    bd = Base(url_base(api.leer_env()))
     try:
         bd.varios("INSERT INTO productos (cliente, sku, producto, nombre, marca, umb, estado) VALUES (%s,%s,%s,%s,%s,%s,%s) "
                   "ON CONFLICT (cliente, sku) DO NOTHING",
