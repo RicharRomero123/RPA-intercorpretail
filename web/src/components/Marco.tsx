@@ -19,17 +19,18 @@ export function Marco({ secciones, encabezado, usuario, salir, datosAl }: {
   const [activa, setActiva] = useState(secciones[0].id);
   const actual = secciones.find((s) => s.id === activa) ?? secciones[0];
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[232px_1fr]">
-      <aside className="bg-[var(--lateral)] text-[var(--lateral-tinta)] lg:sticky lg:top-0 lg:h-screen flex lg:flex-col gap-2 p-3 overflow-x-auto">
-        <div className="hidden lg:flex items-center gap-2.5 px-2 py-3 mb-2">
+    <div className="min-h-screen xl:grid xl:grid-cols-[224px_1fr]">
+      <aside className="bg-[var(--lateral)] text-[var(--lateral-tinta)] sticky top-0 z-20 xl:h-screen flex xl:flex-col items-center xl:items-stretch gap-2 px-3 py-2 xl:p-3 overflow-x-auto">
+        <span className="xl:hidden grid place-items-center size-8 shrink-0 rounded-lg bg-[var(--acento)] text-white font-extrabold">C</span>
+        <div className="hidden xl:flex items-center gap-2.5 px-2 py-3 mb-2">
           <span className="grid place-items-center size-9 rounded-lg bg-[var(--acento)] text-white font-extrabold font-[family-name:var(--font-archivo)]">C</span>
           <div className="leading-tight">
             <p className="text-white font-semibold text-sm">Calderón Retail</p>
             <p className="text-[11px]">Sell-out · SPSA</p>
           </div>
         </div>
-        <p className="hidden lg:block etiqueta px-3 !text-[var(--lateral-tinta)] opacity-70">Análisis</p>
-        <nav className="flex lg:flex-col gap-1 lg:flex-1" aria-label="Secciones">
+        <p className="hidden xl:block etiqueta px-3 !text-[var(--lateral-tinta)] opacity-70">Análisis</p>
+        <nav className="flex xl:flex-col gap-1 xl:flex-1" aria-label="Secciones">
           {secciones.map((s) => {
             const Icono = ICONOS[s.id];
             return (
@@ -40,7 +41,13 @@ export function Marco({ secciones, encabezado, usuario, salir, datosAl }: {
             );
           })}
         </nav>
-        <div className="hidden lg:grid gap-2 border-t border-white/10 pt-3 px-1">
+        <form action={salir} className="xl:hidden ml-auto shrink-0">
+          <button type="submit" className="grid place-items-center size-8 rounded-md hover:bg-[var(--lateral-activo)] hover:text-white"
+                  title={`Cerrar sesión (${usuario ?? ""})`} aria-label="Cerrar sesión">
+            <LogOut size={16} aria-hidden />
+          </button>
+        </form>
+        <div className="hidden xl:grid gap-2 border-t border-white/10 pt-3 px-1">
           <p className="text-[11px] px-2">Datos al <b className="text-white">{datosAl}</b></p>
           <form action={salir} className="flex items-center justify-between gap-2 px-2">
             <span className="text-xs truncate" title={usuario}>{usuario}</span>
@@ -51,7 +58,7 @@ export function Marco({ secciones, encabezado, usuario, salir, datosAl }: {
           </form>
         </div>
       </aside>
-      <main className="min-w-0 px-4 lg:px-8 py-6 grid gap-6 content-start">
+      <main className="@container min-w-0 px-4 sm:px-6 2xl:px-10 py-6 grid gap-6 content-start">
         {encabezado}
         <div className="grid gap-6">{actual.contenido}</div>
       </main>

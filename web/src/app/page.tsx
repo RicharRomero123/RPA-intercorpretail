@@ -12,7 +12,7 @@ import * as db from "@/lib/datos";
 import { decimal1, entero, porcentaje, soles } from "@/lib/formato";
 import { cobertura, diasConDatos, ESTADOS, filtrarDias, resumen, rotacionPor, serie, type Agrupar, type Estado } from "@/lib/kpi";
 import {
-  COMPARAR, DIAS_SEM, diasEntre, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, sumarDias, type Comparar, type Periodo,
+  COMPARAR, DIAS_SEM, diaSemana, diasEntre, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, sumarDias, type Comparar, type Periodo,
 } from "@/lib/periodos";
 import { clienteSupabase } from "@/lib/supabase/server";
 
@@ -128,6 +128,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   const nDias = diasEntre(desde, hasta), nConDatos = diasConDatos(L);
   const vacio = <p className="text-sm text-[var(--tenue)]">No hay ventas con estos filtros.</p>;
   const textoComp = comp ? `${fechaLarga(comp[0])} – ${fechaLarga(comp[1])}` : "";
+  const rango = `${fechaLarga(desde)} – ${fechaLarga(hasta)}`;
 
   // --------------------------------------------------------------- encabezado
   const chips = [
@@ -149,7 +150,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
             {nConDatos !== nDias && ` (${nConDatos} con venta)`}{comp && <> · comparado con {textoComp}</>} · sin IGV
           </p>
         </div>
-        <span className="text-xs text-[var(--tenue)] lg:hidden">Datos al <b>{fechaLarga(ultimo)}</b></span>
+        <span className="text-xs text-[var(--tenue)] xl:hidden">Datos al <b>{fechaLarga(ultimo)}</b></span>
       </div>
       <Filtros productos={maestro.productos.map((p) => ({ valor: p.sku, texto: p.nombre }))}
                cadenas={[...new Set(maestro.locales.map((l) => l.cadena))].sort()} zonas={[...new Set(maestro.locales.map((l) => l.zona))].sort()}
@@ -165,7 +166,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
 
   // --------------------------------------------------------------- secciones
   const indicadores = (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-6">
       <Indicador icono="venta" titulo="Venta al público" valor={soles(R.venta)} variacion={variacion(R.venta, RC?.venta)}
                  tendencia={diaria.map((d) => d.venta)} ayuda="Lo que pagó el consumidor final, sin IGV." />
       <Indicador icono="ingreso" titulo="Ingreso Calderón" valor={soles(R.costo)} variacion={variacion(R.costo, RC?.costo)}
@@ -205,17 +206,17 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
       {indicadores}
       {L.length === 0 ? vacio : (
         <>
-          <div className="grid gap-4 xl:grid-cols-3">
-            <Tarjeta className="xl:col-span-2" icono={ChartLine} titulo="Venta al público"
-                     subtitulo={`Por ${agrupar === "dia" ? "día" : agrupar}${comp ? ` · línea punteada: ${COMPARAR[comparar].toLowerCase()}` : ""}`}>
+          <div className="grid gap-4 @5xl:grid-cols-3">
+            <Tarjeta className="@5xl:col-span-2" icono={ChartLine} titulo={`Venta al público · ${rango}`}
+                     subtitulo={`Por ${agrupar === "dia" ? "día" : agrupar}${comp ? ` · línea punteada: ${COMPARAR[comparar].toLowerCase()} (${textoComp})` : ""}`}>
               <AreaVentas datos={area} agrupar={agrupar} conPrevio={!!comp && LC.length > 0} nombrePrevio={COMPARAR[comparar]} />
             </Tarjeta>
             <Tarjeta icono={PieChart} titulo="Mix por producto" subtitulo="Participación en la venta al público">
               <Dona datos={porProducto.map((p) => ({ nombre: p.producto, valor: p.venta }))} total={R.venta} etiquetaTotal="Venta total" />
             </Tarjeta>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Tarjeta icono={Store} titulo="Venta por cadena" subtitulo="Venta al público del periodo">
+          <div className="grid gap-4 @3xl:grid-cols-2 @6xl:grid-cols-3">
+            <Tarjeta icono={Store} titulo="Venta por cadena" subtitulo={`Venta al público · ${rango}`}>
               <ListaBarras formato={(v) => soles(v)} filas={[...porCadena].sort((a, b) => b.venta - a.venta)
                 .map((c) => ({ etiqueta: c.cadena, valor: c.venta, detalle: `${c.locales} locales · ${entero(c.und)} und` }))} />
             </Tarjeta>
@@ -224,6 +225,20 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
             </Tarjeta>
             <Tarjeta icono={TriangleAlert} titulo="Alertas de stock" subtitulo={`Locales-producto · inventario al ${lim.fechaInventario ? fechaLarga(lim.fechaInventario) : "—"}`}>
               {alertas}
+            </Tarjeta>
+          </div>
+          <div className="grid gap-4 @5xl:grid-cols-2">
+            <Tarjeta icono={Banknote} titulo={`Venta por ${agrupar === "dia" ? "día" : agrupar}`} subtitulo={rango}>
+              <Tabla archivo={archivo("venta_diaria")} hoja="Venta" alto={420}
+                     filas={[...serieA].reverse().map((s) => ({ ...s, periodo: fechaLarga(s.periodo), dia: agrupar === "dia" ? DIAS_SEM[diaSemana(s.periodo)] : "" }))}
+                     columnas={[{ clave: "periodo", titulo: agrupar === "dia" ? "Día" : agrupar === "semana" ? "Semana (lunes)" : "Mes", tipo: "texto" },
+                       ...(agrupar === "dia" ? [{ clave: "dia", titulo: "", tipo: "texto" } as Columna] : []), COL.und, COL.venta, COL.costo]}
+                     total={{ periodo: "TOTAL", ...totalFila() }} />
+            </Tarjeta>
+            <Tarjeta icono={Store} titulo="Top 10 locales" subtitulo={`Por venta al público · ${rango}`}>
+              <Tabla archivo={archivo("top_locales")} hoja="Top locales" alto={420}
+                     filas={[...porLocal].sort((a, b) => b.venta - a.venta).slice(0, 10)}
+                     columnas={[COL.local, COL.cadena, COL.und, COL.venta, COL.rotacion]} />
             </Tarjeta>
           </div>
         </>
@@ -237,7 +252,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
         <b className="num text-[var(--tinta)]">{decimal1(R.rotacion)}</b> en {R.locales} locales con venta.</>} />
       {L.length === 0 ? vacio : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 @3xl:grid-cols-2">
             <Tarjeta icono={Store} titulo="Por cadena" subtitulo="Und/local/semana">
               <ListaBarras formato={(v) => decimal1(v)} filas={porCadena.map((c) => ({ etiqueta: c.cadena, valor: c.rotacion ?? 0, detalle: `${c.locales} locales` }))} />
             </Tarjeta>
@@ -249,7 +264,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
             <Tabla archivo={archivo("rotacion")} hoja="Rotación" filas={prodCadena}
                    columnas={[COL.producto, COL.cadena, COL.rotacion, COL.locales, COL.und, COL.venta, COL.pct]} total={{ producto: "TOTAL", ...totalFila() }} />
           </Tarjeta>
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 @4xl:grid-cols-2">
             <Tarjeta titulo="Mayor rotación" subtitulo="Los 10 locales que más rotan">
               <Tabla archivo={archivo("mayor_rotacion")} hoja="Mayor rotación" filas={conVenta.slice(0, 10)} columnas={[COL.local, COL.cadena, COL.rotacion, COL.und]} />
             </Tarjeta>
@@ -267,7 +282,7 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
       <Encabezado titulo="Evolución" descripcion="Venta del periodo por día, semana o mes, comparada con el periodo elegido." />
       {L.length === 0 ? vacio : (
         <>
-          <Tarjeta icono={ChartLine} titulo="Venta al público" subtitulo={comp ? `Línea punteada: ${COMPARAR[comparar].toLowerCase()} (${textoComp})` : undefined}>
+          <Tarjeta icono={ChartLine} titulo={`Venta al público · ${rango}`} subtitulo={comp ? `Línea punteada: ${COMPARAR[comparar].toLowerCase()} (${textoComp})` : undefined}>
             <AreaVentas datos={area} agrupar={agrupar} conPrevio={!!comp && LC.length > 0} nombrePrevio={COMPARAR[comparar]} />
           </Tarjeta>
           <Tarjeta icono={Banknote} titulo={`Detalle por ${agrupar === "dia" ? "día" : agrupar}`}>
@@ -285,8 +300,8 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
       <Encabezado titulo="Productos" descripcion="Unidades, precio promedio de venta al público y margen del retailer por producto." />
       {L.length === 0 ? vacio : (
         <>
-          <div className="grid gap-4 xl:grid-cols-3">
-            <Tarjeta className="xl:col-span-2" icono={ChartLine} titulo={`Unidades por ${agrupar === "dia" ? "día" : agrupar}`}>
+          <div className="grid gap-4 @5xl:grid-cols-3">
+            <Tarjeta className="@5xl:col-span-2" icono={ChartLine} titulo={`Unidades por ${agrupar === "dia" ? "día" : agrupar}`}>
               <Lineas datos={lineasProd} agrupar={agrupar} series={nombresProd.map((n, i) => ({ clave: n, nombre: n, color: coloresProd[i % 3] }))} />
             </Tarjeta>
             <Tarjeta icono={PieChart} titulo="Mix en unidades">
@@ -329,15 +344,15 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
         (venta promedio por día de los últimos {ventana} días × 7). Baja: menos de {cobBaja} · Sobrestock: más de {cobAlta}.</>} />
       {cob.length === 0 ? <p className="text-sm">Todavía no hay inventario cargado.</p> : (
         <>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 @2xl:grid-cols-3">
             <Indicador icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} locales-producto`} />
             <Indicador icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`} />
             <Indicador icono="venta" titulo="Venta perdida por quiebres" valor={soles(perdidaDia)}
                        detalle={quiebres.length ? `por día · ${quiebres.length} quiebres` : "Sin quiebres"} />
           </div>
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 @5xl:grid-cols-3">
             <Tarjeta icono={TriangleAlert} titulo="Estado del stock">{alertas}</Tarjeta>
-            <Tarjeta className="xl:col-span-2" icono={Timer} titulo="Cobertura por producto">
+            <Tarjeta className="@5xl:col-span-2" icono={Timer} titulo="Cobertura por producto">
               <Tabla archivo={archivo("cobertura_producto")} hoja="Cobertura" filas={coberturaProducto}
                      columnas={[COL.producto, { clave: "listados", titulo: "Locales", tipo: "entero" }, { clave: "instock", titulo: "Instock", tipo: "porcentaje" },
                        { clave: "inv_und", titulo: "Inventario und", tipo: "entero" }, { clave: "und_dia", titulo: `Venta und/día (${ventana} d)`, tipo: "decimal1" },
