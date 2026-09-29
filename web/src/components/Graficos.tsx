@@ -137,32 +137,31 @@ export function Dona({ datos, total, etiquetaTotal, formato = "soles" }: {
 const ICONOS: Record<string, LucideIcon> = { venta: Banknote, ingreso: Coins, unidades: Boxes, rotacion: Gauge, instock: PackageCheck, cobertura: Timer };
 
 /** Indicador principal: ícono, valor, variación y minigráfico de tendencia. */
-export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia, ayuda }: {
+export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia, ayuda, comparadoCon = "comparación" }: {
   icono: keyof typeof ICONOS; titulo: string; valor: string; variacion?: number | null; detalle?: string;
-  tendencia?: number[]; ayuda?: string;
+  tendencia?: number[]; ayuda?: string; comparadoCon?: string;
 }) {
   const Icono = ICONOS[icono];
   const puntos = (tendencia ?? []).map((v, i) => ({ i, v }));
+  const hayVariacion = variacion !== null && variacion !== undefined && Number.isFinite(variacion);
   return (
-    <div className="tarjeta p-4 grid gap-3 min-w-0" title={ayuda}>
+    <div className="tarjeta p-4 grid gap-2 min-w-0 content-start overflow-hidden" title={ayuda}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-[var(--tenue)]">{titulo}</span>
-        <span className="grid place-items-center size-8 rounded-lg bg-[var(--acento-suave)] text-[var(--acento)]">
+        <span className="text-[13px] font-medium text-[var(--tenue)] truncate">{titulo}</span>
+        <span className="grid place-items-center size-8 shrink-0 rounded-lg bg-[var(--acento-suave)] text-[var(--acento)]">
           <Icono size={16} strokeWidth={2} aria-hidden />
         </span>
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="grid gap-1 min-w-0">
-          <b className="num text-[22px] leading-none font-semibold whitespace-nowrap">{valor}</b>
-          <div className="flex items-center gap-1.5 text-xs text-[var(--tenue)] min-h-5">
-            <Variacion valor={variacion} />
-            <span className="truncate">{variacion !== null && variacion !== undefined && Number.isFinite(variacion) ? "vs. comparación" : detalle}</span>
-          </div>
-        </div>
-        {puntos.length > 1 && (
-          <div className="h-10 w-24 shrink-0" aria-hidden>
+      <b className="num text-[clamp(18px,1.6vw,23px)] leading-tight font-semibold break-words">{valor}</b>
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--tenue)] min-h-5">
+        <Variacion valor={variacion} />
+        <span>{hayVariacion ? `vs. ${comparadoCon}` : detalle}</span>
+      </div>
+      {/* Tendencia diaria del periodo: franja a todo el ancho, debajo del valor, para no quitarle espacio al texto */}
+      {puntos.length > 1 && (
+        <div className="h-11 -mx-4 -mb-4 mt-1" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={puntos} margin={{ top: 2, bottom: 2, left: 0, right: 0 }}>
+              <AreaChart data={puntos} margin={{ top: 4, bottom: 0, left: 0, right: 0 }}>
                 <defs>
                   <linearGradient id={`spark-${icono}`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--serie-1)" stopOpacity={0.3} />
@@ -173,9 +172,8 @@ export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia,
                       dot={false} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

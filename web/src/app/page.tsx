@@ -166,17 +166,17 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
   // --------------------------------------------------------------- secciones
   const indicadores = (
     <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-6">
-      <Indicador icono="venta" titulo="Venta al público" valor={soles(R.venta)} variacion={variacion(R.venta, RC?.venta)}
+      <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="venta" titulo="Venta al público" valor={soles(R.venta)} variacion={variacion(R.venta, RC?.venta)}
                  tendencia={diaria.map((d) => d.venta)} ayuda="Lo que pagó el consumidor final, sin IGV." />
-      <Indicador icono="ingreso" titulo="Ingreso Calderón" valor={soles(R.costo)} variacion={variacion(R.costo, RC?.costo)}
+      <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="ingreso" titulo="Ingreso Calderón" valor={soles(R.costo)} variacion={variacion(R.costo, RC?.costo)}
                  tendencia={diaria.map((d) => d.costo)} ayuda="Venta a costo del portal: lo que SPSA paga a Calderón por lo vendido, sin IGV." />
-      <Indicador icono="unidades" titulo="Unidades vendidas" valor={entero(R.und)} variacion={variacion(R.und, RC?.und)}
+      <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="unidades" titulo="Unidades vendidas" valor={entero(R.und)} variacion={variacion(R.und, RC?.und)}
                  tendencia={diaria.map((d) => d.und)} />
-      <Indicador icono="rotacion" titulo="Und por local / semana" valor={decimal1(R.rotacion)} variacion={variacion(R.rotacion, RC?.rotacion)}
+      <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="rotacion" titulo="Und por local / semana" valor={decimal1(R.rotacion)} variacion={variacion(R.rotacion, RC?.rotacion)}
                  detalle={`${R.locales} locales con venta`} ayuda="Unidades ÷ locales con venta ÷ semanas del periodo." />
-      <Indicador icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} con stock`}
+      <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} con stock`}
                  ayuda="Locales-producto con inventario mayor a cero." />
-      <Indicador icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`}
+      <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`}
                  ayuda={`Inventario ÷ venta semanal promedio de los últimos ${ventana} días.`} />
     </div>
   );
@@ -344,9 +344,9 @@ export default async function Inicio({ searchParams }: { searchParams: Params })
       {cob.length === 0 ? <p className="text-sm">Todavía no hay inventario cargado.</p> : (
         <>
           <div className="grid gap-4 grid-cols-1 @2xl:grid-cols-3">
-            <Indicador icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} locales-producto`} />
-            <Indicador icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`} />
-            <Indicador icono="venta" titulo="Venta perdida por quiebres" valor={soles(perdidaDia)}
+            <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="instock" titulo="Instock" valor={porcentaje(instock)} detalle={`${conStock} de ${cob.length} locales-producto`} />
+            <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="cobertura" titulo="Semanas de cobertura" valor={decimal1(semanasTot)} detalle={`${entero(invTot)} und en tienda`} />
+            <Indicador comparadoCon={COMPARAR[comparar].toLowerCase()} icono="venta" titulo="Venta perdida por quiebres" valor={soles(perdidaDia)}
                        detalle={quiebres.length ? `por día · ${quiebres.length} quiebres` : "Sin quiebres"} />
           </div>
           <div className="grid gap-4 @5xl:grid-cols-3">
