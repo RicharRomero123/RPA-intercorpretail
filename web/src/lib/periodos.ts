@@ -7,15 +7,24 @@ export const PERIODOS = {
   semana: "Esta semana",
   "semana-ant": "Semana anterior",
   "14d": "Últimos 14 días",
-  mes: "Este mes",
+  mes: "Este mes (a la fecha)",
   "mes-ant": "Mes anterior",
   "30d": "Últimos 30 días",
+  anio: "Este año (1 de enero a la fecha)",
   inicio: "Desde el inicio",
   personalizado: "Personalizado",
 } as const;
 export type Periodo = keyof typeof PERIODOS;
 
-export const COMPARAR = { ant: "Periodo anterior", sem: "Mismo periodo, semana anterior", no: "Sin comparación" } as const;
+/** Contra qué se compara (el orden es el del selector: primero el año pasado al mismo día). */
+export const COMPARAR = {
+  anio: "Mismo periodo del año pasado (al mismo día)", ant: "Periodo anterior (los mismos días justo antes)",
+  sem: "Mismo periodo, semana anterior", no: "Sin comparación",
+} as const;
+/** Nombre corto para las tarjetas («vs. …»). */
+export const COMPARAR_CORTO: Record<keyof typeof COMPARAR, string> = {
+  anio: "mismo periodo del año pasado", ant: "periodo anterior", sem: "semana anterior", no: "",
+};
 export type Comparar = keyof typeof COMPARAR;
 
 export const DIAS_SEM = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -29,9 +38,20 @@ export const diaSemana = (s: string) => (aFecha(s).getUTCDay() + 6) % 7;
 export const lunesDe = (s: string) => sumarDias(s, -diaSemana(s));
 export const inicioMes = (s: string) => `${s.slice(0, 7)}-01`;
 export const fechaCorta = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+/** Misma fecha un año antes (29/02 pasa a 28/02). */
+export const haceUnAnio = (s: string) => {
+  const t = `${Number(s.slice(0, 4)) - 1}${s.slice(4)}`;
+  return t.endsWith("-02-29") ? `${t.slice(0, 8)}28` : t;
+};
+/** Fecha equivalente del periodo actual para un día del periodo de comparación (inverso de rangoComparacion). */
+export function alinear(c: Comparar, desde: string, hasta: string): (s: string) => string {
+  if (c === "anio") return (s) => `${Number(s.slice(0, 4)) + 1}${s.slice(4)}`;
+  const n = c === "sem" ? 7 : diasEntre(desde, hasta);
+  return (s) => sumarDias(s, n);
+}
 export const fechaLarga = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 
-/** Rango de cada periodo, contado desde el último día publicado (SPSA publica con un día de atraso). */
+/** Rango de cada periodo, contado desde el último día con datos (SPSA publica con un día de atraso). */
 export function rangoPeriodo(p: Periodo, ultimo: string, primero: string, d1?: string, d2?: string): [string, string] {
   const lunes = lunesDe(ultimo);
   const mes = inicioMes(ultimo);
@@ -45,6 +65,7 @@ export function rangoPeriodo(p: Periodo, ultimo: string, primero: string, d1?: s
     case "mes": return [mes, ultimo];
     case "mes-ant": { const fin = sumarDias(mes, -1); return [inicioMes(fin), fin]; }
     case "30d": return [sumarDias(ultimo, -29), ultimo];
+    case "anio": return [`${ultimo.slice(0, 4)}-01-01`, ultimo];
     case "inicio": return [primero, ultimo];
     case "personalizado": {
       const a = d1 && d1 <= ultimo ? d1 : mes;
@@ -56,6 +77,7 @@ export function rangoPeriodo(p: Periodo, ultimo: string, primero: string, d1?: s
 
 export function rangoComparacion(c: Comparar, desde: string, hasta: string): [string, string] | null {
   if (c === "no") return null;
+  if (c === "anio") return [haceUnAnio(desde), haceUnAnio(hasta)];
   if (c === "sem") return [sumarDias(desde, -7), sumarDias(hasta, -7)];
   const n = diasEntre(desde, hasta);
   return [sumarDias(desde, -n), sumarDias(desde, -1)];

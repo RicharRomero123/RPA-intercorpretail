@@ -1,0 +1,66 @@
+import type { clienteSupabase } from "@/lib/supabase/server";
+
+/** Tiendas · ContaNet: la base devuelve los totales ya sumados (contanet_maestros, contanet_panel, tiendas_conciliacion). */
+type Supabase = Awaited<ReturnType<typeof clienteSupabase>>;
+const num = (v: unknown) => Number(v ?? 0);
+const leer = async <T,>(p: PromiseLike<{ data: unknown; error: unknown }>) => {
+  const { data, error } = await p;
+  if (error) throw new Error(`Error leyendo la base: ${JSON.stringify(error)}`);
+  return data as T;
+};
+/** Convierte a número las columnas indicadas (la base devuelve los numeric como texto o número). */
+const numeros = <T,>(xs: Record<string, unknown>[], claves: string[]) =>
+  xs.map((r) => ({ ...r, ...Object.fromEntries(claves.map((k) => [k, num(r[k])])) })) as T[];
+
+export type MaestrosContaNet = {
+  desde: string | null; hasta: string | null; tiendas: string[]; medios: string[]; productos: { sku: string; producto: string }[];
+};
+/** Canal dentro del reporte de ContaNet: tiendas, canal digital (usuario VENTAS01) o Rappi (cobrado con RAPPI). */
+export type CanalContaNet = "tiendas" | "digital" | "rappi";
+export const maestrosContaNet = (sb: Supabase, canal: CanalContaNet) => leer<MaestrosContaNet>(sb.rpc("contanet_maestros", { p_canal: canal }));
+
+type Base = { und: number; venta: number; tickets: number };
+export type PanelContaNet = {
+  dias: (Base & { fecha: string })[];
+  tiendas: (Base & { tienda: string; dias: number })[];
+  productos: (Base & { sku: string; producto: string })[];
+  horas: (Base & { hora: number })[];
+  medios: (Base & { medio: string })[];
+  comprobantes: { tipo: string; und: number; venta: number; documentos: number }[];
+  clientes: (Base & { doc: string; tipo_doc: string; cliente: string; ultima: string })[];
+};
+export type FiltroContaNet = { tiendas: string[]; skus: string[]; medios: string[]; dias: number[] };
+
+export async function panelContaNet(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet): Promise<PanelContaNet> {
+  const d = await leer<Record<keyof PanelContaNet, Record<string, unknown>[]>>(sb.rpc("contanet_panel", {
+    p_canal: canal, desde, hasta, p_tiendas: f.tiendas.length ? f.tiendas : null, p_skus: f.skus.length ? f.skus : null,
+    p_medios: f.medios.length ? f.medios : null, p_dias: f.dias.length < 7 ? f.dias : null,
+  }));
+  const b = ["und", "venta", "tickets"];
+  return {
+    dias: numeros(d.dias, b), tiendas: numeros(d.tiendas, [...b, "dias"]), productos: numeros(d.productos, b),
+    horas: numeros(d.horas, [...b, "hora"]), medios: numeros(d.medios, b), comprobantes: numeros(d.comprobantes, ["und", "venta", "documentos"]),
+    clientes: numeros(d.clientes, b),
+  };
+}
+
+/** Filtros de la página en el formato de las funciones de la base. */
+export const parametros = (f: FiltroContaNet) => ({
+  p_tiendas: f.tiendas.length ? f.tiendas : null, p_skus: f.skus.length ? f.skus : null,
+  p_medios: f.medios.length ? f.medios : null, p_dias: f.dias.length < 7 ? f.dias : null,
+});
+
+/** Venta de los 200 clientes principales por tienda (gráfico «en qué tiendas compró»). */
+export async function clientesPorTienda(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet) {
+  const filas = await leer<Record<string, unknown>[]>(sb.rpc("contanet_clientes_tiendas", { p_canal: canal, desde, hasta, ...parametros(f) }));
+  return numeros<{ doc: string; tienda: string; venta: number; und: number }>(filas ?? [], ["venta", "und"]);
+}
+
+export type FilaConciliacion = { fecha: string; tienda: string; und_interno: number; venta_interno: number; und_contanet: number; venta_contanet: number };
+export async function conciliacion(sb: Supabase, desde: string, hasta: string): Promise<FilaConciliacion[]> {
+  const filas = await leer<Record<string, unknown>[]>(sb.rpc("tiendas_conciliacion", { desde, hasta }));
+  return numeros(filas ?? [], ["und_interno", "venta_interno", "und_contanet", "venta_contanet"]);
+}
+
+export type Cobertura = { interno_desde: string | null; interno_hasta: string | null; contanet_desde: string | null; contanet_hasta: string | null };
+export const cobertura = (sb: Supabase) => leer<Cobertura>(sb.rpc("tiendas_cobertura"));

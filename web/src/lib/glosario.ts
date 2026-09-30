@@ -139,6 +139,50 @@ export const GLOSARIO = {
     formula: "«producto» = tabla del portal por producto; «local» = detalle por local. El detalle solo se guarda si su suma cuadra al céntimo con el TOTAL del portal.",
     uso: "Permite comprobar que los datos están completos y al día.",
   },
+  // ------------------------------------------------------------- módulo Tiendas
+  tVenta: {
+    titulo: "Venta de tiendas",
+    que: "Lo que se vendió en caja en las tiendas propias de Calderón.",
+    formula: "Suma de la columna «Tienda-Total Venta S/» de los Excel de venta diaria de cada tienda (carpeta «01. Ventas Diarias»), la misma que usa el Power BI.",
+    uso: "Es el ingreso del canal Tiendas. Cuadra al céntimo con el Power BI.",
+  },
+  tUnidades: {
+    titulo: "Unidades vendidas",
+    que: "Cantidad de productos vendidos en las tiendas.",
+    formula: "Suma de la columna «Tienda-Cantidad» de los Excel de venta diaria.",
+    uso: "Muestra el volumen real, sin el efecto de cambios de precio.",
+  },
+  tPrecio: {
+    titulo: "Precio promedio por unidad",
+    que: "A cuánto se vendió, en promedio, cada unidad.",
+    formula: "Venta ÷ unidades.",
+    ejemplo: "S/ 1,000 con 40 unidades → S/ 25 por unidad.",
+    uso: "Si baja, se está vendiendo más al por mayor, con precios especiales o más productos baratos.",
+  },
+  tVentaDia: {
+    titulo: "Venta promedio por día",
+    que: "Cuánto vende en un día normal de atención.",
+    formula: "Venta ÷ días con venta. En el total de todas las tiendas: venta total ÷ días del periodo con venta.",
+    uso: "Compara tiendas o periodos de distinto largo en igualdad (por ejemplo, una tienda que abrió a mitad de mes).",
+  },
+  tTipoPrecio: {
+    titulo: "Tipo de precio",
+    que: "Con qué lista de precios se hizo la venta: Unidad (público), Mayor (mayorista), especiales, trabajadores…",
+    formula: "Suma de la venta según la columna «Tipo de Precio» del Excel.",
+    uso: "Muestra cuánto del negocio es venta al público y cuánto es venta al por mayor o con precio especial.",
+  },
+  tEvolucion: {
+    titulo: "Venta en el tiempo",
+    que: "La venta de cada día, semana o mes del periodo elegido.",
+    formula: "Suma de la venta de las tiendas elegidas, agrupada por día, semana (desde el lunes) o mes. La línea punteada es el periodo de comparación, alineado por fecha equivalente (el 12/09/2026 con el 12/09/2025 si se compara con el año anterior).",
+    uso: "Permite ver la temporada, días fuertes y cómo va frente al año pasado.",
+  },
+  tCruce: {
+    titulo: "Producto por tienda",
+    que: "Cuánto vende cada tienda de cada producto.",
+    formula: "Suma de la venta por producto y tienda en el periodo.",
+    uso: "Muestra qué producto funciona en qué tienda, para ajustar el surtido y la reposición.",
+  },
 } satisfies Record<string, Explicacion>;
 
 export type ClaveGlosario = keyof typeof GLOSARIO;

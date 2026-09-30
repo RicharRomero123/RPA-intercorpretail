@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatear, type TipoColumna } from "@/lib/formato";
 import type { ClaveGlosario } from "@/lib/glosario";
@@ -15,10 +15,13 @@ const FORMATO_EXCEL: Partial<Record<TipoColumna, string>> = {
   entero: "#,##0", decimal1: "#,##0.0", decimal2: "#,##0.00", soles: "#,##0.00", porcentaje: "0.0%",
 };
 
-/** Tabla ordenable (clic en el encabezado), con buscador, fila TOTAL opcional y descarga a Excel (.xlsx). */
-export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, buscar = false }: {
+/** Tabla ordenable (clic en el encabezado), con buscador, fila TOTAL opcional y descarga a Excel (.xlsx).
+ *  Con «abrir», cada fila tiene una flecha y al hacer clic se abre su detalle (por ejemplo, las compras de un cliente en un panel). */
+export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, buscar = false, abrir, activa }: {
   columnas: Columna[]; filas: Fila[]; total?: Fila; archivo: string; hoja?: string; alto?: number; buscar?: boolean;
+  abrir?: (f: Fila) => void; activa?: (f: Fila) => boolean;
 }) {
+  const extra = abrir ? 1 : 0;
   const [orden, setOrden] = useState<{ clave: string; dir: 1 | -1 } | null>(null);
   const [texto, setTexto] = useState("");
   const visibles = useMemo(() => {
@@ -76,6 +79,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
         <table className="datos">
           <thead>
             <tr>
+              {abrir && <th className="w-8" aria-label="Ver detalle" />}
               {columnas.map((c) => {
                 const Icono = orden?.clave !== c.clave ? ArrowUpDown : orden.dir === 1 ? ArrowUp : ArrowDown;
                 return (
@@ -90,16 +94,28 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
             </tr>
           </thead>
           <tbody>
-            {visibles.map((f, i) => (
-              <tr key={i}>
-                {columnas.map((c) => <td key={c.clave} className={esNumero(c.tipo) ? "n" : ""}>{celda(f, c)}</td>)}
-              </tr>
-            ))}
+            {visibles.map((f, i) => {
+              const esActiva = activa?.(f) ?? false;
+              return (
+                <tr key={i} className={abrir ? `cursor-pointer ${esActiva ? "!bg-[var(--acento-suave)]" : ""}` : ""} onClick={abrir ? () => abrir(f) : undefined}>
+                  {abrir && (
+                    <td className="!px-1.5">
+                      <button type="button" className="grid place-items-center size-6 rounded hover:bg-[var(--superficie-2)]" aria-label="Ver detalle"
+                              onClick={(e) => { e.stopPropagation(); abrir(f); }}>
+                        <ChevronRight size={15} className={esActiva ? "text-[var(--acento)]" : ""} aria-hidden />
+                      </button>
+                    </td>
+                  )}
+                  {columnas.map((c) => <td key={c.clave} className={esNumero(c.tipo) ? "n" : ""}>{celda(f, c)}</td>)}
+                </tr>
+              );
+            })}
             {visibles.length === 0 && (
-              <tr><td colSpan={columnas.length} className="text-center text-[var(--tenue)] py-6">Sin resultados</td></tr>
+              <tr><td colSpan={columnas.length + extra} className="text-center text-[var(--tenue)] py-6">Sin resultados</td></tr>
             )}
             {total && !texto && (
               <tr className="total">
+                {abrir && <td />}
                 {columnas.map((c) => <td key={c.clave} className={esNumero(c.tipo) ? "n" : ""}>{formatear(total[c.clave], c.tipo)}</td>)}
               </tr>
             )}

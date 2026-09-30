@@ -1,11 +1,14 @@
-import { ArrowLeft, CalendarCheck, CircleCheck, CircleX, Clock, DatabaseZap } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CircleCheck, CircleX, Clock, DatabaseZap, History, Upload } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { salir } from "@/app/login/actions";
+import { CargarDatos } from "@/components/CargarDatos";
+import { HistorialCargas, type CargaWeb } from "@/components/HistorialCargas";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { Tabla } from "@/components/Tabla";
 import { Encabezado, Tarjeta } from "@/components/ui";
 import * as db from "@/lib/datos";
+import type { Equivalencia } from "@/lib/cargas";
 import { entero } from "@/lib/formato";
 import { fechaLarga } from "@/lib/periodos";
 import { clienteSupabase } from "@/lib/supabase/server";
@@ -26,7 +29,13 @@ function Dato({ titulo, valor, detalle }: { titulo: string; valor: string; detal
 export default async function Configuracion() {
   const sb = await clienteSupabase();
   const { data: { user } } = await sb.auth.getUser();
-  const [lim, cargas] = await Promise.all([db.limites(sb), db.cargas(sb)]);
+  const [lim, cargas, eq, maestro, web] = await Promise.all([
+    db.limites(sb), db.cargas(sb),
+    sb.from("sku_equivalencia").select("sistema, codigo, sku"),
+    sb.from("sku_maestro").select("sku"),
+    sb.from("cargas_web").select("id, creada, correo, tipo, archivo, desde, hasta, filas, venta, estado, reemplazo_venta")
+      .in("estado", ["cargada", "deshecha"]).order("creada", { ascending: false }).limit(200),
+  ]);
   const ultima = cargas[0];
   const ok = cargas.filter((c) => c.estado === "ok").length;
   const problemas = cargas.filter((c) => c.estado !== "ok");
@@ -47,7 +56,15 @@ export default async function Configuracion() {
       </div>
 
       <main className="@container px-4 sm:px-6 2xl:px-10 py-6 grid gap-6 max-w-6xl">
-        <Encabezado titulo="Configuración" descripcion="Estado de los datos y registro de las descargas automáticas del portal de Intercorp." />
+        <Encabezado titulo="Configuración" descripcion="Carga de los Excel diarios, estado de los datos y registro de las descargas automáticas del portal de Intercorp." />
+
+        <Tarjeta icono={Upload} titulo="Cargar datos" subtitulo="Reporte detallado de ContaNet y Excel de venta diaria de las tiendas">
+          <CargarDatos equivalencias={(eq.data ?? []) as Equivalencia[]} skus={(maestro.data ?? []).map((m) => m.sku as string)} correo={user?.email} />
+        </Tarjeta>
+
+        <Tarjeta icono={History} titulo="Archivos cargados desde la web" subtitulo="Los más recientes primero · la última carga de cada tipo se puede deshacer">
+          <HistorialCargas cargas={(web.data ?? []) as CargaWeb[]} />
+        </Tarjeta>
 
         <div className="grid gap-4 @4xl:grid-cols-2">
           <Tarjeta icono={CalendarCheck} titulo="Estado de los datos">

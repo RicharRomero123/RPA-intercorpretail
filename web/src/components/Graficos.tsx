@@ -52,11 +52,13 @@ const METRICAS = {
 } as const;
 
 /** Gráfico principal: una métrica a la vez (selector), con total, promedio, mejor periodo y la comparación punteada. */
-export function GraficoTendencia({ datos, agrupar, conPrevio, nombrePrevio, rango }: {
+type Metrica = keyof typeof METRICAS;
+export function GraficoTendencia({ datos, agrupar, conPrevio, nombrePrevio, rango, metricas = ["venta", "costo", "und"], nombres = {}, info = "evolucion" }: {
   datos: PuntoTendencia[]; agrupar: string; conPrevio: boolean; nombrePrevio: string; rango: string;
+  metricas?: Metrica[]; nombres?: Partial<Record<Metrica, string>>; info?: ClaveGlosario;
 }) {
-  const [m, setM] = useState<keyof typeof METRICAS>("venta");
-  const met = METRICAS[m];
+  const [m, setM] = useState<Metrica>(metricas[0]);
+  const met = { ...METRICAS[m], nombre: nombres[m] ?? METRICAS[m].nombre };
   const et = etiquetaPeriodo(agrupar);
   const serie = datos.map((d) => ({ periodo: d.periodo, actual: d[m], previo: d[`${m}_c` as const] }));
   const total = serie.reduce((a, d) => a + d.actual, 0);
@@ -66,7 +68,7 @@ export function GraficoTendencia({ datos, agrupar, conPrevio, nombrePrevio, rang
     <section className="tarjeta p-5 grid gap-4 min-w-0">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1 min-w-0">
-          <span className="flex items-center gap-1.5 text-[15px] font-semibold">{met.nombre} · {rango}<Ayuda clave="evolucion" /></span>
+          <span className="flex items-center gap-1.5 text-[15px] font-semibold">{met.nombre} · {rango}<Ayuda clave={info} /></span>
           <span className="text-xs text-[var(--tenue)]">
             Total <b className="num text-[var(--tinta)]">{met.formato(total)}</b>
             {" · "}Promedio por {unidad} <b className="num text-[var(--tinta)]">{met.formato(serie.length ? total / serie.length : 0)}</b>
@@ -75,8 +77,8 @@ export function GraficoTendencia({ datos, agrupar, conPrevio, nombrePrevio, rang
           </span>
         </div>
         <div className="segmento" role="group" aria-label="Métrica del gráfico">
-          {(Object.keys(METRICAS) as (keyof typeof METRICAS)[]).map((k) => (
-            <button key={k} type="button" aria-pressed={m === k} onClick={() => setM(k)}>{METRICAS[k].nombre.split(" ")[0]}</button>
+          {metricas.map((k) => (
+            <button key={k} type="button" aria-pressed={m === k} onClick={() => setM(k)}>{(nombres[k] ?? METRICAS[k].nombre).split(" ")[0]}</button>
           ))}
         </div>
       </header>

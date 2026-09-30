@@ -7,8 +7,8 @@ const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"
 const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], weight: ["600", "700", "800"] });
 
 export const metadata: Metadata = {
-  title: "Calderón Retail",
-  description: "Sell-out de turrones Calderón en Supermercados Peruanos: venta, rotación, instock y cobertura.",
+  title: "Calderón · Ventas",
+  description: "Ventas de Turrones Calderón por canal: retail (Supermercados Peruanos) y tiendas propias.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

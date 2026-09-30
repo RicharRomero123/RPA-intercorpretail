@@ -47,9 +47,18 @@ function Multiple({ id, etiqueta, opciones, elegidos, cambiar, buscar = false }:
   );
 }
 
-export function Filtros({ productos, cadenas, zonas, locales, ultimo, primero }: {
-  productos: Opcion[]; cadenas: string[]; zonas: string[]; locales: (Opcion & { cadena: string; zona: string })[];
-  ultimo: string; primero: string;
+/** Un filtro de lista (producto, cadena, tienda…). «padres»: la opción solo aparece si coincide con lo elegido en esos
+ *  otros filtros (por ejemplo, locales de la cadena elegida). «limpia»: filtros que se vacían al cambiar este. */
+export type Grupo = {
+  clave: string; etiqueta: string; opciones: (Opcion & { padres?: Record<string, string> })[]; limpia?: string[]; buscar?: boolean;
+};
+
+export function Filtros({ grupos, ultimo, primero, stock = false, compararDefecto = "anio", periodoDefecto = "mes", agruparDefecto = "dia", dias: conDias = true, comparar = true }: {
+  grupos: Grupo[]; ultimo: string; primero: string; stock?: boolean; compararDefecto?: string; periodoDefecto?: string; agruparDefecto?: string;
+  /** false: la página no filtra por día de la semana. */
+  dias?: boolean;
+  /** false: la página no compara periodos (se oculta el selector). */
+  comparar?: boolean;
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -66,12 +75,12 @@ export function Filtros({ productos, cadenas, zonas, locales, ultimo, primero }:
     iniciar(() => router.push(`${ruta}?${p.toString()}`, { scroll: false }));
   }
 
-  const periodo = sp.get("p") ?? "mes";
-  const agrupar = sp.get("g") ?? "dia";
+  const periodo = sp.get("p") ?? periodoDefecto;
+  const agrupar = sp.get("g") ?? agruparDefecto;
   const dias = sp.get("ds") ? sp.get("ds")!.split("").map(Number) : [0, 1, 2, 3, 4, 5, 6];
-  const cad = lista("cad"), zon = lista("zona");
-  const localesOp = locales.filter((l) => (!cad.length || cad.includes(l.cadena)) && (!zon.length || zon.includes(l.zona)));
-  const activos = [lista("prod"), cad, zon, lista("loc")].filter((x) => x.length).length + (dias.length < 7 ? 1 : 0);
+  const visibles = (g: Grupo) => g.opciones.filter((o) =>
+    Object.entries(o.padres ?? {}).every(([k, v]) => !lista(k).length || lista(k).includes(v)));
+  const activos = grupos.filter((g) => lista(g.clave).length).length + (dias.length < 7 ? 1 : 0);
 
   return (
     <div className="grid gap-3" aria-label="Filtros">
@@ -91,25 +100,27 @@ export function Filtros({ productos, cadenas, zonas, locales, ultimo, primero }:
                    onChange={(e) => poner({ d2: e.target.value })} aria-label="Hasta" />
           </span>
         )}
+        {comparar && (
         <label className="relative flex items-center">
           <GitCompareArrows size={15} className="absolute left-2.5 text-[var(--tenue)] pointer-events-none" aria-hidden />
-          <select id="f-comparar" className="campo !pl-8" value={sp.get("c") ?? "ant"} onChange={(e) => poner({ c: e.target.value })} aria-label="Comparar con">
+          <select id="f-comparar" className="campo !pl-8" value={sp.get("c") ?? compararDefecto} onChange={(e) => poner({ c: e.target.value })} aria-label="Comparar con">
             {Object.entries(COMPARAR).map(([k, t]) => <option key={k} value={k}>{k === "no" ? t : `vs. ${t.toLowerCase()}`}</option>)}
           </select>
         </label>
+        )}
         <div className="segmento" role="group" aria-label="Agrupar gráficos por">
           {[["dia", "Día"], ["semana", "Semana"], ["mes", "Mes"]].map(([k, t]) => (
-            <button key={k} type="button" aria-pressed={agrupar === k} onClick={() => poner({ g: k === "dia" ? null : k })}>{t}</button>
+            <button key={k} type="button" aria-pressed={agrupar === k} onClick={() => poner({ g: k === agruparDefecto ? null : k })}>{t}</button>
           ))}
         </div>
 
-        <details className="relative">
+        {(grupos.length > 0 || stock || conDias) && <details className="relative">
           <summary className={`boton list-none ${activos ? "!border-[var(--acento)] !text-[var(--acento)]" : ""}`}>
             <ListFilter size={15} aria-hidden /> Filtros
             {activos > 0 && <span className="grid place-items-center size-5 rounded-full bg-[var(--acento)] text-white text-[11px]">{activos}</span>}
           </summary>
           <div className="flotante w-[min(92vw,560px)] p-4 grid gap-4 right-0 lg:left-0 lg:right-auto">
-            <div className="grid gap-2">
+            {conDias && <div className="grid gap-2">
               <span className="etiqueta">Días de la semana</span>
               <div className="segmento w-fit" role="group" aria-label="Días de la semana">
                 {DIAS_SEM.map((d, i) => (
@@ -120,19 +131,17 @@ export function Filtros({ productos, cadenas, zonas, locales, ultimo, primero }:
                           }}>{d}</button>
                 ))}
               </div>
-            </div>
-            <div className="grid gap-2">
-              <span className="etiqueta">Producto, cadena y local</span>
+            </div>}
+            {grupos.length > 0 && <div className="grid gap-2">
+              <span className="etiqueta">Segmentar</span>
               <div className="flex flex-wrap gap-2">
-                <Multiple id="f-prod" etiqueta="Producto" opciones={productos} elegidos={lista("prod")} cambiar={(v) => poner({ prod: v })} />
-                <Multiple id="f-cad" etiqueta="Cadena" opciones={cadenas.map((c) => ({ valor: c, texto: c }))} elegidos={cad}
-                          cambiar={(v) => poner({ cad: v, loc: null })} />
-                <Multiple id="f-zona" etiqueta="Zona" opciones={zonas.map((z) => ({ valor: z, texto: z }))} elegidos={zon}
-                          cambiar={(v) => poner({ zona: v, loc: null })} />
-                <Multiple id="f-loc" etiqueta="Local" opciones={localesOp} elegidos={lista("loc")} cambiar={(v) => poner({ loc: v })} buscar />
+                {grupos.map((g) => (
+                  <Multiple key={g.clave} id={`f-${g.clave}`} etiqueta={g.etiqueta} opciones={visibles(g)} elegidos={lista(g.clave)} buscar={g.buscar}
+                            cambiar={(v) => poner({ [g.clave]: v, ...Object.fromEntries((g.limpia ?? []).map((k) => [k, null])) })} />
+                ))}
               </div>
-            </div>
-            <div className="grid gap-2">
+            </div>}
+            {stock && <div className="grid gap-2">
               <span className="etiqueta flex items-center gap-1.5"><SlidersHorizontal size={13} aria-hidden /> Parámetros de stock</span>
               <div className="grid sm:grid-cols-3 gap-2 text-xs text-[var(--tenue)]">
                 <label className="grid gap-1">Ventana de venta (días)
@@ -148,9 +157,9 @@ export function Filtros({ productos, cadenas, zonas, locales, ultimo, primero }:
                          onBlur={(e) => poner({ ca: e.target.value === "13" ? null : e.target.value })} />
                 </label>
               </div>
-            </div>
+            </div>}
           </div>
-        </details>
+        </details>}
 
         {sp.toString() && (
           <button type="button" className="boton" onClick={() => iniciar(() => router.push(ruta))}>

@@ -43,6 +43,36 @@ export function Variacion({ valor }: { valor: number | null | undefined }) {
   );
 }
 
+const MESES_LARGOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const dmy = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
+
+/** Franja que dice en palabras qué fechas se están viendo y contra cuáles se comparan. */
+export function FranjaComparacion({ desde, hasta, comp, tipo, hayDatos = true }: {
+  desde: string; hasta: string; comp: [string, string] | null; tipo: "anio" | "ant" | "sem" | "no"; hayDatos?: boolean;
+}) {
+  const dias = Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86_400_000) + 1;
+  const regla = tipo === "anio" ? `mismo corte: ${Number(hasta.slice(8, 10))} de ${MESES_LARGOS[Number(hasta.slice(5, 7)) - 1]}, un año antes`
+    : tipo === "ant" ? `los ${dias} días justo antes` : tipo === "sem" ? "las mismas fechas, 7 días antes" : "";
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-[var(--linea)] bg-[var(--superficie)] px-3 py-2 text-sm">
+      <span className="flex items-center gap-2">
+        <span className="rounded bg-[var(--acento)] px-1.5 py-0.5 text-[11px] font-bold text-white">{hasta.slice(0, 4)}</span>
+        <b className="num">{dmy(desde)} – {dmy(hasta)}</b><span className="text-xs text-[var(--tenue)]">({dias} días)</span>
+      </span>
+      {comp ? (
+        <>
+          <span className="text-[var(--tenue)]" aria-hidden>⟷</span>
+          <span className="flex items-center gap-2">
+            <span className="rounded bg-[var(--serie-gris)] px-1.5 py-0.5 text-[11px] font-bold text-white">{comp[1].slice(0, 4)}</span>
+            <b className="num">{dmy(comp[0])} – {dmy(comp[1])}</b>
+          </span>
+          <span className="text-xs text-[var(--tenue)]">· {regla}{!hayDatos && " · sin datos en esas fechas, no hay comparación"}</span>
+        </>
+      ) : <span className="text-xs text-[var(--tenue)]">· sin comparación</span>}
+    </div>
+  );
+}
+
 /** Título de sección con descripción. */
 export function Encabezado({ titulo, descripcion }: { titulo: string; descripcion?: React.ReactNode }) {
   return (
