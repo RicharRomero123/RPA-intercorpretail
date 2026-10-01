@@ -68,19 +68,31 @@ export const cobertura = (sb: Supabase) => leer<Cobertura>(sb.rpc("tiendas_cober
 /** Avance del día (función contanet_avance): por hora y por tienda, hoy vs el mismo día de la semana pasada. */
 export type Avance = {
   fecha: string | null; corte: string | null; actualizado: string | null; mes: number; dias_mes: number;
+  /** Primer y último día del reporte de ContaNet cargado (para elegir el día). */
+  primera: string | null; ultima_carga: string | null;
   /** Mismo día de la semana del año pasado (364 días antes): solo el total del día por tienda (reporte interno). */
   anio_pasado_fecha: string | null;
   /** La misma fecha del año pasado (puede ser otro día de la semana). */
   anio_pasado_misma_fecha: string | null;
   horas: { hora: number; hoy: number; antes: number; tickets: number }[];
   tiendas: { tienda: string; hoy: number; antes_corte: number; antes_dia: number; tickets: number; tickets_antes: number; ultima: string | null; anio_pasado: number | null; anio_pasado_fecha_igual: number | null }[];
+  /** Detalle del día: productos y medios de pago (vs el mismo día de la semana pasada a la misma hora) y principales clientes. */
+  productos: { sku: string; producto: string | null; hoy: number; und: number; antes_corte: number }[];
+  medios: { medio: string; hoy: number; antes_corte: number; tickets: number }[];
+  clientes: { doc: string; cliente: string | null; venta: number; tickets: number; hora: string | null; tiendas: string | null }[];
 };
-export async function avanceContaNet(sb: Supabase, canal: CanalContaNet): Promise<Avance> {
-  const d = await leer<Record<string, unknown>>(sb.rpc("contanet_avance", { p_canal: canal }));
+/** Avance de un día (por defecto el último día del reporte cargado, el mismo para todos los canales). */
+export async function avanceContaNet(sb: Supabase, canal: CanalContaNet, fecha?: string): Promise<Avance> {
+  const p_fecha = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : null;
+  const d = await leer<Record<string, unknown>>(sb.rpc("contanet_avance", { p_canal: canal, p_fecha }));
   return {
     fecha: (d.fecha as string) ?? null, corte: (d.corte as string) ?? null, actualizado: (d.actualizado as string) ?? null,
     anio_pasado_fecha: (d.anio_pasado_fecha as string) ?? null, anio_pasado_misma_fecha: (d.anio_pasado_misma_fecha as string) ?? null,
     mes: num(d.mes), dias_mes: num(d.dias_mes),
+    primera: (d.primera as string) ?? null, ultima_carga: (d.ultima_carga as string) ?? null,
+    productos: numeros(d.productos as Record<string, unknown>[], ["hoy", "und", "antes_corte"]),
+    medios: numeros(d.medios as Record<string, unknown>[], ["hoy", "antes_corte", "tickets"]),
+    clientes: numeros(d.clientes as Record<string, unknown>[], ["venta", "tickets"]),
     horas: numeros(d.horas as Record<string, unknown>[], ["hora", "hoy", "antes", "tickets"]),
     tiendas: numeros<Avance["tiendas"][number]>(d.tiendas as Record<string, unknown>[], ["hoy", "antes_corte", "antes_dia", "tickets", "tickets_antes"])
       .map((t, i) => {

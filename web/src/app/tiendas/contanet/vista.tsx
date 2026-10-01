@@ -41,7 +41,7 @@ export type FuenteContaNet = {
   carga: () => Promise<{ equivalencias: Equivalencia[]; skus: string[]; cargas: CargaWeb[] }>;
   ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo>;
   clientesTiendas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<ClienteTienda[]>;
-  avance: () => Promise<{ avance: Avance; meta: number | null }>;
+  avance: (fecha?: string) => Promise<{ avance: Avance; meta: number | null }>;
 };
 
 /** Cómo se muestra cada canal del reporte de ContaNet. */
@@ -85,7 +85,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
 
   const [A, B, ej, cliTiendas, av] = await Promise.all([fuente.panel(desde, hasta, filtro), comp ? fuente.panel(comp[0], comp[1], filtro) : Promise.resolve(null),
     fuente.ejecutivo(desde, hasta, { tienda: filtro.tiendas, sku: filtro.skus, medio: filtro.medios, dias: filtro.dias }),
-    fuente.clientesTiendas(desde, hasta, filtro), fuente.avance()]);
+    fuente.clientesTiendas(desde, hasta, filtro), fuente.avance(uno(sp.dia))]);
   const R = sumar(A.dias), RC = B ? sumar(B.dias) : null;
   const hayComp = !!B && B.dias.length > 0;
   const diasVenta = A.dias.filter((d) => d.venta > 0).length;
@@ -281,7 +281,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   return (
     <Marco seccion={sp.s} ubicacion={cfg.ubicacion} tiposRetail={tipos} encabezado={encabezado} usuario={usuario} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
       { id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ej} desde={desde} hasta={hasta} config={CONFIG[canal === "tiendas" ? "contanet_tiendas" : canal]} archivo={`${canal}_contanet_ejecutivo`} /> },
-      { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`) },
+      { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`, cfg.titulo) },
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
     ]} />

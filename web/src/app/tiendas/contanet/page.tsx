@@ -17,8 +17,8 @@ export default async function TiendasContaNet({ searchParams }: { searchParams: 
     maestros: () => maestrosContaNet(sb, "tiendas"),
     panel: (a, b, f) => panelContaNet(sb, "tiendas", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "tiendas", a, b, f),
-    avance: async () => {
-      const avance = await avanceContaNet(sb, "tiendas");
+    avance: async (fecha) => {
+      const avance = await avanceContaNet(sb, "tiendas", fecha);
       const meta = avance.fecha ? await metaMes(sb, "TIENDAS", Number(avance.fecha.slice(0, 4)), Number(avance.fecha.slice(5, 7))) : null;
       return { avance, meta };
     },

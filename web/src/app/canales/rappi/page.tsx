@@ -17,8 +17,8 @@ export default async function CanalRappi({ searchParams }: { searchParams: Promi
     maestros: () => maestrosContaNet(sb, "rappi"),
     panel: (a, b, f) => panelContaNet(sb, "rappi", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "rappi", a, b, f),
-    avance: async () => {
-      const avance = await avanceContaNet(sb, "rappi");
+    avance: async (fecha) => {
+      const avance = await avanceContaNet(sb, "rappi", fecha);
       const meta = avance.fecha ? await metaMes(sb, "RAPPI", Number(avance.fecha.slice(0, 4)), Number(avance.fecha.slice(5, 7))) : null;
       return { avance, meta };
     },

@@ -17,8 +17,8 @@ export default async function CanalDigital({ searchParams }: { searchParams: Pro
     maestros: () => maestrosContaNet(sb, "digital"),
     panel: (a, b, f) => panelContaNet(sb, "digital", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "digital", a, b, f),
-    avance: async () => {
-      const avance = await avanceContaNet(sb, "digital");
+    avance: async (fecha) => {
+      const avance = await avanceContaNet(sb, "digital", fecha);
       const meta = null; // el canal digital no tiene meta propia en el consolidado
       return { avance, meta };
     },

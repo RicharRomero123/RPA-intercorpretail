@@ -1,5 +1,6 @@
-// Sección «Avance del día» de las vistas de ContaNet: cómo va el día hora por hora frente al mismo día de la semana pasada.
-import { CalendarClock, Clock, Store } from "lucide-react";
+// Sección «Avance del día» de las vistas de ContaNet (Tiendas, Rappi, Canal digital): cómo va un día específico hora por hora
+// frente al mismo día de la semana pasada, con su detalle (tiendas, productos, medios de pago, clientes).
+import { CalendarClock, ChevronLeft, ChevronRight, Clock, CreditCard, IdCard, Package, Store } from "lucide-react";
 import { GraficoAvance } from "@/components/GraficoAvance";
 import { Indicador } from "@/components/Graficos";
 import { Tabla } from "@/components/Tabla";
@@ -15,7 +16,25 @@ const conDia = (f: string) => `${DIAS[new Date(`${f}T12:00:00`).getDay()]} ${fec
 const hoyLima = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 const horaLima = (iso: string) => new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
 
-export function seccionAvance(av: Avance, meta: number | null, conTiendas: boolean, archivo: string) {
+/** Elegir el día a analizar: el último cargado por defecto, o cualquier día del reporte de ContaNet. */
+function SelectorDia({ fecha, primera, ultima }: { fecha: string; primera: string | null; ultima: string | null }) {
+  const anterior = sumarDias(fecha, -1), siguiente = sumarDias(fecha, 1);
+  const enlace = "inline-flex items-center gap-1 rounded-md border border-[var(--linea)] px-2 py-1 text-xs hover:bg-[var(--superficie-2)]";
+  return (
+    <form method="get" className="flex flex-wrap items-center gap-2 text-sm">
+      <input type="hidden" name="s" value="avance" />
+      <span className="text-xs text-[var(--tenue)]">Día a analizar</span>
+      {(!primera || anterior >= primera) && <a className={enlace} href={`?s=avance&dia=${anterior}`}><ChevronLeft size={13} aria-hidden />Anterior</a>}
+      <input type="date" name="dia" defaultValue={fecha} min={primera ?? undefined} max={ultima ?? undefined}
+             className="rounded-md border border-[var(--linea)] bg-[var(--superficie)] px-2 py-1 text-xs" />
+      <button type="submit" className="rounded-md bg-[var(--acento)] px-2.5 py-1 text-xs font-semibold text-white">Ver día</button>
+      {(!ultima || siguiente <= ultima) && <a className={enlace} href={`?s=avance&dia=${siguiente}`}>Siguiente<ChevronRight size={13} aria-hidden /></a>}
+      {ultima && fecha !== ultima && <a className={enlace} href="?s=avance">Último día cargado ({fechaLarga(ultima)})</a>}
+    </form>
+  );
+}
+
+export function seccionAvance(av: Avance, meta: number | null, conTiendas: boolean, archivo: string, canal = "El canal") {
   if (!av.fecha) return <p className="text-sm text-[var(--tenue)]">Todavía no hay ventas cargadas de ContaNet.</p>;
   const fecha = av.fecha, esHoy = fecha === hoyLima();
   const corte = av.corte ? av.corte.slice(0, 5) : null;
@@ -30,7 +49,7 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
   // Parte del día que normalmente ya pasó a esta hora (según el mismo día de la semana pasada) y proyección del día.
   const avanceNormal = esHoy && T.antesDia ? T.antes / T.antesDia : null;
   const proyeccion = esHoy && avanceNormal ? T.hoy / avanceNormal : T.hoy;
-  const titulo = esHoy ? `Hoy ${conDia(fecha)} hasta las ${corte ?? "—"}` : `${conDia(fecha)} (último día cargado, cerrado)`;
+  const titulo = esHoy ? `Hoy ${conDia(fecha)} hasta las ${corte ?? "—"}` : `${conDia(fecha)} (${fecha === av.ultima_carga ? "último día cargado, " : ""}día cerrado)`;
   const compara = esHoy ? `${conDia(antes)} hasta la misma hora` : conDia(antes);
 
   // Ritmo para la meta del mes: lo que falta repartido en los días que quedan (incluido el día que se mira).
@@ -41,9 +60,20 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
   const porTienda = av.tiendas.map((t) => ({ ...t, var: variacion(t.hoy, t.antes_corte), var_tickets: variacion(t.tickets, t.tickets_antes),
     alcanzado: t.anio_pasado ? t.hoy / t.anio_pasado : null }))
     .sort((a, b) => b.hoy - a.hoy);
+  const productos = av.productos.map((x) => ({ ...x, producto: x.producto ?? x.sku, pct: T.hoy ? x.hoy / T.hoy : null, var: variacion(x.hoy, x.antes_corte) }));
+  const medios = av.medios.filter((x) => x.hoy || x.antes_corte)
+    .map((x) => ({ ...x, pct: T.hoy ? x.hoy / T.hoy : null, var: variacion(x.hoy, x.antes_corte), ticket_prom: x.tickets ? x.hoy / x.tickets : null }));
+  const undDia = productos.reduce((a, x) => a + x.und, 0);
 
   return (
     <>
+      <SelectorDia fecha={fecha} primera={av.primera} ultima={av.ultima_carga} />
+      {T.hoy === 0 && (
+        <p className="rounded-lg border border-[var(--alerta)] bg-[var(--alerta-suave)] px-3 py-2 text-sm">
+          {canal} no tiene ventas en ContaNet el {conDia(fecha)}{esHoy && corte ? ` hasta las ${corte}` : ""}. El reporte cargado sí trae ese día
+          (es el mismo Excel de ContaNet de las tiendas); el {conDia(antes)} vendió {soles(T.antesDia)}.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--linea)] bg-[var(--superficie)] px-3 py-2 text-sm">
         <Clock size={15} className="text-[var(--acento)]" aria-hidden />
         <b>{titulo}</b>
@@ -133,6 +163,35 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
             «Última venta»: hora del último comprobante de esa tienda; si una tienda se quedó muy atrás en la hora, revisa si está registrando en ContaNet.
             El robot actualiza el día varias veces (por defecto 10:00, 13:00, 16:00 y 19:00); el cierre de las 07:30 deja el día anterior completo.
           </p>
+        </Tarjeta>
+      )}
+
+      <div className="grid gap-4 @5xl:grid-cols-2">
+        <Tarjeta icono={Package} titulo="Productos del día" subtitulo={`${titulo} vs el ${compara}`}>
+          <Tabla archivo={`${archivo}_productos.xlsx`} hoja="Productos" filas={productos}
+                 columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "hoy", titulo: `${conDia(fecha)} S/`, tipo: "soles" },
+                   { clave: "pct", titulo: "% del día", tipo: "porcentaje" }, { clave: "und", titulo: "Und", tipo: "entero" },
+                   { clave: "antes_corte", titulo: `${conDia(antes)} S/`, tipo: "soles" }, { clave: "var", titulo: "Variación", tipo: "porcentaje" }]}
+                 total={{ producto: "TOTAL", hoy: T.hoy, pct: T.hoy ? 1 : null, und: undDia, antes_corte: T.antes, var: variacion(T.hoy, T.antes) }} />
+        </Tarjeta>
+        <Tarjeta icono={CreditCard} titulo="Medios de pago del día" subtitulo={`${titulo} vs el ${compara}`}>
+          <Tabla archivo={`${archivo}_medios.xlsx`} hoja="Medios de pago" filas={medios}
+                 columnas={[{ clave: "medio", titulo: "Medio de pago", tipo: "texto" }, { clave: "hoy", titulo: `${conDia(fecha)} S/`, tipo: "soles" },
+                   { clave: "pct", titulo: "% del día", tipo: "porcentaje" }, { clave: "tickets", titulo: "Tickets", tipo: "entero" },
+                   { clave: "ticket_prom", titulo: "Ticket prom. S/", tipo: "soles" },
+                   { clave: "antes_corte", titulo: `${conDia(antes)} S/`, tipo: "soles" }, { clave: "var", titulo: "Variación", tipo: "porcentaje" }]}
+                 total={{ medio: "TOTAL", hoy: T.hoy, pct: T.hoy ? 1 : null, tickets: T.tickets, ticket_prom: T.tickets ? T.hoy / T.tickets : null,
+                          antes_corte: T.antes, var: variacion(T.hoy, T.antes) }} />
+        </Tarjeta>
+      </div>
+
+      {av.clientes.length > 0 && (
+        <Tarjeta icono={IdCard} titulo="Principales clientes del día" subtitulo={`${conDia(fecha)} · clientes con DNI/RUC (las ventas sin documento no se listan)`}>
+          <Tabla archivo={`${archivo}_clientes.xlsx`} hoja="Clientes" filas={av.clientes.map((c) => ({ ...c, pct: T.hoy ? c.venta / T.hoy : null }))}
+                 columnas={[{ clave: "cliente", titulo: "Cliente", tipo: "texto" }, { clave: "doc", titulo: "DNI/RUC", tipo: "texto" },
+                   ...(conTiendas ? [{ clave: "tiendas", titulo: "Tienda", tipo: "texto" } as const] : []),
+                   { clave: "venta", titulo: "Venta S/", tipo: "soles" }, { clave: "pct", titulo: "% del día", tipo: "porcentaje" },
+                   { clave: "tickets", titulo: "Tickets", tipo: "entero" }, { clave: "hora", titulo: "Última compra", tipo: "texto" }]} />
         </Tarjeta>
       )}
     </>
