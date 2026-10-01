@@ -96,44 +96,84 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
       </div>
 
       {hayLY && av.anio_pasado_fecha && (() => {
-        // Dos referencias del año pasado (día completo, reporte interno): el mismo día de la semana y la misma fecha.
+        // Dos referencias del año pasado (día completo, reporte interno): el mismo día de la semana (la recomendada) y la misma fecha.
+        // Cada una se lee en tres pasos: cuánto se vendió ese día el año pasado, cuánto lleva hoy y en cuánto cerraría hoy.
         const refs = [
           { titulo: "Mismo día de la semana", fecha: av.anio_pasado_fecha, total: T.ly, principal: true },
           ...(av.anio_pasado_misma_fecha ? [{ titulo: "Misma fecha", fecha: av.anio_pasado_misma_fecha, total: TF, principal: false }] : []),
         ];
+        const cierre = esHoy ? proyeccion : T.hoy;
+        const principal = refs[0];
+        const varPrincipal = principal.total ? cierre / principal.total - 1 : null;
+        const signo = (x: number) => (x >= 0 ? "+" : "−");
+        const color = (x: number | null) => (x === null ? "" : x >= 0 ? "text-[var(--bueno)]" : "text-[var(--critico)]");
         return (
-          <Tarjeta icono={CalendarClock} titulo="Frente al año pasado (día completo)"
-                   subtitulo="Del reporte interno: del año pasado solo hay el total del día, no el detalle por hora">
-            <div className="grid gap-3 @3xl:grid-cols-2">
+          <Tarjeta icono={CalendarClock} titulo="Frente al año pasado"
+                   subtitulo="El año pasado sale del reporte interno, que solo tiene el total del día (no la venta por hora)">
+            {varPrincipal !== null && (
+              <p className="text-[15px] leading-snug">
+                {esHoy ? "Si el resto del día sigue el ritmo del " + diaSemana + " pasado, hoy cerraría " : "Ese día cerró "}
+                <b className={`num ${color(varPrincipal)}`}>{signo(varPrincipal)}{porcentaje(Math.abs(varPrincipal))}</b>
+                {" "}{varPrincipal >= 0 ? "por encima" : "por debajo"} del {conDia(principal.fecha)}
+                {" "}(<b className="num">{signo(cierre - principal.total)}{soles(Math.abs(cierre - principal.total))}</b>).
+              </p>
+            )}
+            <div className="grid gap-4 @4xl:grid-cols-2">
               {refs.map((r) => {
-                const pct = r.total ? T.hoy / r.total : null, pctProy = r.total ? proyeccion / r.total - 1 : null;
+                const escala = Math.max(r.total, cierre, T.hoy) * 1.04 || 1;
+                const ancho = (v: number) => `${Math.min(100, (v / escala) * 100)}%`;
+                const pct = r.total ? T.hoy / r.total : null;
+                const varCierre = r.total ? cierre / r.total - 1 : null;
+                const falta = r.total - T.hoy;
                 return (
-                  <div key={r.titulo} className="grid gap-2 rounded-lg border border-[var(--linea)] p-3 text-sm">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <b>{r.titulo}{r.principal && <span className="ml-1.5 rounded bg-[var(--acento-suave)] px-1.5 py-0.5 text-[10px] text-[var(--acento)]">recomendada</span>}</b>
-                      <span className="text-xs"><b className="text-[var(--acento)]">{conDia(fecha)}</b> <span className="text-[var(--tenue)]">vs</span> <b>{conDia(r.fecha)}</b></span>
+                  <div key={r.titulo} className={`grid gap-3 rounded-lg border p-4 text-sm ${r.principal ? "border-[var(--tinta)]/25" : "border-[var(--linea)]"}`}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <b className="flex items-center gap-1.5">{r.titulo}
+                        {r.principal && <span className="rounded border border-[var(--acento)] px-1.5 py-px text-[10px] font-semibold text-[var(--acento)]">recomendada</span>}</b>
+                      <span className="text-xs text-[var(--tenue)]">{conDia(fecha)} vs {conDia(r.fecha)}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <span className="grid"><span className="text-[11px] text-[var(--tenue)]">Año pasado, día</span><b className="num">{soles(r.total)}</b></span>
-                      <span className="grid"><span className="text-[11px] text-[var(--tenue)]">{esHoy ? "Hoy lleva" : "Este año"}</span><b className="num">{porcentaje(pct)}</b></span>
-                      <span className="grid"><span className="text-[11px] text-[var(--tenue)]">{esHoy ? "Proyección" : "Variación"}</span>
-                        <b className={`num ${pctProy !== null && pctProy < 0 ? "text-[var(--critico)]" : "text-[var(--bueno)]"}`}>
-                          {pctProy === null ? "—" : `${pctProy >= 0 ? "+" : ""}${porcentaje(pctProy)}`}</b></span>
-                    </div>
-                    {pct !== null && (
-                      <div className="relative h-3 rounded-full bg-[var(--superficie-2)] overflow-hidden">
-                        <div className="absolute inset-y-0 left-0 rounded-full bg-[var(--serie-1)]" style={{ width: `${Math.min(100, pct * 100)}%` }} />
-                        {avanceNormal !== null && <div className="absolute inset-y-0 w-0.5 bg-[var(--tinta)]" style={{ left: `${Math.min(100, avanceNormal * 100)}%` }} />}
+
+                    {/* Barras en la misma escala: gris = año pasado (día completo); naranja = hoy hasta ahora; naranja claro = lo que falta para la proyección. */}
+                    <div className="grid gap-2">
+                      <div className="grid gap-1">
+                        <div className="flex justify-between gap-2 text-xs"><span className="text-[var(--tenue)]">Año pasado · {conDia(r.fecha)} · día completo</span>
+                          <b className="num">{soles(r.total)}</b></div>
+                        <div className="relative h-4 rounded bg-[var(--superficie-2)]">
+                          <div className="absolute inset-y-0 left-0 rounded bg-[var(--serie-gris)]" style={{ width: ancho(r.total) }} />
+                        </div>
                       </div>
-                    )}
+                      <div className="grid gap-1">
+                        <div className="flex justify-between gap-2 text-xs">
+                          <span className="text-[var(--tenue)]">{esHoy ? `Hoy hasta las ${corte ?? "—"}` : `Este año · ${conDia(fecha)}`}{esHoy && <> · <span className="text-[var(--acento)]">proyección al cierre</span></>}</span>
+                          <b className="num">{soles(T.hoy)}{esHoy && <span className="font-normal text-[var(--tenue)]"> → {soles(proyeccion)}</span>}</b></div>
+                        <div className="relative h-4 rounded bg-[var(--superficie-2)]">
+                          {esHoy && <div className="absolute inset-y-0 left-0 rounded border border-dashed border-[var(--serie-1)] bg-[color-mix(in_srgb,var(--serie-1)_18%,transparent)]" style={{ width: ancho(proyeccion) }} />}
+                          <div className="absolute inset-y-0 left-0 rounded bg-[var(--serie-1)]" style={{ width: ancho(T.hoy) }} />
+                          <div className="absolute -inset-y-1 w-0.5 bg-[var(--tinta)]" style={{ left: ancho(r.total) }} title="Total del día del año pasado" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 border-t border-[var(--linea)] pt-3">
+                      <span className="grid gap-0.5">
+                        <span className="text-[11px] text-[var(--tenue)]">{esHoy ? "Hoy ya vendió" : "Vendió"}</span>
+                        <b className="num text-base">{porcentaje(pct)}</b>
+                        <span className="text-[11px] text-[var(--tenue)]">del día completo del año pasado{esHoy ? (falta > 0 ? ` · faltan ${soles(falta)} para igualarlo` : " · ya lo superó") : ""}</span>
+                      </span>
+                      <span className="grid gap-0.5">
+                        <span className="text-[11px] text-[var(--tenue)]">{esHoy ? "Cerraría" : "Variación"}</span>
+                        <b className={`num text-base ${color(varCierre)}`}>{varCierre === null ? "—" : `${signo(varCierre)}${porcentaje(Math.abs(varCierre))}`}</b>
+                        <span className="text-[11px] text-[var(--tenue)]">vs año pasado ({varCierre === null ? "—" : `${signo(cierre - r.total)}${soles(Math.abs(cierre - r.total))}`})</span>
+                      </span>
+                    </div>
                   </div>
                 );
               })}
             </div>
             <p className="text-xs text-[var(--tenue)]">
-              {esHoy ? <>Hoy hasta ahora: <b className="num">{soles(T.hoy)}</b>. Proyección del día: <b className="num">{soles(proyeccion)}</b>, si el resto del día
-                sigue el ritmo del {diaSemana} pasado (a las {corte} llevaba el {porcentaje(avanceNormal)} de su día; la raya en cada barra marca ese punto). </> : null}
-              «Mismo día de la semana» compara {diaSemana} con {diaSemana} (364 días antes) y suele ser la referencia más justa; «Misma fecha» puede caer en otro día.
+              {esHoy && <>Proyección: lo vendido hasta ahora más lo que falta según el ritmo del {diaSemana} pasado (a las {corte} llevaba el {porcentaje(avanceNormal)} de
+                su día). La raya negra marca el total del año pasado: cuando la barra naranja la pasa, hoy ya superó ese día. </>}
+              «Mismo día de la semana» compara {diaSemana} con {diaSemana} (364 días antes) y es la referencia más justa; «Misma fecha» puede caer en otro día de la semana.
             </p>
           </Tarjeta>
         );
