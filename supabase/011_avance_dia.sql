@@ -1,4 +1,5 @@
 -- Avance del día: corridas del robot durante el día (solo «hoy») sin perder el respaldo del cierre, y la consulta del avance.
+-- Nota: contanet_avance() se reemplaza en 013_avance_anio_pasado.sql.
 --  - Respaldos: se guardan las 2 últimas cargas de varios días y las 4 últimas de un solo día, por tipo.
 --  - Deshacer: se puede deshacer una carga si ninguna posterior del mismo tipo cubre sus fechas.
 -- Reemplaza confirmar_carga() y deshacer_carga() de 005. Es repetible.
