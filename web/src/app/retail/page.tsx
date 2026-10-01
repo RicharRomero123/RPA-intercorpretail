@@ -25,7 +25,7 @@ const variacion = (a: number | null, b: number | null | undefined) => (a !== nul
 const div = (a: number, b: number) => (b ? a / b : null);
 const sumar = (xs: { und: number; venta: number }[]) => xs.reduce((a, x) => ({ und: a.und + x.und, venta: a.venta + x.venta }), { und: 0, venta: 0 });
 
-/** Resumen de todo el canal retail: Supermercados · SPSA y cada tipo cargado desde el Excel de ventas retail. */
+/** Resumen de todo el canal retail: despachos de Calderón a cada tipo de retail (Excel «Ventas RETAIL»), lo mismo que el consolidado en RETAIL. */
 export default async function ResumenRetail({ searchParams }: { searchParams: Params }) {
   const sp = await searchParams;
   const sb = await clienteSupabase();
@@ -47,12 +47,12 @@ export default async function ResumenRetail({ searchParams }: { searchParams: Pa
   const R = sumar(A), RC = comp ? sumar(B) : null;
   const hayComp = B.length > 0;
 
-  // Por componente (SPSA y cada tipo), con su comparación.
+  // Por tipo de retail, con sus clientes y su comparación.
   const componentes = [...new Set([...A, ...B].map((x) => x.componente))];
   const porComponente = componentes.map((c) => {
     const a = sumar(A.filter((x) => x.componente === c)), b = sumar(B.filter((x) => x.componente === c));
     const slug = [...A, ...B].find((x) => x.componente === c)!.slug;
-    return { componente: c, dato: slug === "spsa" ? "Venta en tienda a costo (sell-out)" : "Despachos a clientes (sell-in)",
+    return { componente: c, slug,
              und: a.und, venta: a.venta, pct: div(a.venta, R.venta), precio: div(a.venta, a.und),
              venta_c: hayComp ? b.venta : null, var: variacion(a.venta, b.venta) };
   }).sort((x, y) => y.venta - x.venta);
@@ -110,20 +110,20 @@ export default async function ResumenRetail({ searchParams }: { searchParams: Pa
             </div>
             <Tarjeta icono={Layers} titulo="Venta por tipo de retail" subtitulo={rango}>
               <ListaBarras formato={(v) => `${soles(v)} · ${porcentaje(R.venta ? v / R.venta : 0)}`}
-                           filas={porComponente.map((c) => ({ etiqueta: c.componente, valor: c.venta, detalle: c.dato }))} />
+                           filas={porComponente.map((c) => ({ etiqueta: c.componente, valor: c.venta }))} />
             </Tarjeta>
           </div>
           <Tarjeta icono={Layers} titulo="Por tipo de retail" subtitulo={rango}>
             <Tabla archivo={`retail_resumen_${desde}_${hasta}.xlsx`} hoja="Resumen retail" filas={porComponente}
-                   columnas={[{ clave: "componente", titulo: "Tipo de retail", tipo: "texto" }, { clave: "dato", titulo: "Qué mide", tipo: "texto" },
+                   columnas={[{ clave: "componente", titulo: "Tipo de retail", tipo: "texto" },
                      { clave: "und", titulo: "Unidades", tipo: "entero" }, { clave: "venta", titulo: "Venta S/", tipo: "soles" },
                      { clave: "pct", titulo: "% venta", tipo: "porcentaje" }, { clave: "precio", titulo: "Precio prom. S/", tipo: "decimal2" }, ...colComp]}
                    total={{ componente: "TOTAL", und: R.und, venta: R.venta, pct: R.venta ? 1 : null, precio: div(R.venta, R.und),
                             ...(hayComp ? { venta_c: RC!.venta, var: variacion(R.venta, RC!.venta) } : {}) }} />
             <p className="text-xs text-[var(--tenue)]">
-              <b>Supermercados · SPSA</b>: lo que vendieron los supermercados en sus tiendas, valorizado a costo (lo que SPSA le paga a Calderón),
-              sin IGV, del portal de Intercorp. <b>Los demás tipos</b>: el monto cancelado de los despachos de Calderón a esos clientes, tal como
-              figura en el Excel de ventas retail. Son medidas distintas (venta en tienda vs despacho); se suman para ver el tamaño total del canal.
+              Monto cancelado de los despachos de Calderón a sus clientes retail, del Excel «Ventas RETAIL»: es lo mismo que suma el consolidado
+              en RETAIL (cuadra al céntimo mes a mes). Lo que Supermercados Peruanos vendió al público (portal de Intercorp) se ve aparte en
+              <b> Retail · SPSA</b>; no se suma aquí para no contar dos veces a SPSA (lo despachado y lo vendido).
             </p>
           </Tarjeta>
           <Tarjeta icono={CalendarDays} titulo={`Detalle por ${agrupar === "dia" ? "día" : agrupar}`} subtitulo={rango}>

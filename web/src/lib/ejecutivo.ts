@@ -22,7 +22,7 @@ export async function datosEjecutivo(sb: Supabase, fuente: Fuente, desde: string
 /** Qué es «cliente» en cada canal. */
 export const CONFIG: Record<"retail" | "spsa" | "tipo" | "tiendas" | "contanet_tiendas" | "digital" | "rappi", ConfigEjecutivo> = {
   retail: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta retail S/",
-            nota: "SPSA: venta en tienda a costo (ingreso Calderón, del portal). Demás clientes: monto de despachos del Excel de ventas retail." },
+            nota: "Monto cancelado de los despachos a cada cliente retail (Excel «Ventas RETAIL»); cuadra con el consolidado en RETAIL." },
   spsa: { dim: "Cadena", dims: "cadenas", activos: "Cadenas activas", venta: "Ingreso Calderón S/",
           nota: "Venta a costo (lo que SPSA le paga a Calderón por lo vendido), sin IGV, del portal de Intercorp." },
   tipo: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Monto S/", nota: "Monto cancelado de los despachos, del Excel de ventas retail." },
