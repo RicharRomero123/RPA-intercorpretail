@@ -21,3 +21,8 @@ web/.next/
 web/out/
 web/next-env.d.ts
 .vercel
+
+# Empaquetado del programa Robot ContaNet (PyInstaller)
+rpa/build/
+rpa/dist/
+*.spec
