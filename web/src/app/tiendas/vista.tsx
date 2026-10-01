@@ -126,7 +126,7 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
     <header className="grid gap-4">
       <div className="grid gap-1">
         <p className="etiqueta">Tiendas · Reporte interno (Excel de los jefes) · Turrones Calderón</p>
-        <h1 className="text-[28px] font-extrabold leading-tight">Reporte interno de tiendas</h1>
+        <h1 className="text-[28px] font-bold leading-tight">Reporte interno de tiendas</h1>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {nDias} días
           {diasVenta !== nDias && ` (${diasVenta} con venta)`}

@@ -11,6 +11,15 @@ export type Columna = { clave: string; titulo: string; tipo: TipoColumna; info?:
 type Fila = Record<string, unknown>;
 
 const esNumero = (t: TipoColumna) => !["texto", "estado"].includes(t);
+/** Columnas de variación (var, var_tickets, crec…): se muestran con signo y en verde/rojo. */
+const esVariacion = (c: Columna) => c.tipo === "porcentaje" && /^(var|crec)/.test(c.clave);
+const claseCelda = (c: Columna, v: unknown) => {
+  if (!esNumero(c.tipo)) return "";
+  if (esVariacion(c) && typeof v === "number" && Number.isFinite(v) && v !== 0) return `n ${v > 0 ? "sube" : "baja"}`;
+  return "n";
+};
+const conSigno = (c: Columna, v: unknown, texto: string) =>
+  esVariacion(c) && typeof v === "number" && Number.isFinite(v) ? (v > 0 ? `+${texto}` : v < 0 ? `−${texto.replace("-", "")}` : texto) : texto;
 const FORMATO_EXCEL: Partial<Record<TipoColumna, string>> = {
   entero: "#,##0", decimal1: "#,##0.0", decimal2: "#,##0.00", soles: "#,##0.00", porcentaje: "0.0%",
 };
@@ -61,7 +70,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
   const celda = (f: Fila, c: Columna) =>
     c.tipo === "estado" ? (
       <span className={`estado estado-${String(f[c.clave])}`}>{ESTADOS[f[c.clave] as keyof typeof ESTADOS]}</span>
-    ) : formatear(f[c.clave], c.tipo);
+    ) : conSigno(c, f[c.clave], formatear(f[c.clave], c.tipo));
 
   return (
     <div className="grid gap-3 min-w-0">
@@ -86,7 +95,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
                   <th key={c.clave} className={esNumero(c.tipo) ? "n" : ""} onClick={() => ordenar(c)}
                       aria-sort={orden?.clave === c.clave ? (orden.dir === 1 ? "ascending" : "descending") : "none"}>
                     <span className={`inline-flex items-center gap-1 ${esNumero(c.tipo) ? "flex-row-reverse" : ""}`}>
-                      {c.titulo}{c.info && <Ayuda clave={c.info} tamano={12} />}<Icono size={12} className={orden?.clave === c.clave ? "text-[var(--acento)]" : "opacity-40"} aria-hidden />
+                      {c.titulo}{c.info && <Ayuda clave={c.info} tamano={12} />}<Icono size={12} className={`orden ${orden?.clave === c.clave ? "text-[var(--acento)]" : ""}`} aria-hidden />
                     </span>
                   </th>
                 );
@@ -106,7 +115,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
                       </button>
                     </td>
                   )}
-                  {columnas.map((c) => <td key={c.clave} className={esNumero(c.tipo) ? "n" : ""}>{celda(f, c)}</td>)}
+                  {columnas.map((c) => <td key={c.clave} className={claseCelda(c, f[c.clave])}>{celda(f, c)}</td>)}
                 </tr>
               );
             })}
@@ -116,7 +125,7 @@ export function Tabla({ columnas, filas, total, archivo, hoja = "Datos", alto, b
             {total && !texto && (
               <tr className="total">
                 {abrir && <td />}
-                {columnas.map((c) => <td key={c.clave} className={esNumero(c.tipo) ? "n" : ""}>{formatear(total[c.clave], c.tipo)}</td>)}
+                {columnas.map((c) => <td key={c.clave} className={claseCelda(c, total[c.clave])}>{conSigno(c, total[c.clave], formatear(total[c.clave], c.tipo))}</td>)}
               </tr>
             )}
           </tbody>

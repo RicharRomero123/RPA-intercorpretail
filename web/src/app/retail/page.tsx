@@ -81,7 +81,7 @@ export default async function ResumenRetail({ searchParams }: { searchParams: Pa
     <header className="grid gap-4">
       <div className="grid gap-1">
         <p className="etiqueta">Canal retail · Turrones Calderón</p>
-        <h1 className="text-[28px] font-extrabold leading-tight">Resumen retail</h1>
+        <h1 className="text-[28px] font-bold leading-tight">Resumen retail</h1>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {diasEntre(desde, hasta)} días
           

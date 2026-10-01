@@ -6,6 +6,7 @@ import { entero, porcentaje, soles } from "@/lib/formato";
 import { GraficoTendencia, Indicador } from "./Graficos";
 import { Tabla, type Columna } from "./Tabla";
 import { Tarjeta } from "./ui";
+import { EJE, GRILLA, CAJA, LEYENDA, compacto } from "@/lib/graficos";
 
 /** Venta por «cliente» (tienda, cadena, razón social…) y SKU en un periodo. */
 export type FilaDim = { dim: string; sku: string; producto: string; und: number; venta: number };
@@ -17,12 +18,10 @@ export type DatosEjecutivo = { actual: FilaDim[]; anterior: FilaDim[]; meses: Fi
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const COLORES = ["#c2570c", "#6b2a0f", "#e0a33a", "#8a8f3c", "#3f7d8c", "#c9c2b8"];
-const EJE = { fontSize: 11.5, fill: "var(--tenue)" };
 const nombreMes = (m: string) => `${MESES[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const dmy = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 const menosUnAnio = (s: string) => `${Number(s.slice(0, 4)) - 1}${s.slice(4)}`;
 const finDeMes = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10);
-const compacto = (v: number) => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : `${Math.round(v)}`);
 const corto = (s: string) => (s.length > 24 ? `${s.slice(0, 23)}…` : s);
 const variacion = (a: number, b: number | null | undefined) => (b ? a / b - 1 : null);
 const div = (a: number, b: number) => (b ? a / b : null);
@@ -52,14 +51,14 @@ function ParticipacionPorSku({ C, total, dim }: { C: FilaDim[]; total: number; d
     <div className="grid gap-2">
       <ResponsiveContainer width="100%" height={Math.max(220, datos.length * 34 + 70)}>
         <BarChart data={datos} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
-          <CartesianGrid horizontal={false} stroke="var(--linea)" strokeDasharray="3 3" />
+          <CartesianGrid horizontal={false} {...GRILLA} />
           <XAxis type="number" tick={EJE} tickFormatter={(v) => compacto(Number(v))} axisLine={false} tickLine={false} />
           <YAxis type="category" dataKey="nombre" tick={EJE} width={170} axisLine={false} tickLine={false} />
           <Tooltip cursor={{ fill: "var(--superficie-2)" }}
                    formatter={(v, n, p) => [`${soles(Number(v))} · ${porcentaje(Number(v) / Number(p?.payload?.total || 1))}`, String(n)]}
                    labelFormatter={(_, p) => { const x = p?.[0]?.payload; return x ? `${x.completo} · ${soles(Number(x.total))} (${porcentaje(Number(x.total) / (total || 1))} del total)` : ""; }}
-                   contentStyle={{ background: "var(--superficie)", border: "1px solid var(--linea)", borderRadius: 8, fontSize: 12 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
+                   contentStyle={CAJA} />
+          <Legend wrapperStyle={LEYENDA} />
           {series.map((s, i) => <Bar key={s.clave} dataKey={s.clave} name={s.nombre} stackId="a" fill={COLORES[i]} maxBarSize={24} />)}
         </BarChart>
       </ResponsiveContainer>

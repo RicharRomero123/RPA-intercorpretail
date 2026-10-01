@@ -56,18 +56,22 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-plex);
-  --font-mono: var(--font-plex-mono);
-  --font-display: var(--font-archivo);
+  --font-sans: var(--font-inter);
 }
 
+/* Tipografía: una sola familia (Inter), como en reportes financieros. Las cifras usan números de ancho fijo (tabular)
+   para que se alineen en columnas, sin la letra «de máquina de escribir» de antes. */
 body {
   background: var(--fondo);
   color: var(--tinta);
-  font-family: var(--font-plex), "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-inter), "Segoe UI", system-ui, sans-serif;
+  font-size: 14px; line-height: 1.5;
+  font-feature-settings: "cv11", "ss01";  /* 1 y l, 0 y O bien diferenciados */
 }
-h1, h2, h3 { font-family: var(--font-archivo), "Segoe UI", system-ui, sans-serif; text-wrap: balance; letter-spacing: -0.01em; }
-.num { font-family: var(--font-plex-mono), ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: inherit; text-wrap: balance; letter-spacing: -0.015em; font-weight: 650; }
+h1 { letter-spacing: -0.02em; }
+.num, svg text, .recharts-tooltip-wrapper { font-variant-numeric: tabular-nums; }
+.num { font-feature-settings: "tnum", "cv11", "ss01"; letter-spacing: -0.005em; }
 
 .tarjeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: 12px; box-shadow: var(--sombra); }
 .campo {
@@ -93,23 +97,41 @@ h1, h2, h3 { font-family: var(--font-archivo), "Segoe UI", system-ui, sans-serif
 .segmento button { font-size: 12.5px; font-weight: 500; padding: 0 10px; height: 28px; border-radius: 7px; color: var(--tenue); cursor: pointer; }
 .segmento button[aria-pressed="true"], .segmento button[aria-selected="true"] { background: var(--superficie); color: var(--tinta); box-shadow: var(--sombra); }
 
-.etiqueta { font-size: 11.5px; color: var(--tenue); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+.etiqueta { font-size: 11px; color: var(--tenue); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
 
 .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px;
   font-size: 13.5px; color: var(--lateral-tinta); cursor: pointer; text-align: left; }
 .nav-item:hover { background: var(--lateral-activo); color: #fff; }
 .nav-item[aria-current="page"] { color: #fff; font-weight: 600; }
 
+/* Tablas: encabezados en minúscula normal (se leen mejor que en MAYÚSCULAS), cifras a la derecha con números tabulares,
+   líneas finas solo horizontales y la fila TOTAL separada por una raya doble arriba, como en un estado contable. */
 table.datos { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
-table.datos th, table.datos td { padding: 9px 12px; border-bottom: 1px solid var(--linea); white-space: nowrap; }
-table.datos th { font-size: 11.5px; font-weight: 600; color: var(--tenue); background: var(--superficie-2); text-align: left;
+table.datos th, table.datos td { padding: 8px 12px; border-bottom: 1px solid color-mix(in srgb, var(--linea) 70%, transparent); white-space: nowrap; }
+table.datos th { font-size: 12px; font-weight: 600; color: var(--tenue); background: var(--superficie-2); text-align: left;
   position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; white-space: normal; vertical-align: bottom;
-  text-transform: uppercase; letter-spacing: .04em; }
+  border-bottom: 1px solid var(--linea); line-height: 1.3; }
 table.datos th:hover { color: var(--tinta); }
-table.datos td.n, table.datos th.n { text-align: right; font-variant-numeric: tabular-nums; }
-table.datos td.n { font-family: var(--font-plex-mono), ui-monospace, Consolas, monospace; }
-table.datos tr.total td { font-weight: 600; background: var(--superficie-2); border-bottom: 0; }
-table.datos tbody tr:hover td { background: color-mix(in srgb, var(--acento-suave) 55%, transparent); }
+table.datos th .orden { opacity: 0; transition: opacity .15s; }
+table.datos th:hover .orden, table.datos th[aria-sort="ascending"] .orden, table.datos th[aria-sort="descending"] .orden { opacity: 1; }
+table.datos td.n, table.datos th.n { text-align: right; font-feature-settings: "tnum", "cv11"; }
+table.datos td.sube { color: var(--bueno); }
+table.datos td.baja { color: var(--critico); }
+table.datos tr.total td { font-weight: 650; background: var(--superficie-2); border-top: 3px double var(--tenue); border-bottom: 0; }
+table.datos tbody tr:hover td { background: color-mix(in srgb, var(--acento-suave) 45%, transparent); }
+
+/* Avisos: un solo formato para todo el sitio. Borde izquierdo de color + ícono; el color dice la gravedad. */
+.aviso { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--linea); border-left-width: 3px;
+  border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.5; background: var(--superficie); }
+.aviso > svg { flex-shrink: 0; margin-top: 2px; }
+.aviso-info { border-left-color: var(--serie-gris); }
+.aviso-info > svg { color: var(--tenue); }
+.aviso-alerta { border-left-color: var(--alerta); background: color-mix(in srgb, var(--alerta-suave) 60%, var(--superficie)); }
+.aviso-alerta > svg { color: var(--alerta); }
+.aviso-critico { border-left-color: var(--critico); background: color-mix(in srgb, var(--critico-suave) 60%, var(--superficie)); }
+.aviso-critico > svg { color: var(--critico); }
+.aviso-bueno { border-left-color: var(--bueno); background: color-mix(in srgb, var(--bueno-suave) 60%, var(--superficie)); }
+.aviso-bueno > svg { color: var(--bueno); }
 
 .estado { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
 .estado::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -121,6 +143,7 @@ table.datos tbody tr:hover td { background: color-mix(in srgb, var(--acento-suav
 .pastilla { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
 .pastilla-sube { color: var(--bueno); background: var(--bueno-suave); }
 .pastilla-baja { color: var(--critico); background: var(--critico-suave); }
+.pastilla { font-feature-settings: "tnum"; }
 
 .flotante { position: absolute; z-index: 30; margin-top: 6px; background: var(--superficie); border: 1px solid var(--linea);
   border-radius: 10px; box-shadow: 0 10px 30px rgb(15 27 45 / 0.12); }

@@ -9,7 +9,7 @@ import { Marco, type TipoRetail } from "@/components/Marco";
 import { PanelCarga } from "@/components/PanelCarga";
 import { Pestanas } from "@/components/Pestanas";
 import { Tabla, type Columna } from "@/components/Tabla";
-import { Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/components/ui";
+import { Aviso, Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/components/ui";
 import type { Equivalencia } from "@/lib/cargas";
 import { parametros, type CanalContaNet, type FiltroContaNet, type MaestrosContaNet, type PanelContaNet } from "@/lib/contanet";
 import { ClientesContaNet, type ClienteTienda } from "@/components/ClientesContaNet";
@@ -68,7 +68,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       </Tarjeta>
     );
     return <Marco seccion={sp.s} ubicacion={cfg.ubicacion} tiposRetail={tipos} usuario={usuario} salir={salir} datosAl="—"
-                  encabezado={<h1 className="text-[28px] font-extrabold leading-tight">{cfg.titulo}</h1>}
+                  encabezado={<h1 className="text-[28px] font-bold leading-tight">{cfg.titulo}</h1>}
                   secciones={[{ id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: vacio }, { id: "avance", titulo: "Avance del día", contenido: vacio },
                     { id: "ventas", titulo: "Ventas", contenido: vacio },
                     { id: "detalle", titulo: "Detalle de ventas", contenido: vacio }]} />;
@@ -138,7 +138,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1">
           <p className="etiqueta">{cfg.etiqueta} · Turrones Calderón</p>
-          <h1 className="text-[28px] font-extrabold leading-tight">{cfg.titulo}</h1>
+          <h1 className="text-[28px] font-bold leading-tight">{cfg.titulo}</h1>
           <p className="text-sm text-[var(--tenue)]">
             <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {diasEntre(desde, hasta)} días
             {diasVenta !== diasEntre(desde, hasta) && ` (${diasVenta} con venta)`}
@@ -155,10 +155,10 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       ]} />
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
       {canal === "tiendas" && comp && comp[0] < primero && (
-        <p className="text-xs text-[var(--tenue)] -mt-2">
-          ContaNet empieza el {fechaLarga(primero)}: para fechas anteriores la comparación usa la venta del <b>reporte interno de tiendas</b> (el del Power BI).
-          Ahí hay venta y unidades, pero no tickets, horas, medios de pago ni clientes (esas comparaciones salen «—»).
-        </p>
+        <Aviso titulo={`La comparación usa el reporte interno de tiendas (ContaNet empieza el ${fechaLarga(primero)})`}>
+          Para fechas anteriores se compara con la venta del reporte interno (el del Power BI). Ahí hay venta y unidades, pero no tickets, horas,
+          medios de pago ni clientes: esas comparaciones salen «—».
+        </Aviso>
       )}
     </header>
   );

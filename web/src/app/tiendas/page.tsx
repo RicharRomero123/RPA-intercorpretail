@@ -76,7 +76,7 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
     <header className="grid gap-4">
       <div className="grid gap-1">
         <p className="etiqueta">Tiendas · Resumen · Turrones Calderón</p>
-        <h1 className="text-[28px] font-extrabold leading-tight">Reporte interno vs ContaNet</h1>
+        <h1 className="text-[28px] font-bold leading-tight">Reporte interno vs ContaNet</h1>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {diasEntre(desde, hasta)} días ·
           Reporte interno del {cob.interno_desde ? fechaLarga(cob.interno_desde) : "—"} al {cob.interno_hasta ? fechaLarga(cob.interno_hasta) : "—"} ·

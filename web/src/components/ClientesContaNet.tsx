@@ -9,6 +9,7 @@ import { fechaLarga } from "@/lib/periodos";
 import { decimal2, entero, porcentaje, soles } from "@/lib/formato";
 import { clienteNavegador } from "@/lib/supabase/navegador";
 import { Tabla, type Columna } from "./Tabla";
+import { EJE, GRILLA, CAJA, LEYENDA, PUNTEADO, RADIO_V, compacto } from "@/lib/graficos";
 
 export type ClienteContaNet = { doc: string; tipo_doc: string; cliente: string; und: number; venta: number; tickets: number; ultima: string };
 export type ClienteTienda = { doc: string; tienda: string; venta: number; und: number };
@@ -16,9 +17,7 @@ export type ClienteTienda = { doc: string; tienda: string; venta: number; und: n
 export type ConsultaCompras = { canal: string; desde: string; hasta: string; p_tiendas: string[] | null; p_skus: string[] | null; p_medios: string[] | null; p_dias: number[] | null };
 
 const COLORES = ["#c2570c", "#6b2a0f", "#e0a33a", "#8a8f3c", "#3f7d8c", "#a3485a", "#7a6ea8", "#9aa0a6"];
-const EJE = { fontSize: 11.5, fill: "var(--tenue)" };
 const corto = (s: string) => (s.length > 26 ? `${s.slice(0, 25)}…` : s);
-const compacto = (v: number) => (Math.abs(v) >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : `${Math.round(v)}`);
 
 /** Clientes identificados (DNI/RUC): gráfico de los principales y en qué tiendas compraron, y tabla. Al hacer clic en un
  *  cliente se abre un panel a la derecha con el análisis de sus compras (así no hay tablas con scroll dentro de otra tabla). */
@@ -54,13 +53,13 @@ export function ClientesContaNet({ clientes, porTienda, consulta, conTiendas, ar
           <span className="text-sm font-semibold">Los 15 clientes que más compraron{conTiendas ? " y en qué tiendas" : ""}</span>
           <ResponsiveContainer width="100%" height={Math.max(260, top.length * 30 + 60)}>
             <BarChart data={top} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
-              <CartesianGrid horizontal={false} stroke="var(--linea)" strokeDasharray="3 3" />
+              <CartesianGrid horizontal={false} {...GRILLA} />
               <XAxis type="number" tick={EJE} tickFormatter={(v) => compacto(Number(v))} axisLine={false} tickLine={false} />
               <YAxis type="category" dataKey="nombre" tick={EJE} width={190} axisLine={false} tickLine={false} />
               <Tooltip cursor={{ fill: "var(--superficie-2)" }} formatter={(v, n) => [soles(Number(v)), String(n)]}
                        labelFormatter={(_, p) => String(p?.[0]?.payload?.completo ?? "")}
-                       contentStyle={{ background: "var(--superficie)", border: "1px solid var(--linea)", borderRadius: 8, fontSize: 12 }} />
-              {conTiendas && <Legend wrapperStyle={{ fontSize: 12 }} />}
+                       contentStyle={CAJA} />
+              {conTiendas && <Legend wrapperStyle={LEYENDA} />}
               {tiendas.map((t, i) => <Bar key={t} dataKey={t} name={t} stackId="a" fill={COLORES[i % COLORES.length]} maxBarSize={22} />)}
             </BarChart>
           </ResponsiveContainer>
@@ -435,14 +434,14 @@ function Tendencia({ historial }: { historial: Historial }) {
         Línea punteada: su compra promedio, {soles(promedio)}.</p>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={datos} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
+          <CartesianGrid vertical={false} {...GRILLA} />
           <XAxis dataKey="periodo" tickFormatter={etiqueta} tick={EJE} axisLine={false} tickLine={false} minTickGap={8} />
           <YAxis tick={EJE} tickFormatter={(v) => compacto(Number(v))} axisLine={false} tickLine={false} width={44} />
           <Tooltip cursor={{ fill: "var(--superficie-2)" }} labelFormatter={(f) => (porSemana ? `Semana del ${fechaLarga(String(f))}` : fechaLarga(String(f)))}
                    formatter={(v, n) => (n === "venta" ? [soles(Number(v)), "Compró"] : [String(v), String(n)])}
-                   contentStyle={{ background: "var(--superficie)", border: "1px solid var(--linea)", borderRadius: 8, fontSize: 12 }} />
-          <ReferenceLine y={promedio} stroke="var(--serie-gris)" strokeDasharray="5 4" />
-          <Bar dataKey="venta" name="venta" fill="var(--serie-1)" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                   contentStyle={CAJA} />
+          <ReferenceLine y={promedio} stroke="var(--serie-gris)" strokeDasharray={PUNTEADO} />
+          <Bar dataKey="venta" name="venta" fill="var(--serie-1)" radius={RADIO_V} maxBarSize={36} />
         </BarChart>
       </ResponsiveContainer>
     </section>

@@ -4,7 +4,7 @@ import { CalendarClock, ChevronLeft, ChevronRight, Clock, CreditCard, IdCard, Pa
 import { GraficoAvance } from "@/components/GraficoAvance";
 import { Indicador } from "@/components/Graficos";
 import { Tabla } from "@/components/Tabla";
-import { Tarjeta } from "@/components/ui";
+import { Aviso, Tarjeta } from "@/components/ui";
 import type { Avance } from "@/lib/contanet";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { fechaLarga, sumarDias } from "@/lib/periodos";
@@ -69,15 +69,14 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
     <>
       <SelectorDia fecha={fecha} primera={av.primera} ultima={av.ultima_carga} />
       {T.hoy === 0 && (
-        <p className="rounded-lg border border-[var(--alerta)] bg-[var(--alerta-suave)] px-3 py-2 text-sm">
-          {canal} no tiene ventas en ContaNet el {conDia(fecha)}{esHoy && corte ? ` hasta las ${corte}` : ""}. El reporte cargado sí trae ese día
-          (es el mismo Excel de ContaNet de las tiendas); el {conDia(antes)} vendió {soles(T.antesDia)}.
-        </p>
+        <Aviso tipo="alerta" titulo={`${canal} no tiene ventas en ContaNet el ${conDia(fecha)}${esHoy && corte ? ` hasta las ${corte}` : ""}`}>
+          El reporte cargado sí trae ese día (es el mismo Excel de ContaNet de las tiendas); el {conDia(antes)} vendió {soles(T.antesDia)}.
+        </Aviso>
       )}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--linea)] bg-[var(--superficie)] px-3 py-2 text-sm">
         <Clock size={15} className="text-[var(--acento)]" aria-hidden />
         <b>{titulo}</b>
-        {esHoy && <span className="rounded bg-[var(--alerta-suave)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--alerta)]">PARCIAL</span>}
+        {esHoy && <span className="rounded border border-[var(--alerta)] px-1.5 py-px text-[11px] font-semibold text-[var(--alerta)]">Parcial</span>}
         <span className="text-xs text-[var(--tenue)]">· comparado con el {compara}{av.actualizado ? ` · actualizado a las ${horaLima(av.actualizado)}` : ""}</span>
       </div>
 

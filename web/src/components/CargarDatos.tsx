@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CircleAlert, CircleCheck, CircleX, FileSpreadsheet, LoaderCircle, TriangleAlert, Undo2, Upload, X,
+  CircleCheck, CircleX, FileSpreadsheet, LoaderCircle, TriangleAlert, Undo2, Upload, X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import { ErrorArchivo, leerArchivo, type Equivalencia, type Lectura, type Tipo }
 import { entero, soles } from "@/lib/formato";
 import { clienteNavegador } from "@/lib/supabase/navegador";
 import { Tabla } from "./Tabla";
+import { Aviso } from "./ui";
 
 type Existente = { tienda: string; filas: number; und: number; venta: number };
 /** Retail: tipo de retail elegido para cada cliente del archivo, y los tipos que ya existen. */
@@ -290,7 +291,7 @@ function Vista({ a, cargar, deshacer, quitar, asignar }: {
           </div>
         </div>
       )}
-      {e.paso === "fallo" && <p className="flex gap-2 text-sm text-[var(--critico)]"><CircleAlert size={16} className="shrink-0 mt-0.5" aria-hidden />No se cargó: {e.mensaje}</p>}
+      {e.paso === "fallo" && <Aviso tipo="critico" titulo="No se cargó">{e.mensaje}</Aviso>}
     </section>
   );
 }

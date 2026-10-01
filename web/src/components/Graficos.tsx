@@ -12,10 +12,8 @@ import type { ClaveGlosario } from "@/lib/glosario";
 import { useState } from "react";
 import { Ayuda } from "./Ayuda";
 import { Variacion } from "./ui";
+import { EJE, GRILLA, PUNTEADO, compacto } from "@/lib/graficos";
 
-const EJE = { fontSize: 11.5, fill: "var(--tenue)" };
-const compacto = (v: number) =>
-  Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : `${Math.round(v)}`;
 
 export const etiquetaPeriodo = (agrupar: string) => (p: string) =>
   agrupar === "mes" ? `${p.slice(5, 7)}/${p.slice(0, 4)}` : agrupar === "semana" ? `Sem. ${fechaCorta(p)}` : fechaCorta(p);
@@ -84,23 +82,17 @@ export function GraficoTendencia({ datos, agrupar, conPrevio, nombrePrevio, rang
       </header>
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={serie} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-          <defs>
-            <linearGradient id="grad-tendencia" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--serie-1)" stopOpacity={0.28} />
-              <stop offset="100%" stopColor="var(--serie-1)" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
+          <CartesianGrid vertical={false} {...GRILLA} />
           <XAxis dataKey="periodo" tickFormatter={et} tick={EJE} axisLine={false} tickLine={false} minTickGap={16} dy={6} />
           <YAxis tick={EJE} axisLine={false} tickLine={false} tickFormatter={(v) => compacto(Number(v))} width={48} />
           <Tooltip wrapperStyle={{ zIndex: 20 }} cursor={{ stroke: "var(--serie-gris)", strokeDasharray: "3 3" }}
                    content={<Recuadro titulo={et} formato={met.formato} />} />
           {conPrevio && (
             <Area type="monotone" dataKey="previo" name={nombrePrevio} stroke="var(--serie-gris)" strokeWidth={1.5}
-                  strokeDasharray="5 4" fill="none" dot={false} activeDot={{ r: 3 }} connectNulls />
+                  strokeDasharray={PUNTEADO} fill="none" dot={false} activeDot={{ r: 3 }} connectNulls />
           )}
-          <Area type="monotone" dataKey="actual" name={met.nombre} stroke="var(--serie-1)" strokeWidth={2.2}
-                fill="url(#grad-tendencia)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--superficie)" }} />
+          <Area type="monotone" dataKey="actual" name={met.nombre} stroke="var(--serie-1)" strokeWidth={2}
+                fill="var(--serie-1)" fillOpacity={0.07} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--superficie)" }} />
         </AreaChart>
       </ResponsiveContainer>
     </section>
@@ -163,11 +155,10 @@ export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia,
     <div className="tarjeta p-4 grid gap-2 min-w-0 content-start overflow-hidden" title={ayuda}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 min-w-0 text-[13px] font-medium text-[var(--tenue)]"><span className="truncate">{titulo}</span>{info && <Ayuda clave={info} />}</span>
-        <span className="grid place-items-center size-8 shrink-0 rounded-lg bg-[var(--acento-suave)] text-[var(--acento)]">
-          <Icono size={16} strokeWidth={2} aria-hidden />
-        </span>
+        {/* Ícono discreto, en gris: el color se reserva para lo que está bien o mal (la variación). */}
+        <Icono size={16} strokeWidth={1.75} className="shrink-0 text-[var(--tenue)] opacity-70" aria-hidden />
       </div>
-      <b className="num text-[clamp(18px,1.6vw,23px)] leading-tight font-semibold break-words">{valor}</b>
+      <b className="num text-[clamp(19px,1.7vw,25px)] leading-tight font-semibold tracking-tight break-words">{valor}</b>
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--tenue)] min-h-5">
         <Variacion valor={variacion} />
         <span>{hayVariacion ? `vs. ${comparadoCon}` : detalle}</span>
@@ -178,13 +169,7 @@ export function Indicador({ icono, titulo, valor, variacion, detalle, tendencia,
         <div className="h-11 -mx-4 -mb-4 mt-1" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={puntos} margin={{ top: 4, bottom: 0, left: 0, right: 0 }}>
-                <defs>
-                  <linearGradient id={`spark-${icono}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--serie-1)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="var(--serie-1)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="v" stroke="var(--serie-1)" strokeWidth={1.6} fill={`url(#spark-${icono})`}
+                <Area type="monotone" dataKey="v" stroke="var(--serie-gris)" strokeWidth={1.4} fill="var(--serie-gris)" fillOpacity={0.12}
                       dot={false} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>

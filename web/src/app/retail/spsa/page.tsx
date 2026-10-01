@@ -164,7 +164,7 @@ export default async function SupermercadosSPSA({ searchParams }: { searchParams
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1">
           <p className="etiqueta">Retail · Supermercados · Turrones Calderón</p>
-          <h1 className="text-[28px] font-extrabold leading-tight">Supermercados Peruanos</h1>
+          <h1 className="text-[28px] font-bold leading-tight">Supermercados Peruanos</h1>
           <p className="text-sm text-[var(--tenue)]">
             <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {fechaLarga(desde)} – {fechaLarga(hasta)} · {nDias} días
             {nConDatos !== nDias && ` (${nConDatos} con venta)`} · sin IGV

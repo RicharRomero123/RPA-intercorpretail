@@ -137,7 +137,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
   const encabezado = (
     <header className="grid gap-1">
       <p className="etiqueta">Todos los canales · Turrones Calderón</p>
-      <h1 className="text-[28px] font-extrabold leading-tight">Resumen general {anio}</h1>
+      <h1 className="text-[28px] font-bold leading-tight">Resumen general {anio}</h1>
       <p className="text-sm text-[var(--tenue)] max-w-4xl">
         Venta <b className="text-[var(--tinta)]">real</b> de cada canal frente a su <b className="text-[var(--tinta)]">meta</b> y frente a {anio - 1}, con
         cierre al <b className="text-[var(--tinta)]">{fechaLarga(corte)}</b>. Fuente: «{carga.archivo}».

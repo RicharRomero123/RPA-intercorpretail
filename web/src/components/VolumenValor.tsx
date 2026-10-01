@@ -6,6 +6,7 @@ import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChar
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { Ayuda } from "./Ayuda";
 import { Tabla } from "./Tabla";
+import { EJE, GRILLA, PUNTEADO, compacto } from "@/lib/graficos";
 
 export type FilaVV = { nombre: string; und: number; venta: number; costo: number; locales: number };
 type Dimension = "cadena" | "zona" | "local" | "producto";
@@ -24,7 +25,6 @@ const mediana = (xs: number[]) => {
   const m = Math.floor(s.length / 2);
   return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : 0;
 };
-const compacto = (v: number) => (Math.abs(v) >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : `${Math.round(v)}`);
 
 /** Volumen (unidades) contra valor (ingreso Calderón) por cadena, zona, local o producto, con cuadrantes y tabla enlazada. */
 export function VolumenValor({ datos, archivo }: { datos: Record<Dimension, FilaVV[]>; archivo: string }) {
@@ -85,16 +85,16 @@ export function VolumenValor({ datos, archivo }: { datos: Record<Dimension, Fila
         </header>
         <ResponsiveContainer width="100%" height={360}>
           <ScatterChart margin={{ left: 12, right: 16, top: 12, bottom: 16 }}>
-            <CartesianGrid stroke="var(--linea)" strokeDasharray="3 3" />
-            <XAxis type="number" dataKey="und" name="Unidades" tick={{ fontSize: 11.5, fill: "var(--tenue)" }} tickFormatter={compacto}
-                   axisLine={false} tickLine={false} label={{ value: "Unidades vendidas →", position: "insideBottomRight", offset: -10, fontSize: 11.5, fill: "var(--tenue)" }} />
+            <CartesianGrid {...GRILLA} />
+            <XAxis type="number" dataKey="und" name="Unidades" tick={EJE} tickFormatter={compacto}
+                   axisLine={false} tickLine={false} label={{ value: "Unidades vendidas →", position: "insideBottomRight", offset: -10, fontSize: 12, fill: "var(--tenue)" }} />
             <YAxis type="number" dataKey="ingreso_und" name="Ingreso por caja" domain={["auto", "auto"]}
-                   tick={{ fontSize: 11.5, fill: "var(--tenue)" }} tickFormatter={(v) => `S/ ${Number(v).toFixed(1)}`}
+                   tick={EJE} tickFormatter={(v) => `S/ ${Number(v).toFixed(1)}`}
                    axisLine={false} tickLine={false} width={62}
-                   label={{ value: "Ingreso por caja →", angle: -90, position: "insideLeft", offset: -4, dy: 50, fontSize: 11.5, fill: "var(--tenue)" }} />
+                   label={{ value: "Ingreso por caja →", angle: -90, position: "insideLeft", offset: -4, dy: 50, fontSize: 12, fill: "var(--tenue)" }} />
             <ZAxis type="number" dataKey="costo" range={[40, 520]} name="Ingreso total" />
-            <ReferenceLine x={medU} stroke="var(--serie-gris)" strokeDasharray="5 4" />
-            <ReferenceLine y={medIU} stroke="var(--serie-gris)" strokeDasharray="5 4" />
+            <ReferenceLine x={medU} stroke="var(--serie-gris)" strokeDasharray={PUNTEADO} />
+            <ReferenceLine y={medIU} stroke="var(--serie-gris)" strokeDasharray={PUNTEADO} />
             <Tooltip wrapperStyle={{ zIndex: 20 }} cursor={{ strokeDasharray: "3 3" }}
                      content={({ active, payload }) => {
                        const d = active && payload?.[0]?.payload as (typeof filas)[number] | undefined;
