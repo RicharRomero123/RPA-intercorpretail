@@ -46,3 +46,18 @@ export async function panelRetail(sb: Supabase, tipo: string, desde: string, has
     status: n(d.status, ["lineas"]), lineas: n(d.lineas, ["precio_unitario"]),
   };
 }
+
+/** Supermercados Peruanos: lo despachado por Calderón (Excel Ventas RETAIL) vs lo vendido al público y el stock en tiendas (portal). */
+export type ConciliacionSPSA = {
+  inicio: string | null; hasta_venta: string | null; fecha_stock: string | null;
+  productos: { sku: string; producto: string; primero: string | null; ultimo: string | null; despachado: number; monto: number;
+               vendido: number; costo: number; venta: number; stock: number; locales: number | null }[];
+  despachos: { fecha: string; sku: string; producto: string; und: number; precio: number; monto: number; status: string | null }[];
+};
+export async function conciliacionSPSA(sb: Supabase): Promise<ConciliacionSPSA> {
+  const d = await leer<ConciliacionSPSA>(sb.rpc("spsa_conciliacion"));
+  const n = <T extends object>(xs: T[], claves: (keyof T)[]) =>
+    xs.map((x) => ({ ...x, ...Object.fromEntries(claves.map((k) => [k, num(x[k])])) })) as T[];
+  return { ...d, productos: n(d.productos ?? [], ["despachado", "monto", "vendido", "costo", "venta", "stock"]),
+           despachos: n(d.despachos ?? [], ["und", "precio", "monto"]) };
+}

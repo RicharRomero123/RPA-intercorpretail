@@ -17,7 +17,8 @@ import {
 import {
   COMPARAR, COMPARAR_CORTO, DIAS_SEM, diaSemana, diasEntre, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, sumarDias, type Comparar, type Periodo,
 } from "@/lib/periodos";
-import { tiposRetail } from "@/lib/retail";
+import { conciliacionSPSA, tiposRetail } from "@/lib/retail";
+import { seccionConciliacion } from "./conciliacion";
 import { clienteSupabase } from "@/lib/supabase/server";
 import { ResumenEjecutivo } from "@/components/ResumenEjecutivo";
 import { CONFIG, datosEjecutivo } from "@/lib/ejecutivo";
@@ -366,6 +367,7 @@ export default async function SupermercadosSPSA({ searchParams }: { searchParams
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
       { id: "stock", titulo: "Stock y quiebres", contenido: seccionStock },
+      { id: "despachos", titulo: "Despachado vs vendido", contenido: seccionConciliacion(await conciliacionSPSA(sb)) },
     ]} />
   );
 }

@@ -15,14 +15,14 @@ from psycopg.types.json import Jsonb
 
 from conexion import conectar
 
-# Tipo de retail por cliente (razón social tal como viene en el Excel).
+# Tipo de retail por cliente: uno por cliente. Supermercados Peruanos se ve dentro de Retail · SPSA (vista del bot).
 TIPOS = {
-    "SUPERMERCADOS PERUANOS": "Supermercados",
-    "TOTTUS": "Supermercados",
-    "OXXO (CADENA DE COMERCIO PERU S.A.C": "Conveniencia",
-    "PEDIDOS YA MARKET (DELIVERY HERO DMART PERU S.A.C.)": "Delivery / quick commerce",
-    "VENDOMATICA": "Vending",
-    "GSI": "Por clasificar",
+    "SUPERMERCADOS PERUANOS": "Supermercados Peruanos",
+    "TOTTUS": "Tottus",
+    "OXXO (CADENA DE COMERCIO PERU S.A.C": "OXXO",
+    "PEDIDOS YA MARKET (DELIVERY HERO DMART PERU S.A.C.)": "PedidosYa",
+    "VENDOMATICA": "Vendomatica",
+    "GSI": "GSI",
 }
 COLUMNAS = {
     "RAZON SOCIAL EMISOR": "emisor", "RUC": "ruc", "RAZON SOCIAL CLIENTE": "cliente", "CANTIDAD": "und",

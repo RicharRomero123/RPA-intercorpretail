@@ -2,7 +2,7 @@
 
 import {
   Bike, Building2, CalendarCheck, ChartLine, ChevronDown, Clock, Database, FileSpreadsheet, Globe, LayoutDashboard, LayoutGrid, Map, MapPin, PanelLeftClose, PanelLeftOpen, Presentation,
-  ShoppingBasket, ShoppingCart, Store, TableProperties, Tag, Warehouse, type LucideIcon,
+  ShoppingBasket, ShoppingCart, Store, TableProperties, Tag, Truck, Warehouse, type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, type Transition } from "motion/react";
 import Image from "next/image";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
 
-const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse } satisfies Record<string, LucideIcon>;
+const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck } satisfies Record<string, LucideIcon>;
 type IdSeccion = keyof typeof ICONOS;
 
 type Hoja = { id: IdSeccion; titulo: string };
@@ -30,8 +30,9 @@ function menu(tipos: TipoRetail[]): Nodo[] {
     { id: "retail", titulo: "Retail", icono: ShoppingCart, hijos: [
       { id: "retail/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/retail", secciones: [EJECUTIVO, { id: "ventas", titulo: "Por tipo de retail" }] },
       { id: "retail/spsa", titulo: "Supermercados · SPSA", icono: ShoppingBasket, ruta: "/retail/spsa",
-        secciones: [...VENTAS, { id: "stock", titulo: "Stock y quiebres" }] },
-      ...tipos.map((t) => ({ id: `retail/${t.slug}`, titulo: t.tipo, icono: Tag, ruta: `/retail/tipo/${t.slug}`, secciones: VENTAS })),
+        secciones: [...VENTAS, { id: "stock", titulo: "Stock y quiebres" }, { id: "despachos", titulo: "Despachado vs vendido" }] },
+      // Supermercados Peruanos ya está arriba (vista SPSA del bot); los demás clientes retail, cada uno con su vista.
+      ...tipos.filter((t) => t.slug !== "supermercados-peruanos").map((t) => ({ id: `retail/${t.slug}`, titulo: t.tipo, icono: Tag, ruta: `/retail/tipo/${t.slug}`, secciones: VENTAS })),
     ] },
     { id: "tiendas", titulo: "Tiendas", icono: Store, hijos: [
       { id: "tiendas/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/tiendas", secciones: [EJECUTIVO, { id: "ventas", titulo: "Interno vs ContaNet" }] },
