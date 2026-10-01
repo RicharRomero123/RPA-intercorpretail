@@ -44,7 +44,9 @@ export function Variacion({ valor }: { valor: number | null | undefined }) {
 }
 
 const MESES_LARGOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-const dmy = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
+const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+/** «jue 01/10/2026»: fecha con su día de la semana. */
+const dmy = (s: string) => `${DIAS_CORTOS[new Date(`${s}T12:00:00`).getDay()]} ${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 
 /** Franja que dice en palabras qué fechas se están viendo y contra cuáles se comparan. */
 export function FranjaComparacion({ desde, hasta, comp, tipo, hayDatos = true }: {

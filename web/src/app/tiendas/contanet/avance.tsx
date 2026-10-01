@@ -10,6 +10,8 @@ import { fechaLarga, sumarDias } from "@/lib/periodos";
 
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const variacion = (a: number, b: number) => (b ? a / b - 1 : null);
+/** «jueves 01/10/2026»: la fecha siempre con su día de la semana, para que se vea que se compara el mismo día. */
+const conDia = (f: string) => `${DIAS[new Date(`${f}T12:00:00`).getDay()]} ${fechaLarga(f)}`;
 const hoyLima = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
 const horaLima = (iso: string) => new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
 
@@ -28,8 +30,8 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
   // Parte del día que normalmente ya pasó a esta hora (según el mismo día de la semana pasada) y proyección del día.
   const avanceNormal = esHoy && T.antesDia ? T.antes / T.antesDia : null;
   const proyeccion = esHoy && avanceNormal ? T.hoy / avanceNormal : T.hoy;
-  const titulo = esHoy ? `Hoy ${fechaLarga(fecha)} hasta las ${corte ?? "—"}` : `${fechaLarga(fecha)} (último día cargado, cerrado)`;
-  const compara = esHoy ? `${diaSemana} pasado (${fechaLarga(antes)}) hasta la misma hora` : `${diaSemana} pasado (${fechaLarga(antes)})`;
+  const titulo = esHoy ? `Hoy ${conDia(fecha)} hasta las ${corte ?? "—"}` : `${conDia(fecha)} (último día cargado, cerrado)`;
+  const compara = esHoy ? `${conDia(antes)} hasta la misma hora` : conDia(antes);
 
   // Ritmo para la meta del mes: lo que falta repartido en los días que quedan (incluido el día que se mira).
   const anio = Number(fecha.slice(0, 4)), mes = Number(fecha.slice(5, 7)), dia = Number(fecha.slice(8, 10));
@@ -67,8 +69,8 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
       {hayLY && av.anio_pasado_fecha && (() => {
         // Dos referencias del año pasado (día completo, reporte interno): el mismo día de la semana y la misma fecha.
         const refs = [
-          { titulo: "Mismo día de la semana", fecha: av.anio_pasado_fecha, total: T.ly },
-          ...(av.anio_pasado_misma_fecha ? [{ titulo: "Misma fecha", fecha: av.anio_pasado_misma_fecha, total: TF }] : []),
+          { titulo: "Mismo día de la semana", fecha: av.anio_pasado_fecha, total: T.ly, principal: true },
+          ...(av.anio_pasado_misma_fecha ? [{ titulo: "Misma fecha", fecha: av.anio_pasado_misma_fecha, total: TF, principal: false }] : []),
         ];
         return (
           <Tarjeta icono={CalendarClock} titulo="Frente al año pasado (día completo)"
@@ -76,11 +78,11 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
             <div className="grid gap-3 @3xl:grid-cols-2">
               {refs.map((r) => {
                 const pct = r.total ? T.hoy / r.total : null, pctProy = r.total ? proyeccion / r.total - 1 : null;
-                const dia = DIAS[new Date(`${r.fecha}T12:00:00`).getDay()];
                 return (
                   <div key={r.titulo} className="grid gap-2 rounded-lg border border-[var(--linea)] p-3 text-sm">
                     <div className="flex items-baseline justify-between gap-2">
-                      <b>{r.titulo}</b><span className="text-xs text-[var(--tenue)]">{dia} {fechaLarga(r.fecha)}</span>
+                      <b>{r.titulo}{r.principal && <span className="ml-1.5 rounded bg-[var(--acento-suave)] px-1.5 py-0.5 text-[10px] text-[var(--acento)]">recomendada</span>}</b>
+                      <span className="text-xs"><b className="text-[var(--acento)]">{conDia(fecha)}</b> <span className="text-[var(--tenue)]">vs</span> <b>{conDia(r.fecha)}</b></span>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <span className="grid"><span className="text-[11px] text-[var(--tenue)]">Año pasado, día</span><b className="num">{soles(r.total)}</b></span>
@@ -115,13 +117,13 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
       {conTiendas && (
         <Tarjeta icono={Store} titulo="Por tienda" subtitulo={`${titulo} vs el ${compara}`}>
           <Tabla archivo={`${archivo}.xlsx`} hoja="Avance" filas={porTienda}
-                 columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "hoy", titulo: esHoy ? "Hoy S/" : "Venta S/", tipo: "soles" },
-                   { clave: "antes_corte", titulo: `${diaSemana} pasado S/`, tipo: "soles" }, { clave: "var", titulo: "Variación", tipo: "porcentaje" },
+                 columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "hoy", titulo: `${esHoy ? "Hoy " : ""}${conDia(fecha)} S/`, tipo: "soles" },
+                   { clave: "antes_corte", titulo: `${conDia(antes)} S/`, tipo: "soles" }, { clave: "var", titulo: "Variación", tipo: "porcentaje" },
                    { clave: "tickets", titulo: "Tickets", tipo: "entero" }, { clave: "var_tickets", titulo: "Var. tickets", tipo: "porcentaje" },
-                   { clave: "ultima", titulo: "Última venta", tipo: "texto" }, { clave: "antes_dia", titulo: `${diaSemana} pasado, día completo S/`, tipo: "soles" },
-                   ...(hayLY ? [{ clave: "anio_pasado", titulo: `Año pasado, mismo día de la semana S/`, tipo: "soles" } as const,
+                   { clave: "ultima", titulo: "Última venta", tipo: "texto" }, { clave: "antes_dia", titulo: `${conDia(antes)}, día completo S/`, tipo: "soles" },
+                   ...(hayLY ? [{ clave: "anio_pasado", titulo: `${av.anio_pasado_fecha ? conDia(av.anio_pasado_fecha) : "Año pasado"} (mismo día) S/`, tipo: "soles" } as const,
                                 { clave: "alcanzado", titulo: "% alcanzado", tipo: "porcentaje" } as const,
-                                { clave: "anio_pasado_fecha_igual", titulo: "Año pasado, misma fecha S/", tipo: "soles" } as const] : [])]}
+                                { clave: "anio_pasado_fecha_igual", titulo: `${av.anio_pasado_misma_fecha ? conDia(av.anio_pasado_misma_fecha) : "Año pasado"} (misma fecha) S/`, tipo: "soles" } as const] : [])]}
                  total={{ tienda: "TOTAL", hoy: T.hoy, antes_corte: T.antes, var: variacion(T.hoy, T.antes), tickets: T.tickets,
                           var_tickets: variacion(T.tickets, T.ticketsAntes), antes_dia: T.antesDia,
                           ...(hayLY ? { anio_pasado: T.ly, alcanzado: T.ly ? T.hoy / T.ly : null, anio_pasado_fecha_igual: TF } : {}) }} />
