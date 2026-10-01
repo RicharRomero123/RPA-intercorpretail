@@ -148,3 +148,19 @@ table.datos tbody tr:hover td { background: color-mix(in srgb, var(--acento-suav
 .flotante { position: absolute; z-index: 30; margin-top: 6px; background: var(--superficie); border: 1px solid var(--linea);
   border-radius: 10px; box-shadow: 0 10px 30px rgb(15 27 45 / 0.12); }
 details > summary::-webkit-details-marker { display: none; }
+
+/* Barras de desplazamiento finas y discretas en todo el sitio (en vez de la barra gris clásica de Windows). */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tenue) 35%, transparent) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--tenue) 35%, transparent); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--tenue) 60%, transparent); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Menú lateral: la barra casi no se ve; aparece suave al pasar el mouse por el menú. */
+.scroll-lateral { scrollbar-color: transparent transparent; transition: scrollbar-color .2s; }
+.scroll-lateral:hover { scrollbar-color: rgb(255 255 255 / 0.22) transparent; }
+.scroll-lateral::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-lateral::-webkit-scrollbar-thumb { background-color: transparent; border: 0; }
+.scroll-lateral:hover::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.22); }
+.scroll-lateral::-webkit-scrollbar-thumb:hover { background-color: rgb(255 255 255 / 0.4); }

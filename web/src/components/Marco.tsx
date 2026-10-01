@@ -189,7 +189,7 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
           initial={false}
           animate={{ width: grande ? (contraido ? ANCHO.cerrado : ANCHO.abierto) : "100%" }}
           transition={RESORTE}
-          className="bg-[var(--lateral)] text-[var(--lateral-tinta)] sticky top-0 z-30 shrink-0 xl:h-screen flex xl:flex-col items-center xl:items-stretch gap-2 px-3 py-2 xl:py-4 overflow-x-auto xl:overflow-hidden">
+          className="bg-[var(--lateral)] text-[var(--lateral-tinta)] sticky top-0 z-30 shrink-0 xl:h-screen flex xl:flex-col items-center xl:items-stretch gap-2 px-3 py-2 xl:py-4 overflow-x-auto xl:overflow-hidden scroll-lateral">
 
           {/* Logo y botón para contraer/expandir */}
           <Image src="/assets/logo-calderon.png" alt="Calderón" width={71} height={40} className="xl:hidden shrink-0 h-9 w-auto mr-1" priority />
@@ -217,7 +217,7 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
           </div>
 
           {/* Módulos (canales) → tipos → secciones; cada grupo se abre y cierra con un clic en su título */}
-          <nav className="flex xl:flex-col gap-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto" aria-label="Módulos">
+          <nav className="flex xl:flex-col gap-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto scroll-lateral" aria-label="Módulos">
             {rama(GENERAL, 0)}
             {!contraido && <span className="hidden xl:block px-3 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-white/40">Módulos</span>}
             {menu(tiposRetail).map((n) => rama(n, 0))}
