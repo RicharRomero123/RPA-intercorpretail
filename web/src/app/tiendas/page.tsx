@@ -118,7 +118,7 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
           <Tarjeta icono={Scale} titulo="Cómo leer esta comparación">
             <ul className="grid gap-1 text-sm list-disc pl-5 text-[var(--tenue)]">
               <li><b className="text-[var(--tinta)]">Reporte interno</b>: los Excel de venta diaria de cada tienda (lo que usa el Power BI de los jefes).</li>
-              <li><b className="text-[var(--tinta)]">ContaNet</b>: los comprobantes del ERP de las 7 tiendas (sin el usuario VENTAS01, que es el canal digital); las notas de crédito restan.</li>
+              <li><b className="text-[var(--tinta)]">ContaNet</b>: los comprobantes del ERP de las 7 tiendas, sin lo cobrado con RAPPI (canal aparte, como en el consolidado) ni el usuario VENTAS01 (canal digital); las notas de crédito restan.</li>
               <li>Una diferencia puede venir de ventas no registradas en uno de los dos, anulaciones, o un producto registrado con otro código o precio.</li>
               <li>El periodo llega hasta el último día que tienen las dos fuentes, para no comparar días que una todavía no tiene.</li>
             </ul>

@@ -1,4 +1,5 @@
 -- Canales desde ContaNet. Del mismo «Reporte detallado» salen:
+-- Nota: en_canal() se reemplaza en 014_canales_exclusivos.sql (tiendas sin Rappi).
 -- Nota: contanet_panel() se reemplaza en 012_contanet_historia.sql; correr 012 después.
 --   tiendas : las 7 tiendas (todo menos el usuario VENTAS01)
 --   digital : Canal digital = usuario VENTAS01 (vendedor VND0012, series B008/F008)

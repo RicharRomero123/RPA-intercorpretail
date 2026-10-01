@@ -47,7 +47,7 @@ export type FuenteContaNet = {
 /** Cómo se muestra cada canal del reporte de ContaNet. */
 const CANALES: Record<CanalContaNet, { ubicacion: string; etiqueta: string; titulo: string; porTienda: boolean; porMedio: boolean; nota: string }> = {
   tiendas: { ubicacion: "tiendas/contanet", etiqueta: "Tiendas · ContaNet (ERP)", titulo: "Tiendas según ContaNet", porTienda: true, porMedio: true,
-             nota: "Las 7 tiendas (todo el reporte menos el usuario VENTAS01, que es el canal digital)." },
+             nota: "Las 7 tiendas, sin lo cobrado con RAPPI (está en el módulo Rappi) ni el usuario VENTAS01 (está en Canal digital)." },
   digital: { ubicacion: "canales/digital", etiqueta: "Canal digital · ContaNet (usuario VENTAS01)", titulo: "Canal digital", porTienda: false, porMedio: true,
              nota: "Todo lo registrado en ContaNet por el usuario VENTAS01." },
   rappi: { ubicacion: "canales/rappi", etiqueta: "Rappi · ContaNet (cobrado con RAPPI)", titulo: "Rappi", porTienda: true, porMedio: false,

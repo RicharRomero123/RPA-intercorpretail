@@ -28,7 +28,7 @@ export const CONFIG: Record<"retail" | "spsa" | "tipo" | "tiendas" | "contanet_t
   tipo: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Monto S/", nota: "Monto cancelado de los despachos, del Excel de ventas retail." },
   tiendas: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/",
              nota: "Del reporte interno (Excel de venta diaria de las tiendas)." },
-  contanet_tiendas: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/", nota: "Comprobantes de ContaNet de las 7 tiendas." },
+  contanet_tiendas: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/", nota: "Comprobantes de ContaNet de las 7 tiendas, sin RAPPI ni el canal digital." },
   digital: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta S/",
              nota: "Comprobantes de ContaNet del usuario VENTAS01. Las ventas sin DNI/RUC se agrupan como «PÚBLICO GENERAL»." },
   rappi: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/", nota: "Ventas de las tiendas cobradas con RAPPI en ContaNet." },
