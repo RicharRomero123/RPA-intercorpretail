@@ -64,3 +64,25 @@ export async function conciliacion(sb: Supabase, desde: string, hasta: string): 
 
 export type Cobertura = { interno_desde: string | null; interno_hasta: string | null; contanet_desde: string | null; contanet_hasta: string | null };
 export const cobertura = (sb: Supabase) => leer<Cobertura>(sb.rpc("tiendas_cobertura"));
+
+/** Avance del día (función contanet_avance): por hora y por tienda, hoy vs el mismo día de la semana pasada. */
+export type Avance = {
+  fecha: string | null; corte: string | null; actualizado: string | null; mes: number; dias_mes: number;
+  horas: { hora: number; hoy: number; antes: number; tickets: number }[];
+  tiendas: { tienda: string; hoy: number; antes_corte: number; antes_dia: number; tickets: number; tickets_antes: number; ultima: string | null }[];
+};
+export async function avanceContaNet(sb: Supabase, canal: CanalContaNet): Promise<Avance> {
+  const d = await leer<Record<string, unknown>>(sb.rpc("contanet_avance", { p_canal: canal }));
+  return {
+    fecha: (d.fecha as string) ?? null, corte: (d.corte as string) ?? null, actualizado: (d.actualizado as string) ?? null,
+    mes: num(d.mes), dias_mes: num(d.dias_mes),
+    horas: numeros(d.horas as Record<string, unknown>[], ["hora", "hoy", "antes", "tickets"]),
+    tiendas: numeros(d.tiendas as Record<string, unknown>[], ["hoy", "antes_corte", "antes_dia", "tickets", "tickets_antes"]),
+  };
+}
+
+/** Meta del mes de un canal en el consolidado (Excel «Consolidado-all-canales»), si existe. */
+export async function metaMes(sb: Supabase, canalConsolidado: string, anio: number, mes: number): Promise<number | null> {
+  const { data } = await sb.from("consolidado_mensual").select("meta").eq("canal", canalConsolidado).eq("anio", anio).eq("mes", mes).maybeSingle();
+  return data?.meta === null || data?.meta === undefined ? null : Number(data.meta);
+}

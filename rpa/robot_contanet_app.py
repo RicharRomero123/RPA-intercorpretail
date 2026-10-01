@@ -24,7 +24,8 @@ from pathlib import Path
 import contanet_robot as robot
 
 NOMBRE = "Robot ContaNet"
-TAREA = "Calderon - Robot ContaNet"
+TAREA = "Calderon - Robot ContaNet"                 # cierre: del 1 del mes hasta ayer
+TAREA_AVANCE = "Calderon - Robot ContaNet (avance)"  # avance del día: solo hoy, varias veces al día
 DATOS = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "RobotContaNet"
 CONFIG = DATOS / "config.json"
 LOGS = DATOS / "logs"
@@ -42,7 +43,7 @@ def detectar_contanet() -> str:
 
 def cargar_config() -> dict:
     cfg = {"contanet_exe": "", "contafiles": "", "carpeta_reportes": str(Path.home() / "Documents" / "ReporteContanet"),
-           "hora": "07:30", "db_password": "", "database_url": ""}
+           "hora": "07:30", "avances": "10:00, 13:00, 16:00, 19:00", "db_password": "", "database_url": ""}
     if CONFIG.exists():
         cfg.update(json.loads(CONFIG.read_text(encoding="utf-8")))
     if not cfg["contanet_exe"] or not Path(cfg["contanet_exe"]).exists():
@@ -79,14 +80,17 @@ def preparar_registro(*extra: logging.Handler) -> None:
 
 
 # ============================================================================ acciones
-def ejecutar(desde: date | None = None, hasta: date | None = None) -> bool:
+def ejecutar(hoy: bool = False) -> bool:
+    """Cierre (del 1 del mes hasta ayer) o, con hoy=True, avance del día (solo hoy hasta la hora actual)."""
+    desde, hasta = (date.today(), date.today()) if hoy else robot.rango_por_defecto(date.today())
     try:
-        d, h = robot.rango_por_defecto(date.today())
-        desde, hasta = desde or d, hasta or h
-        log.info(f"Inicio · rango {desde:%d/%m/%Y} – {hasta:%d/%m/%Y} · ContaNet: {robot.EXE}")
-        ruta = robot.descargar(desde, hasta)
+        log.info(f"Inicio {'avance del día' if hoy else 'cierre'} · {desde:%d/%m/%Y} – {hasta:%d/%m/%Y} · ContaNet: {robot.EXE}")
+        ruta = robot.descargar(desde, hasta, espera=300 if hoy else 900)
         robot.cargar(ruta)
         log.info("Listo.")
+        return True
+    except robot.SinVentas as e:
+        log.info(f"Sin ventas que cargar todavía: {e}")
         return True
     except Exception as e:  # noqa: BLE001
         log.error(f"ERROR: {e}")
@@ -121,41 +125,83 @@ def probar() -> bool:
     return ok
 
 
-def comando_auto() -> str:
-    """Lo que ejecuta la tarea programada: este programa con --auto."""
+def comando_auto() -> tuple[str, str]:
+    """Programa y argumentos que ejecuta la tarea programada (este programa con --auto)."""
     if getattr(sys, "frozen", False):
-        return f'"{sys.executable}" --auto'
-    return f'"{sys.executable}" "{Path(__file__).resolve()}" --auto'
+        return sys.executable, "--auto"
+    return sys.executable, f'"{Path(__file__).resolve()}" --auto'
 
 
-def programar(hora: str) -> bool:
-    exe, _, args = comando_auto().partition('" ')
-    exe = exe.strip('"')
-    ps = (f"$a = New-ScheduledTaskAction -Execute '{exe}' -Argument '{args.strip()}' -WorkingDirectory '{DATOS}';"
-          f"$t = New-ScheduledTaskTrigger -Daily -At '{hora}';"
+def horas(texto: str) -> list[str]:
+    """«10:00, 13:00, 16:00» -> ['10:00', '13:00', '16:00'] (valida HH:MM)."""
+    salida = []
+    for h in texto.replace(";", ",").split(","):
+        h = h.strip()
+        if not h:
+            continue
+        hh, _, mm = h.partition(":")
+        if not (hh.isdigit() and mm.isdigit() and 0 <= int(hh) < 24 and 0 <= int(mm) < 60):
+            raise ValueError(f"Hora no válida: «{h}» (usa HH:MM)")
+        salida.append(f"{int(hh):02d}:{int(mm):02d}")
+    return salida
+
+
+def registrar_tarea(nombre: str, horarios: list[str], extra: str, descripcion: str) -> bool:
+    exe, args = comando_auto()
+    disparos = ",".join(f"(New-ScheduledTaskTrigger -Daily -At '{h}')" for h in horarios)
+    ps = (f"$a = New-ScheduledTaskAction -Execute '{exe}' -Argument '{(args + ' ' + extra).strip()}' -WorkingDirectory '{DATOS}';"
+          f"$t = @({disparos});"
           "$p = New-ScheduledTaskPrincipal -UserId \"$env:USERDOMAIN\\$env:USERNAME\" -LogonType Interactive -RunLevel Limited;"
           "$s = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries;"
-          f"Register-ScheduledTask -TaskName '{TAREA}' -Description 'Descarga el reporte de ventas de ContaNet y lo carga a la base.' "
+          f"Register-ScheduledTask -TaskName '{nombre}' -Description '{descripcion}' "
           "-Action $a -Trigger $t -Principal $p -Settings $s -Force | Out-Null")
     r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, creationflags=0x08000000)
-    if r.returncode == 0:
-        log.info(f"Programado: todos los días a las {hora} (tarea «{TAREA}»). Corre si la sesión de Windows está abierta.")
-        return True
-    log.error(f"No pude programar la tarea: {r.stderr.strip()[:300]}")
-    return False
+    if r.returncode != 0:
+        log.error(f"No pude programar «{nombre}»: {r.stderr.strip()[:300]}")
+    return r.returncode == 0
+
+
+def quitar_tarea(nombre: str) -> None:
+    subprocess.run(["schtasks", "/Delete", "/TN", nombre, "/F"], capture_output=True, text=True, creationflags=0x08000000)
+
+
+def programar(hora: str, avances: str) -> bool:
+    try:
+        cierre, intradia = (horas(hora) or ["07:30"])[:1], horas(avances)
+    except ValueError as e:
+        log.error(str(e))
+        return False
+    ok = registrar_tarea(TAREA, cierre, "", "Cierre: descarga de ContaNet del 1 del mes hasta ayer y carga a la base.")
+    if ok:
+        log.info(f"Cierre programado todos los días a las {cierre[0]} (del 1 del mes hasta ayer).")
+    if intradia:
+        if registrar_tarea(TAREA_AVANCE, intradia, "--hoy", "Avance del día: descarga de ContaNet de hoy hasta la hora actual."):
+            log.info(f"Avance del día programado a las {', '.join(intradia)} (solo hoy).")
+        else:
+            ok = False
+    else:
+        quitar_tarea(TAREA_AVANCE)
+        log.info("Sin avances durante el día.")
+    log.info("Las tareas corren si la sesión de Windows está abierta.")
+    return ok
 
 
 def quitar_programacion() -> None:
-    r = subprocess.run(["schtasks", "/Delete", "/TN", TAREA, "/F"], capture_output=True, text=True, creationflags=0x08000000)
-    log.info("Programación quitada." if r.returncode == 0 else f"No había programación que quitar ({r.stderr.strip()[:120]}).")
+    quitar_tarea(TAREA)
+    quitar_tarea(TAREA_AVANCE)
+    log.info("Programación quitada.")
 
 
 def estado_tarea() -> str:
-    r = subprocess.run(["powershell", "-NoProfile", "-Command",
-                        f"$i = Get-ScheduledTaskInfo -TaskName '{TAREA}' -ErrorAction SilentlyContinue; if ($i) {{ $i.NextRunTime.ToString('dd/MM/yyyy HH:mm') }}"],
-                       capture_output=True, text=True, creationflags=0x08000000)
-    prox = r.stdout.strip()
-    return f"Programado · próxima ejecución: {prox}" if prox else "Sin programación diaria"
+    def proxima(nombre: str) -> str:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                            f"$i = Get-ScheduledTaskInfo -TaskName '{nombre}' -ErrorAction SilentlyContinue; if ($i) {{ $i.NextRunTime.ToString('dd/MM HH:mm') }}"],
+                           capture_output=True, text=True, creationflags=0x08000000)
+        return r.stdout.strip()
+    c, a = proxima(TAREA), proxima(TAREA_AVANCE)
+    if not c and not a:
+        return "Sin programación diaria"
+    return f"Programado · próximo cierre: {c or '—'} · próximo avance del día: {a or '—'}"
 
 
 # ============================================================================ ventana
@@ -206,7 +252,8 @@ def ventana() -> None:
     fila(5, "Contraseña de la base (Supabase)", "db_password", oculto=True)
     if cfg.get("database_url") and not cfg.get("db_password"):
         ttk.Label(marco, text="✓ Conexión guardada. Escribe la contraseña solo si quieres cambiarla.", foreground="#0f8a4a").grid(row=5, column=2, sticky="w")
-    fila(6, "Hora diaria (HH:MM)", "hora")
+    fila(6, "Cierre diario (HH:MM)", "hora")
+    fila(7, "Avances del día (horas, separadas por coma)", "avances")
     marco.columnconfigure(1, weight=1)
 
     def guardar() -> dict:
@@ -217,7 +264,7 @@ def ventana() -> None:
         return nuevo
 
     botones = ttk.Frame(marco)
-    botones.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(12, 6))
+    botones.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(12, 6))
     estado = tk.StringVar(value=estado_tarea())
 
     def en_hilo(funcion, *args):
@@ -232,17 +279,18 @@ def ventana() -> None:
                 estado.set(estado_tarea())
         threading.Thread(target=correr, daemon=True).start()
 
-    ttk.Button(botones, text="▶  Ejecutar ahora", style="Accion.TButton", command=lambda: (guardar(), en_hilo(ejecutar))).pack(side="left")
+    ttk.Button(botones, text="▶  Ejecutar cierre", style="Accion.TButton", command=lambda: (guardar(), en_hilo(ejecutar))).pack(side="left")
+    ttk.Button(botones, text="Avance de hoy", command=lambda: (guardar(), en_hilo(ejecutar, True))).pack(side="left", padx=(6, 0))
     ttk.Button(botones, text="Probar", command=lambda: (guardar(), en_hilo(probar))).pack(side="left", padx=6)
-    ttk.Button(botones, text="Programar diario", command=lambda: (guardar(), en_hilo(programar, cfg["hora"] or "07:30"))).pack(side="left")
+    ttk.Button(botones, text="Programar diario", command=lambda: (guardar(), en_hilo(programar, cfg["hora"] or "07:30", cfg.get("avances", "")))).pack(side="left")
     ttk.Button(botones, text="Quitar programación", command=lambda: en_hilo(quitar_programacion)).pack(side="left", padx=6)
     ttk.Button(botones, text="Guardar", command=lambda: (guardar(), log.info("Configuración guardada."))).pack(side="right")
-    ttk.Label(marco, textvariable=estado, foreground="#0f8a4a").grid(row=8, column=0, columnspan=3, sticky="w")
+    ttk.Label(marco, textvariable=estado, foreground="#0f8a4a").grid(row=9, column=0, columnspan=3, sticky="w")
 
     texto = tk.Text(marco, height=16, wrap="word", font=("Consolas", 9), background="#1e1e1e", foreground="#e8e8e8")
-    texto.grid(row=9, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
-    marco.rowconfigure(9, weight=1)
-    ttk.Label(marco, text=f"Registro completo: {LOGS}", foreground="#888").grid(row=10, column=0, columnspan=3, sticky="w", pady=(4, 0))
+    texto.grid(row=10, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
+    marco.rowconfigure(10, weight=1)
+    ttk.Label(marco, text=f"Registro completo: {LOGS}", foreground="#888").grid(row=11, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
     def leer_cola():
         while not cola.empty():
@@ -277,7 +325,7 @@ def main() -> None:
         cfg = cargar_config()
         aplicar(cfg)
         preparar_registro()
-        sys.exit(0 if ejecutar() else 1)
+        sys.exit(0 if ejecutar(hoy="--hoy" in sys.argv) else 1)
     ventana()
 
 

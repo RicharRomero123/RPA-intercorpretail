@@ -1,6 +1,6 @@
 import type { CargaWeb } from "@/components/HistorialCargas";
 import type { Equivalencia } from "@/lib/cargas";
-import { clientesPorTienda, maestrosContaNet, panelContaNet } from "@/lib/contanet";
+import { avanceContaNet, clientesPorTienda, maestrosContaNet, panelContaNet } from "@/lib/contanet";
 import { datosEjecutivo } from "@/lib/ejecutivo";
 import { tiposRetail } from "@/lib/retail";
 import { clienteSupabase } from "@/lib/supabase/server";
@@ -17,6 +17,11 @@ export default async function CanalDigital({ searchParams }: { searchParams: Pro
     maestros: () => maestrosContaNet(sb, "digital"),
     panel: (a, b, f) => panelContaNet(sb, "digital", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "digital", a, b, f),
+    avance: async () => {
+      const avance = await avanceContaNet(sb, "digital");
+      const meta = null; // el canal digital no tiene meta propia en el consolidado
+      return { avance, meta };
+    },
     carga: async () => {
       const [eq, m, c] = await Promise.all([
         sb.from("sku_equivalencia").select("sistema, codigo, sku"),

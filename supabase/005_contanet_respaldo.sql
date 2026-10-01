@@ -1,4 +1,5 @@
 -- Tiendas con ContaNet + seguridad de las cargas.
+-- Nota: confirmar_carga() y deshacer_carga() se reemplazan en 011_avance_dia.sql; correr 011 después.
 -- Nota: las funciones contanet_* y tiendas_conciliacion se reemplazan en 006_canales_contanet.sql; correr 006 después.
 --  1. Cada carga guarda antes una copia de lo que reemplaza (cargas_respaldo) y se puede deshacer (deshacer_carga).
 --  2. Consultas de la web para Tiendas · ContaNet y para el Resumen de tiendas (Reporte interno vs ContaNet).

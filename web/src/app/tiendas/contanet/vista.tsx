@@ -13,6 +13,8 @@ import { Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/component
 import type { Equivalencia } from "@/lib/cargas";
 import { parametros, type CanalContaNet, type FiltroContaNet, type MaestrosContaNet, type PanelContaNet } from "@/lib/contanet";
 import { ClientesContaNet, type ClienteTienda } from "@/components/ClientesContaNet";
+import type { Avance } from "@/lib/contanet";
+import { seccionAvance } from "./avance";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import type { Agrupar } from "@/lib/kpi";
 import {
@@ -39,6 +41,7 @@ export type FuenteContaNet = {
   carga: () => Promise<{ equivalencias: Equivalencia[]; skus: string[]; cargas: CargaWeb[] }>;
   ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo>;
   clientesTiendas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<ClienteTienda[]>;
+  avance: () => Promise<{ avance: Avance; meta: number | null }>;
 };
 
 /** Cómo se muestra cada canal del reporte de ContaNet. */
@@ -66,7 +69,8 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
     );
     return <Marco seccion={sp.s} ubicacion={cfg.ubicacion} tiposRetail={tipos} usuario={usuario} salir={salir} datosAl="—"
                   encabezado={<h1 className="text-[28px] font-extrabold leading-tight">{cfg.titulo}</h1>}
-                  secciones={[{ id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: vacio }, { id: "ventas", titulo: "Ventas", contenido: vacio },
+                  secciones={[{ id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: vacio }, { id: "avance", titulo: "Avance del día", contenido: vacio },
+                    { id: "ventas", titulo: "Ventas", contenido: vacio },
                     { id: "detalle", titulo: "Detalle de ventas", contenido: vacio }]} />;
   }
 
@@ -79,9 +83,9 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   const dias = uno(sp.ds) ? [...new Set(uno(sp.ds)!.split("").map(Number).filter((d) => d >= 0 && d <= 6))] : [0, 1, 2, 3, 4, 5, 6];
   const filtro: FiltroContaNet = { tiendas: lista(sp.tienda), skus: lista(sp.prod), medios: lista(sp.medio), dias };
 
-  const [A, B, ej, cliTiendas] = await Promise.all([fuente.panel(desde, hasta, filtro), comp ? fuente.panel(comp[0], comp[1], filtro) : Promise.resolve(null),
+  const [A, B, ej, cliTiendas, av] = await Promise.all([fuente.panel(desde, hasta, filtro), comp ? fuente.panel(comp[0], comp[1], filtro) : Promise.resolve(null),
     fuente.ejecutivo(desde, hasta, { tienda: filtro.tiendas, sku: filtro.skus, medio: filtro.medios, dias: filtro.dias }),
-    fuente.clientesTiendas(desde, hasta, filtro)]);
+    fuente.clientesTiendas(desde, hasta, filtro), fuente.avance()]);
   const R = sumar(A.dias), RC = B ? sumar(B.dias) : null;
   const hayComp = !!B && B.dias.length > 0;
   const diasVenta = A.dias.filter((d) => d.venta > 0).length;
@@ -271,6 +275,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   return (
     <Marco seccion={sp.s} ubicacion={cfg.ubicacion} tiposRetail={tipos} encabezado={encabezado} usuario={usuario} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
       { id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ej} desde={desde} hasta={hasta} config={CONFIG[canal === "tiendas" ? "contanet_tiendas" : canal]} archivo={`${canal}_contanet_ejecutivo`} /> },
+      { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`) },
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
     ]} />

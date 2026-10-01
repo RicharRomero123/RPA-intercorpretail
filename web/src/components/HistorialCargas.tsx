@@ -19,8 +19,10 @@ export function HistorialCargas({ cargas }: { cargas: CargaWeb[] }) {
   const router = useRouter();
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
-  // La más reciente vigente de cada tipo (las cargas vienen de la más nueva a la más vieja).
-  const ultimas = new Set(Object.values(Object.fromEntries([...cargas].reverse().filter((c) => c.estado === "cargada").map((c) => [c.tipo, c.id]))));
+  // Se puede deshacer una carga vigente si ninguna carga vigente posterior del mismo tipo cubre sus fechas
+  // (las cargas vienen de la más nueva a la más vieja). Así, los avances del día no impiden deshacer el cierre.
+  const ultimas = new Set(cargas.filter((c, i) => c.estado === "cargada" && !cargas.slice(0, i).some((o) =>
+    o.estado === "cargada" && o.tipo === c.tipo && o.desde <= c.hasta && o.hasta >= c.desde)).map((c) => c.id));
 
   async function deshacer(c: CargaWeb) {
     if (!window.confirm(`¿Deshacer la carga de «${c.archivo}»? Se quitan sus ${entero(c.filas)} filas y vuelven las que había antes en la base.`)) return;
@@ -64,8 +66,8 @@ export function HistorialCargas({ cargas }: { cargas: CargaWeb[] }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-[var(--tenue)]">Solo se puede deshacer la última carga vigente de cada tipo (ContaNet, Tiendas, Retail). La base guarda la copia
-        de lo reemplazado en las 3 últimas cargas de cada tipo.</p>
+      <p className="text-xs text-[var(--tenue)]">Se puede deshacer una carga si ninguna carga posterior cubre sus mismas fechas. La base guarda la copia de lo
+        reemplazado en las 2 últimas cargas de varios días y las 4 últimas de un solo día (avances), por tipo.</p>
     </div>
   );
 }

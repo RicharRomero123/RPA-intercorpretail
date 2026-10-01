@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Bike, Building2, CalendarCheck, ChartLine, ChevronDown, Database, FileSpreadsheet, Globe, LayoutDashboard, LayoutGrid, Map, MapPin, PanelLeftClose, PanelLeftOpen, Presentation,
+  Bike, Building2, CalendarCheck, ChartLine, ChevronDown, Clock, Database, FileSpreadsheet, Globe, LayoutDashboard, LayoutGrid, Map, MapPin, PanelLeftClose, PanelLeftOpen, Presentation,
   ShoppingBasket, ShoppingCart, Store, TableProperties, Tag, Warehouse, type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, type Transition } from "motion/react";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
 
-const ICONOS = { ejecutivo: Presentation, ventas: ChartLine, detalle: TableProperties, stock: Warehouse } satisfies Record<string, LucideIcon>;
+const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse } satisfies Record<string, LucideIcon>;
 type IdSeccion = keyof typeof ICONOS;
 
 type Hoja = { id: IdSeccion; titulo: string };
@@ -22,6 +22,8 @@ const EJECUTIVO: Hoja = { id: "ejecutivo", titulo: "Resumen ejecutivo" };
 /** Resumen general de todos los canales: va arriba de los módulos. */
 const GENERAL: Nodo = { id: "consolidado", titulo: "Resumen general", icono: LayoutGrid, ruta: "/consolidado" };
 const VENTAS: Hoja[] = [EJECUTIVO, { id: "ventas", titulo: "Ventas" }, { id: "detalle", titulo: "Detalle de ventas" }];
+/** Vistas de ContaNet: además, el avance del día (se actualiza varias veces al día). */
+const CONTANET: Hoja[] = [EJECUTIVO, { id: "avance", titulo: "Avance del día" }, ...VENTAS.slice(1)];
 /** Módulos de la app, uno por canal de venta. Retail se abre en sus tipos (Supermercados · SPSA y los que se carguen). */
 function menu(tipos: TipoRetail[]): Nodo[] {
   return [
@@ -34,10 +36,10 @@ function menu(tipos: TipoRetail[]): Nodo[] {
     { id: "tiendas", titulo: "Tiendas", icono: Store, hijos: [
       { id: "tiendas/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/tiendas", secciones: [EJECUTIVO, { id: "ventas", titulo: "Interno vs ContaNet" }] },
       { id: "tiendas/interno", titulo: "Reporte interno", icono: FileSpreadsheet, ruta: "/tiendas/interno", secciones: VENTAS },
-      { id: "tiendas/contanet", titulo: "ContaNet", icono: Database, ruta: "/tiendas/contanet", secciones: VENTAS },
+      { id: "tiendas/contanet", titulo: "ContaNet", icono: Database, ruta: "/tiendas/contanet", secciones: CONTANET },
     ] },
-    { id: "canales/digital", titulo: "Canal digital", icono: Globe, ruta: "/canales/digital", secciones: VENTAS },
-    { id: "canales/rappi", titulo: "Rappi", icono: Bike, ruta: "/canales/rappi", secciones: VENTAS },
+    { id: "canales/digital", titulo: "Canal digital", icono: Globe, ruta: "/canales/digital", secciones: CONTANET },
+    { id: "canales/rappi", titulo: "Rappi", icono: Bike, ruta: "/canales/rappi", secciones: CONTANET },
     { id: "b2b", titulo: "B2B", icono: Building2 },
     { id: "lima", titulo: "Lima", icono: MapPin },
     { id: "provincia", titulo: "Provincia", icono: Map },

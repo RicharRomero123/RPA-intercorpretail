@@ -57,6 +57,10 @@ class ErrorReporte(Exception):
     pass
 
 
+class SinVentas(Exception):
+    """ContaNet no tiene ventas en el rango (p. ej. «hoy» muy temprano): no es un error."""
+
+
 def _texto(v) -> str:
     return "" if v is None or (isinstance(v, float) and pd.isna(v)) else " ".join(str(v).split())
 
@@ -139,7 +143,7 @@ def leer_reporte(ruta: Path, equivalencias: dict[str, str]) -> dict:
             "vendedor": _texto(g("Cód. Vendedor")),
         })
     if not filas:
-        raise ErrorReporte("El reporte no tiene líneas de venta.")
+        raise SinVentas("El reporte no tiene líneas de venta.")
     venta = round(sum(f["total"] for f in filas), 4)
     und_neta = round(sum(f["und"] for f in filas), 3)
     und_abs = round(sum(abs(f["und"]) for f in filas), 3)
@@ -353,8 +357,20 @@ def descargar(desde: date, hasta: date, espera: int = 900) -> Path:
     rep.ButtonControl(AutomationId="btnAccion", searchDepth=8).GetInvokePattern().Invoke()
     log.info("Reportar: espero el Excel en ContaFiles…")
     archivo, tam = None, -1
+    pid = w.ProcessId
     while time.time() - t0 < espera:
         time.sleep(3)
+        # Si ContaNet muestra un aviso en lugar de generar el Excel (p. ej. «no hay datos»), se lee, se cierra y se informa.
+        for c in auto.GetRootControl().GetChildren():
+            if c.ClassName == "#32770" and c.ProcessId == pid:
+                mensaje = " ".join(t.Name for t, _ in auto.WalkControl(c, maxDepth=3) if t.ControlTypeName == "TextControl" and t.Name)
+                for b, _ in auto.WalkControl(c, maxDepth=3):
+                    if b.ControlTypeName == "ButtonControl":
+                        b.GetInvokePattern().Invoke()
+                        break
+                if any(x in mensaje.lower() for x in ("no hay", "no existe", "sin datos", "no se encontr")):
+                    raise SinVentas(f"ContaNet: {mensaje}")
+                raise RuntimeError(f"ContaNet mostró un aviso: {mensaje}")
         nuevos = [x for x in CONTAFILES.glob("Reporte_ConsultaVentasProductoDetallado*.xlsx")
                   if not x.name.startswith("~$") and x.stat().st_mtime >= t0]
         if not nuevos:
@@ -381,6 +397,7 @@ def main() -> None:
     ap.add_argument("--archivo", type=Path, help="no descargar: cargar este archivo")
     ap.add_argument("--prueba", action="store_true", help="cargar dentro de una transacción que se deshace")
     ap.add_argument("--explorar", action="store_true")
+    ap.add_argument("--hoy", action="store_true", help="avance del día: solo hoy, hasta la hora actual")
     a = ap.parse_args()
 
     (AQUI / "logs").mkdir(exist_ok=True)
@@ -391,7 +408,7 @@ def main() -> None:
         if a.archivo:
             cargar(a.archivo, a.prueba)
             return
-        desde, hasta = rango_por_defecto(date.today())
+        desde, hasta = (date.today(), date.today()) if a.hoy else rango_por_defecto(date.today())
         desde, hasta = a.desde or desde, a.hasta or hasta
         if a.explorar:
             import uiautomation as auto
@@ -401,8 +418,10 @@ def main() -> None:
             preparar(auto, rep, desde, hasta)
             explorar(auto, rep)
             return
-        ruta = descargar(desde, hasta)
+        ruta = descargar(desde, hasta, espera=300 if a.hoy else 900)
         cargar(ruta, a.prueba)
+    except SinVentas as e:
+        log.info(f"Sin ventas que cargar en {desde:%d/%m/%Y} – {hasta:%d/%m/%Y}: {e}")
     except Exception as e:  # noqa: BLE001 — se anota en el registro y la tarea termina con error
         log.error(f"ERROR: {e}")
         sys.exit(1)
