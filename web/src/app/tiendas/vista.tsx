@@ -23,7 +23,7 @@ const lista = (v: string | string[] | undefined) => (uno(v) ? uno(v)!.split(",")
 const variacion = (a: number | null, b: number | null | undefined) => (a !== null && b ? a / b - 1 : null);
 const div = (a: number, b: number) => (b ? a / b : null);
 /** Nombre corto de la comparación, para títulos de columnas. */
-const CORTO: Record<Comparar, string> = { ant: "periodo anterior", sem: "semana anterior", anio: "año anterior", no: "" };
+const CORTO: Record<Comparar, string> = { ant: "periodo anterior", sem: "semana anterior", anio: "año anterior", anioSem: "mismo día año anterior", no: "" };
 
 const COL = {
   und: { clave: "und", titulo: "Unidades", tipo: "entero", info: "tUnidades" },

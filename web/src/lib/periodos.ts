@@ -18,12 +18,13 @@ export type Periodo = keyof typeof PERIODOS;
 
 /** Contra qué se compara (el orden es el del selector: primero el año pasado al mismo día). */
 export const COMPARAR = {
-  anio: "Mismo periodo del año pasado (al mismo día)", ant: "Periodo anterior (los mismos días justo antes)",
+  anio: "Mismo periodo del año pasado (al mismo día)",
+  anioSem: "Mismo día de la semana del año pasado (364 días antes)", ant: "Periodo anterior (los mismos días justo antes)",
   sem: "Mismo periodo, semana anterior", no: "Sin comparación",
 } as const;
 /** Nombre corto para las tarjetas («vs. …»). */
 export const COMPARAR_CORTO: Record<keyof typeof COMPARAR, string> = {
-  anio: "mismo periodo del año pasado", ant: "periodo anterior", sem: "semana anterior", no: "",
+  anio: "mismo periodo del año pasado", anioSem: "mismo día de la semana del año pasado", ant: "periodo anterior", sem: "semana anterior", no: "",
 };
 export type Comparar = keyof typeof COMPARAR;
 
@@ -46,6 +47,7 @@ export const haceUnAnio = (s: string) => {
 /** Fecha equivalente del periodo actual para un día del periodo de comparación (inverso de rangoComparacion). */
 export function alinear(c: Comparar, desde: string, hasta: string): (s: string) => string {
   if (c === "anio") return (s) => `${Number(s.slice(0, 4)) + 1}${s.slice(4)}`;
+  if (c === "anioSem") return (s) => sumarDias(s, 364);
   const n = c === "sem" ? 7 : diasEntre(desde, hasta);
   return (s) => sumarDias(s, n);
 }
@@ -78,6 +80,8 @@ export function rangoPeriodo(p: Periodo, ultimo: string, primero: string, d1?: s
 export function rangoComparacion(c: Comparar, desde: string, hasta: string): [string, string] | null {
   if (c === "no") return null;
   if (c === "anio") return [haceUnAnio(desde), haceUnAnio(hasta)];
+  // 52 semanas exactas: compara jueves con jueves (útil para días sueltos o semanas).
+  if (c === "anioSem") return [sumarDias(desde, -364), sumarDias(hasta, -364)];
   if (c === "sem") return [sumarDias(desde, -7), sumarDias(hasta, -7)];
   const n = diasEntre(desde, hasta);
   return [sumarDias(desde, -n), sumarDias(desde, -1)];

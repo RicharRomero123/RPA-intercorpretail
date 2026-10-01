@@ -1,15 +1,56 @@
--- Resumen ejecutivo enlazado a los filtros de cada página (reemplaza la versión de 007).
--- Nota: ejecutivo() se reemplaza en 012_contanet_historia.sql (ContaNet tiendas con historia del reporte interno).
--- Recibe el periodo elegido (desde–hasta) y los filtros de la página, y devuelve:
---   actual     venta por «cliente» y SKU en desde–hasta
---   anterior   lo mismo en las mismas fechas del año anterior
---   meses      venta por mes y SKU de los 12 meses que terminan en «hasta» (para la evolución)
---   meses_ly   lo mismo un año antes (etiquetado con el mes equivalente del año actual; el último mes cortado al mismo día)
--- Filtros (jsonb, cada clave es una lista; si no está, no filtra):
---   tienda, sku, tipo (tipo de precio), medio (medio de pago), cliente, status, cadena, zona, local, dias (0 = lunes … 6 = domingo)
--- Es repetible.
+-- Historia para las vistas de ContaNet: para el canal «tiendas», las fechas anteriores al primer día cargado de ContaNet
+-- se completan con el reporte interno de tiendas (Excel de los jefes / Power BI), que tiene historia desde 2025.
+-- Así «Este mes vs el año anterior» compara contra la venta real de 2025. Del reporte interno solo hay venta y unidades
+-- por tienda, día y producto: no hay comprobantes (tickets), horas, medios de pago ni clientes.
+-- Reemplaza contanet_panel() de 006 y ejecutivo() de 010. Es repetible.
 
-drop function if exists ejecutivo(text, date, date, date);
+create or replace function contanet_historia(p_canal text)
+returns table (fecha date, fecha_hora timestamp, tienda text, sku text, codigo text, producto text, und numeric, total numeric,
+               comprobante text, tipo_comprobante text, medio_pago text, doc_cliente text, tipo_doc_cliente text, cliente text, origen text)
+language sql stable security invoker set search_path = public as $$
+  select v.fecha, v.fecha_hora, v.tienda, v.sku, v.codigo, v.producto, v.und, v.total, v.comprobante, v.tipo_comprobante,
+         v.medio_pago, v.doc_cliente, v.tipo_doc_cliente, v.cliente, 'contanet'
+  from contanet_venta v where en_canal(p_canal, v.usuario, v.medio_pago)
+  union all
+  select t.fecha, null, t.tienda, t.sku, t.codigo, null, coalesce(t.und, 0), coalesce(t.venta, 0), null, null,
+         null, '', '', null, 'interno'
+  from tiendas_venta t
+  where p_canal = 'tiendas' and t.fecha < (select min(fecha) from contanet_venta);
+$$;
+grant execute on function contanet_historia(text) to authenticated;
+
+create or replace function contanet_panel(p_canal text, desde date, hasta date, p_tiendas text[] default null, p_skus text[] default null,
+                                          p_medios text[] default null, p_dias int[] default null) returns jsonb
+language sql stable security invoker set search_path = public as $$
+  with v as (
+    select v.fecha, v.fecha_hora, v.tienda, coalesce(v.sku, v.codigo) sku, coalesce(m.producto, v.producto) producto, v.und, v.total venta,
+           v.comprobante, v.tipo_comprobante, v.medio_pago, v.doc_cliente, v.tipo_doc_cliente, v.cliente,
+           case when v.tipo_comprobante <> 'Nota de crédito' then v.comprobante end ticket
+    from contanet_historia(p_canal) v left join sku_maestro m on m.sku = v.sku
+    where v.fecha between desde and hasta
+      and (p_tiendas is null or v.tienda = any(p_tiendas)) and (p_skus is null or coalesce(v.sku, v.codigo) = any(p_skus))
+      and (p_medios is null or v.medio_pago = any(p_medios))
+      and (p_dias is null or (extract(isodow from v.fecha)::int - 1) = any(p_dias))
+  )
+  select jsonb_build_object(
+    'dias', (select coalesce(jsonb_agg(x order by fecha), '[]') from
+             (select fecha, sum(und) und, sum(venta) venta, count(distinct ticket) tickets from v group by fecha) x),
+    'tiendas', (select coalesce(jsonb_agg(x), '[]') from
+                (select tienda, sum(und) und, sum(venta) venta, count(distinct ticket) tickets, count(distinct fecha) dias from v group by tienda) x),
+    'productos', (select coalesce(jsonb_agg(x), '[]') from
+                  (select sku, min(producto) producto, sum(und) und, sum(venta) venta, count(distinct ticket) tickets from v group by sku) x),
+    'horas', (select coalesce(jsonb_agg(x order by hora), '[]') from
+              (select extract(hour from fecha_hora)::int hora, sum(und) und, sum(venta) venta, count(distinct ticket) tickets from v group by 1) x),
+    'medios', (select coalesce(jsonb_agg(x), '[]') from
+               (select coalesce(nullif(medio_pago, ''), 'Sin dato') medio, sum(und) und, sum(venta) venta, count(distinct ticket) tickets from v group by 1) x),
+    'comprobantes', (select coalesce(jsonb_agg(x), '[]') from
+                     (select tipo_comprobante tipo, sum(und) und, sum(venta) venta, count(distinct comprobante) documentos from v group by 1) x),
+    'clientes', (select coalesce(jsonb_agg(x), '[]') from
+                 (select doc_cliente doc, tipo_doc_cliente tipo_doc, min(cliente) cliente, sum(und) und, sum(venta) venta,
+                         count(distinct ticket) tickets, max(fecha) ultima
+                  from v where doc_cliente <> '' group by doc_cliente, tipo_doc_cliente order by sum(venta) desc limit 200) x)
+  );
+$$;
 
 create or replace function ejecutivo(p_fuente text, desde date, hasta date, p_filtros jsonb default '{}') returns jsonb
 language plpgsql stable security invoker set search_path = public as $$
@@ -19,7 +60,7 @@ declare
   -- Columnas comunes: fecha, dim, sku, producto, und, venta y las columnas de filtro (null si no aplican a la fuente).
   contanet text := 'select v.fecha, %s dim, coalesce(v.sku, v.codigo) sku, coalesce(m.producto, v.producto) producto, v.und, v.total venta,
                            v.tienda, null::text tipo, v.medio_pago medio, v.cliente, null::text status, null::text cadena, null::text zona, null::text local
-                    from contanet_venta v left join sku_maestro m on m.sku = v.sku where en_canal(%L, v.usuario, v.medio_pago)';
+                    from contanet_historia(%L) v left join sku_maestro m on m.sku = v.sku';
 begin
   base := case
     when p_fuente = 'spsa' then
@@ -81,4 +122,3 @@ begin
   return r;
 end;
 $$;
-grant execute on function ejecutivo(text, date, date, jsonb) to authenticated;

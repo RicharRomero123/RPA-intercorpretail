@@ -24,7 +24,7 @@ const lista = (v: string | string[] | undefined) => (uno(v) ? uno(v)!.split(",")
 const variacion = (a: number | null, b: number | null | undefined) => (a !== null && b ? a / b - 1 : null);
 const div = (a: number, b: number) => (b ? a / b : null);
 const sumar = (xs: { und: number; venta: number }[]) => xs.reduce((a, x) => ({ und: a.und + x.und, venta: a.venta + x.venta }), { und: 0, venta: 0 });
-const CORTO: Record<Comparar, string> = { ant: "periodo anterior", sem: "semana anterior", anio: "año anterior", no: "" };
+const CORTO: Record<Comparar, string> = { ant: "periodo anterior", sem: "semana anterior", anio: "año anterior", anioSem: "mismo día año anterior", no: "" };
 
 /** De dónde salen los datos (la base, o datos de prueba). */
 export type FuenteRetail = {

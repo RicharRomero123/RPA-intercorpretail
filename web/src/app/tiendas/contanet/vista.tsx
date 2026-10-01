@@ -32,7 +32,7 @@ const variacion = (a: number | null, b: number | null | undefined) => (a !== nul
 const div = (a: number, b: number) => (b ? a / b : null);
 const sumar = (xs: { und: number; venta: number; tickets: number }[]) =>
   xs.reduce((a, x) => ({ und: a.und + x.und, venta: a.venta + x.venta, tickets: a.tickets + x.tickets }), { und: 0, venta: 0, tickets: 0 });
-const CORTO: Record<Comparar, string> = { ant: "periodo anterior", sem: "semana anterior", anio: "año anterior", no: "" };
+const CORTO: Record<Comparar, string> = { ant: "periodo anterior", sem: "semana anterior", anio: "año anterior", anioSem: "mismo día año anterior", no: "" };
 
 export type FuenteContaNet = {
   tipos: () => Promise<TipoRetail[]>;
@@ -154,6 +154,12 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
         ...(cfg.porMedio ? [{ clave: "medio", etiqueta: "Medio de pago", opciones: m.medios.map((x) => ({ valor: x, texto: x })) }] : []),
       ]} />
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
+      {canal === "tiendas" && comp && comp[0] < primero && (
+        <p className="text-xs text-[var(--tenue)] -mt-2">
+          ContaNet empieza el {fechaLarga(primero)}: para fechas anteriores la comparación usa la venta del <b>reporte interno de tiendas</b> (el del Power BI).
+          Ahí hay venta y unidades, pero no tickets, horas, medios de pago ni clientes (esas comparaciones salen «—»).
+        </p>
+      )}
     </header>
   );
 

@@ -48,10 +48,11 @@ const dmy = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`
 
 /** Franja que dice en palabras qué fechas se están viendo y contra cuáles se comparan. */
 export function FranjaComparacion({ desde, hasta, comp, tipo, hayDatos = true }: {
-  desde: string; hasta: string; comp: [string, string] | null; tipo: "anio" | "ant" | "sem" | "no"; hayDatos?: boolean;
+  desde: string; hasta: string; comp: [string, string] | null; tipo: "anio" | "anioSem" | "ant" | "sem" | "no"; hayDatos?: boolean;
 }) {
   const dias = Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86_400_000) + 1;
   const regla = tipo === "anio" ? `mismo corte: ${Number(hasta.slice(8, 10))} de ${MESES_LARGOS[Number(hasta.slice(5, 7)) - 1]}, un año antes`
+    : tipo === "anioSem" ? "364 días antes: el mismo día de la semana del año pasado"
     : tipo === "ant" ? `los ${dias} días justo antes` : tipo === "sem" ? "las mismas fechas, 7 días antes" : "";
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-[var(--linea)] bg-[var(--superficie)] px-3 py-2 text-sm">
