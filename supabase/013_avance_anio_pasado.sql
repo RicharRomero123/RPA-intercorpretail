@@ -1,4 +1,4 @@
--- Avance del día + el mismo día de la semana del año pasado (364 días antes), día completo.
+-- Avance del día + el año pasado, día completo: el mismo día de la semana (364 días antes) y la misma fecha.
 -- Para el canal «tiendas» ese día sale del reporte interno (vía contanet_historia), que solo tiene el total del día
 -- por tienda (no hay detalle por hora). Reemplaza contanet_avance() de 011. Es repetible.
 create or replace function contanet_avance(p_canal text, p_fecha date default null) returns jsonb
@@ -11,7 +11,9 @@ language sql stable security invoker set search_path = public as $$
     where en_canal(p_canal, v.usuario, v.medio_pago) and v.fecha in (dia.d, dia.d - 7)
   ),
   corte as (select max(fecha_hora)::time t from v, dia where fecha = dia.d),
-  ly as (select h.tienda, sum(h.total) venta from contanet_historia(p_canal) h, dia where h.fecha = dia.d - 364 group by h.tienda)
+  ly as (select h.tienda, sum(h.total) filter (where h.fecha = dia.d - 364) venta,
+                sum(h.total) filter (where h.fecha = (dia.d - interval '1 year')::date) venta_fecha
+         from contanet_historia(p_canal) h, dia where h.fecha in (dia.d - 364, (dia.d - interval '1 year')::date) group by h.tienda)
   select jsonb_build_object(
     'fecha', (select d from dia),
     'corte', (select t from corte),
@@ -24,7 +26,7 @@ language sql stable security invoker set search_path = public as $$
     'tiendas', (select coalesce(jsonb_agg(x), '[]') from (
                 select coalesce(a.tienda, ly.tienda) tienda, coalesce(a.hoy, 0) hoy, coalesce(a.antes_corte, 0) antes_corte,
                        coalesce(a.antes_dia, 0) antes_dia, coalesce(a.tickets, 0) tickets, coalesce(a.tickets_antes, 0) tickets_antes,
-                       a.ultima, ly.venta anio_pasado
+                       a.ultima, ly.venta anio_pasado, ly.venta_fecha anio_pasado_fecha_igual
                 from (select tienda, sum(total) filter (where fecha = d) hoy,
                              sum(total) filter (where fecha = d - 7 and fecha_hora::time <= (select t from corte)) antes_corte,
                              sum(total) filter (where fecha = d - 7) antes_dia,
@@ -34,6 +36,7 @@ language sql stable security invoker set search_path = public as $$
                       from v, dia group by tienda) a
                 full join ly on ly.tienda = a.tienda) x),
     'anio_pasado_fecha', (select d - 364 from dia),
+    'anio_pasado_misma_fecha', (select (d - interval '1 year')::date from dia),
     'mes', (select coalesce(sum(total), 0) from contanet_venta, dia
             where en_canal(p_canal, usuario, medio_pago) and fecha between date_trunc('month', dia.d)::date and dia.d - 1),
     'dias_mes', (select count(distinct fecha) from contanet_venta, dia

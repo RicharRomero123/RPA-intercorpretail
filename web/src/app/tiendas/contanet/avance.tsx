@@ -21,8 +21,9 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
   const antes = sumarDias(fecha, -7);
   const diaSemana = DIAS[new Date(`${fecha}T12:00:00`).getDay()];
   const T = av.tiendas.reduce((a, t) => ({ hoy: a.hoy + t.hoy, antes: a.antes + t.antes_corte, antesDia: a.antesDia + t.antes_dia, tickets: a.tickets + t.tickets,
-    ticketsAntes: a.ticketsAntes + t.tickets_antes, ly: a.ly + (t.anio_pasado ?? 0) }),
-    { hoy: 0, antes: 0, antesDia: 0, tickets: 0, ticketsAntes: 0, ly: 0 });
+    ticketsAntes: a.ticketsAntes + t.tickets_antes, ly: a.ly + (t.anio_pasado ?? 0), lyFecha: a.lyFecha + (t.anio_pasado_fecha_igual ?? 0) }),
+    { hoy: 0, antes: 0, antesDia: 0, tickets: 0, ticketsAntes: 0, ly: 0, lyFecha: 0 });
+  const TF = T.lyFecha;
   const hayLY = av.tiendas.some((t) => t.anio_pasado !== null);
   // Parte del día que normalmente ya pasó a esta hora (según el mismo día de la semana pasada) y proyección del día.
   const avanceNormal = esHoy && T.antesDia ? T.antes / T.antesDia : null;
@@ -64,35 +65,45 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
       </div>
 
       {hayLY && av.anio_pasado_fecha && (() => {
-        const lyFecha = av.anio_pasado_fecha;
-        const pct = T.ly ? T.hoy / T.ly : null, pctProy = T.ly ? proyeccion / T.ly - 1 : null;
+        // Dos referencias del año pasado (día completo, reporte interno): el mismo día de la semana y la misma fecha.
+        const refs = [
+          { titulo: "Mismo día de la semana", fecha: av.anio_pasado_fecha, total: T.ly },
+          ...(av.anio_pasado_misma_fecha ? [{ titulo: "Misma fecha", fecha: av.anio_pasado_misma_fecha, total: TF }] : []),
+        ];
         return (
-          <Tarjeta icono={CalendarClock} titulo="Frente al mismo día del año pasado"
-                   subtitulo={`${diaSemana} ${fechaLarga(lyFecha)} · día completo, del reporte interno (del año pasado solo hay el total del día, no el detalle por hora)`}>
-            <div className="grid gap-3 grid-cols-1 @2xl:grid-cols-3 text-sm">
-              <div className="rounded-lg border border-[var(--linea)] px-3 py-2"><span className="block text-xs text-[var(--tenue)]">Año pasado, día completo</span>
-                <b className="num text-lg">{soles(T.ly)}</b></div>
-              <div className="rounded-lg border border-[var(--linea)] px-3 py-2"><span className="block text-xs text-[var(--tenue)]">{esHoy ? "Hoy hasta ahora" : "Ese día este año"}</span>
-                <b className="num text-lg">{soles(T.hoy)}</b> <span className="text-xs text-[var(--tenue)]">· {porcentaje(pct)} del año pasado</span></div>
-              <div className="rounded-lg border border-[var(--linea)] px-3 py-2"><span className="block text-xs text-[var(--tenue)]">{esHoy ? "Proyección del día" : "Variación"}</span>
-                <b className={`num text-lg ${pctProy !== null && pctProy < 0 ? "text-[var(--critico)]" : "text-[var(--bueno)]"}`}>
-                  {esHoy ? soles(proyeccion) : ""} {pctProy === null ? "—" : `${pctProy >= 0 ? "+" : ""}${porcentaje(pctProy)}`}</b>
-                {esHoy && <span className="block text-xs text-[var(--tenue)]">vs el año pasado, si el resto del día sigue el ritmo del {diaSemana} pasado</span>}</div>
+          <Tarjeta icono={CalendarClock} titulo="Frente al año pasado (día completo)"
+                   subtitulo="Del reporte interno: del año pasado solo hay el total del día, no el detalle por hora">
+            <div className="grid gap-3 @3xl:grid-cols-2">
+              {refs.map((r) => {
+                const pct = r.total ? T.hoy / r.total : null, pctProy = r.total ? proyeccion / r.total - 1 : null;
+                const dia = DIAS[new Date(`${r.fecha}T12:00:00`).getDay()];
+                return (
+                  <div key={r.titulo} className="grid gap-2 rounded-lg border border-[var(--linea)] p-3 text-sm">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <b>{r.titulo}</b><span className="text-xs text-[var(--tenue)]">{dia} {fechaLarga(r.fecha)}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="grid"><span className="text-[11px] text-[var(--tenue)]">Año pasado, día</span><b className="num">{soles(r.total)}</b></span>
+                      <span className="grid"><span className="text-[11px] text-[var(--tenue)]">{esHoy ? "Hoy lleva" : "Este año"}</span><b className="num">{porcentaje(pct)}</b></span>
+                      <span className="grid"><span className="text-[11px] text-[var(--tenue)]">{esHoy ? "Proyección" : "Variación"}</span>
+                        <b className={`num ${pctProy !== null && pctProy < 0 ? "text-[var(--critico)]" : "text-[var(--bueno)]"}`}>
+                          {pctProy === null ? "—" : `${pctProy >= 0 ? "+" : ""}${porcentaje(pctProy)}`}</b></span>
+                    </div>
+                    {pct !== null && (
+                      <div className="relative h-3 rounded-full bg-[var(--superficie-2)] overflow-hidden">
+                        <div className="absolute inset-y-0 left-0 rounded-full bg-[var(--serie-1)]" style={{ width: `${Math.min(100, pct * 100)}%` }} />
+                        {avanceNormal !== null && <div className="absolute inset-y-0 w-0.5 bg-[var(--tinta)]" style={{ left: `${Math.min(100, avanceNormal * 100)}%` }} />}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            {pct !== null && (
-              <div className="grid gap-1">
-                <div className="relative h-4 rounded-full bg-[var(--superficie-2)] overflow-hidden">
-                  <div className="absolute inset-y-0 left-0 rounded-full bg-[var(--serie-1)]" style={{ width: `${Math.min(100, pct * 100)}%` }} />
-                  {avanceNormal !== null && (
-                    <div className="absolute inset-y-0 w-0.5 bg-[var(--tinta)]" style={{ left: `${Math.min(100, avanceNormal * 100)}%` }} title="Donde normalmente se está a esta hora" />
-                  )}
-                </div>
-                <span className="text-xs text-[var(--tenue)]">
-                  Barra: venta {esHoy ? "de hoy" : "del día"} sobre el total del año pasado ({porcentaje(pct)}).
-                  {avanceNormal !== null && <> La raya marca dónde se suele estar a esta hora: el {diaSemana} pasado, a las {corte}, llevaba el {porcentaje(avanceNormal)} de su día.</>}
-                </span>
-              </div>
-            )}
+            <p className="text-xs text-[var(--tenue)]">
+              {esHoy ? <>Hoy hasta ahora: <b className="num">{soles(T.hoy)}</b>. Proyección del día: <b className="num">{soles(proyeccion)}</b>, si el resto del día
+                sigue el ritmo del {diaSemana} pasado (a las {corte} llevaba el {porcentaje(avanceNormal)} de su día; la raya en cada barra marca ese punto). </> : null}
+              «Mismo día de la semana» compara {diaSemana} con {diaSemana} (364 días antes) y suele ser la referencia más justa; «Misma fecha» puede caer en otro día.
+            </p>
           </Tarjeta>
         );
       })()}
@@ -108,13 +119,15 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
                    { clave: "antes_corte", titulo: `${diaSemana} pasado S/`, tipo: "soles" }, { clave: "var", titulo: "Variación", tipo: "porcentaje" },
                    { clave: "tickets", titulo: "Tickets", tipo: "entero" }, { clave: "var_tickets", titulo: "Var. tickets", tipo: "porcentaje" },
                    { clave: "ultima", titulo: "Última venta", tipo: "texto" }, { clave: "antes_dia", titulo: `${diaSemana} pasado, día completo S/`, tipo: "soles" },
-                   ...(hayLY ? [{ clave: "anio_pasado", titulo: `Año pasado, día completo S/`, tipo: "soles" } as const,
-                                { clave: "alcanzado", titulo: "% del año pasado", tipo: "porcentaje" } as const] : [])]}
+                   ...(hayLY ? [{ clave: "anio_pasado", titulo: `Año pasado, mismo día de la semana S/`, tipo: "soles" } as const,
+                                { clave: "alcanzado", titulo: "% alcanzado", tipo: "porcentaje" } as const,
+                                { clave: "anio_pasado_fecha_igual", titulo: "Año pasado, misma fecha S/", tipo: "soles" } as const] : [])]}
                  total={{ tienda: "TOTAL", hoy: T.hoy, antes_corte: T.antes, var: variacion(T.hoy, T.antes), tickets: T.tickets,
                           var_tickets: variacion(T.tickets, T.ticketsAntes), antes_dia: T.antesDia,
-                          ...(hayLY ? { anio_pasado: T.ly, alcanzado: T.ly ? T.hoy / T.ly : null } : {}) }} />
+                          ...(hayLY ? { anio_pasado: T.ly, alcanzado: T.ly ? T.hoy / T.ly : null, anio_pasado_fecha_igual: TF } : {}) }} />
           <p className="text-xs text-[var(--tenue)]">
-            {hayLY && <>«Año pasado»: total del {diaSemana} {av.anio_pasado_fecha ? fechaLarga(av.anio_pasado_fecha) : ""} en el reporte interno (S/ 0 = ese día no tuvo venta registrada). </>}
+            {hayLY && <>«Año pasado»: total del día en el reporte interno, el {diaSemana} {av.anio_pasado_fecha ? fechaLarga(av.anio_pasado_fecha) : ""} y la misma fecha
+              {av.anio_pasado_misma_fecha ? ` ${fechaLarga(av.anio_pasado_misma_fecha)}` : ""} (S/ 0 = ese día no tuvo venta registrada). </>}
             «Última venta»: hora del último comprobante de esa tienda; si una tienda se quedó muy atrás en la hora, revisa si está registrando en ContaNet.
             El robot actualiza el día varias veces (por defecto 10:00, 13:00, 16:00 y 19:00); el cierre de las 07:30 deja el día anterior completo.
           </p>

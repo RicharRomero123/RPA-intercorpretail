@@ -70,18 +70,24 @@ export type Avance = {
   fecha: string | null; corte: string | null; actualizado: string | null; mes: number; dias_mes: number;
   /** Mismo día de la semana del año pasado (364 días antes): solo el total del día por tienda (reporte interno). */
   anio_pasado_fecha: string | null;
+  /** La misma fecha del año pasado (puede ser otro día de la semana). */
+  anio_pasado_misma_fecha: string | null;
   horas: { hora: number; hoy: number; antes: number; tickets: number }[];
-  tiendas: { tienda: string; hoy: number; antes_corte: number; antes_dia: number; tickets: number; tickets_antes: number; ultima: string | null; anio_pasado: number | null }[];
+  tiendas: { tienda: string; hoy: number; antes_corte: number; antes_dia: number; tickets: number; tickets_antes: number; ultima: string | null; anio_pasado: number | null; anio_pasado_fecha_igual: number | null }[];
 };
 export async function avanceContaNet(sb: Supabase, canal: CanalContaNet): Promise<Avance> {
   const d = await leer<Record<string, unknown>>(sb.rpc("contanet_avance", { p_canal: canal }));
   return {
     fecha: (d.fecha as string) ?? null, corte: (d.corte as string) ?? null, actualizado: (d.actualizado as string) ?? null,
-    anio_pasado_fecha: (d.anio_pasado_fecha as string) ?? null,
+    anio_pasado_fecha: (d.anio_pasado_fecha as string) ?? null, anio_pasado_misma_fecha: (d.anio_pasado_misma_fecha as string) ?? null,
     mes: num(d.mes), dias_mes: num(d.dias_mes),
     horas: numeros(d.horas as Record<string, unknown>[], ["hora", "hoy", "antes", "tickets"]),
     tiendas: numeros<Avance["tiendas"][number]>(d.tiendas as Record<string, unknown>[], ["hoy", "antes_corte", "antes_dia", "tickets", "tickets_antes"])
-      .map((t, i) => ({ ...t, anio_pasado: (d.tiendas as Record<string, unknown>[])[i].anio_pasado === null ? null : num((d.tiendas as Record<string, unknown>[])[i].anio_pasado) })),
+      .map((t, i) => {
+        const r = (d.tiendas as Record<string, unknown>[])[i];
+        return { ...t, anio_pasado: r.anio_pasado === null ? null : num(r.anio_pasado),
+                 anio_pasado_fecha_igual: r.anio_pasado_fecha_igual === null ? null : num(r.anio_pasado_fecha_igual) };
+      }),
   };
 }
 
