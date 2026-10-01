@@ -155,17 +155,10 @@ def leer_reporte(ruta: Path, equivalencias: dict[str, str]) -> dict:
 
 
 # ============================================================================ carga a la base
-def conectar():
-    import psycopg
-
-    sys.path.insert(0, str(AQUI))
-    import api_intercorp as api
-    from retail_diario import url_base
-    return psycopg.connect(url_base(api.leer_env()))
-
-
 def cargar(ruta: Path, prueba: bool = False) -> dict:
     from psycopg.types.json import Jsonb
+
+    from conexion import conectar
 
     with conectar() as con:
         eq = dict(con.execute("select codigo, sku from sku_equivalencia where sistema = 'ContaNet'").fetchall())
