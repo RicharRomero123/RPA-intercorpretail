@@ -192,10 +192,23 @@ def rango_por_defecto(hoy: date) -> tuple[date, date]:
     return ayer.replace(day=1), ayer
 
 
+def restaurar(auto, w):
+    """Si ContaNet está minimizado, Windows no expone sus botones (solo la barra de título): se restaura y se trae al frente."""
+    import ctypes
+    handle = w.NativeWindowHandle
+    if ctypes.windll.user32.IsIconic(handle):
+        log.info("ContaNet estaba minimizado: lo restauro")
+        ctypes.windll.user32.ShowWindow(handle, 9)  # SW_RESTORE
+        time.sleep(1.5)
+    auto.SwitchToThisWindow(handle)
+    time.sleep(0.5)
+    return w
+
+
 def ventana_principal(auto, esperar: int = 90):
     w = auto.WindowControl(searchDepth=1, SubName="ContaNet ERP")
     if w.Exists(2):
-        return w
+        return restaurar(auto, w)
     log.info(f"ContaNet no está abierto: lo abro ({EXE})")
     import subprocess
     subprocess.Popen([str(EXE)], cwd=str(EXE.parent))
