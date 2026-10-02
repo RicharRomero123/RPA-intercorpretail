@@ -1,18 +1,21 @@
 import type { ConfigEjecutivo, DatosEjecutivo, FilaDim, FilaMes } from "@/components/ResumenEjecutivo";
 import type { clienteSupabase } from "@/lib/supabase/server";
+import { conGeo, type FiltroGeo } from "@/lib/contanet";
 
 /** Datos del resumen ejecutivo de un canal, con el periodo y los filtros de la página (función ejecutivo de la base). */
 type Supabase = Awaited<ReturnType<typeof clienteSupabase>>;
 export type Fuente = "retail" | "spsa" | `retail:${string}` | "tiendas" | "contanet_tiendas" | "digital" | "digital_lima" | "digital_provincia" | "rappi";
 /** Filtros de la página. Una lista vacía (o días = los 7) no filtra. */
 export type FiltrosEjecutivo = Partial<Record<"tienda" | "sku" | "tipo" | "medio" | "cliente" | "status" | "cadena" | "zona" | "local", (string | number)[]>
-  & { dias: number[] }>;
+  & { dias: number[]; geo: FiltroGeo }>;
 
 export async function datosEjecutivo(sb: Supabase, fuente: Fuente, desde: string, hasta: string, filtros: FiltrosEjecutivo = {}): Promise<DatosEjecutivo> {
-  const p_filtros = Object.fromEntries(Object.entries(filtros)
+  const { geo, ...resto } = filtros;
+  const p_filtros = Object.fromEntries(Object.entries(resto)
     .filter(([k, v]) => v && v.length && !(k === "dias" && v.length >= 7))
-    .map(([k, v]) => [k, v!.map(String)]));
-  const { data, error } = await sb.rpc("ejecutivo", { p_fuente: fuente, desde, hasta, p_filtros });
+    .map(([k, v]) => [k, (v as (string | number)[]).map(String)]));
+  // Canal digital: el filtro por zona va dentro del nombre de la fuente.
+  const { data, error } = await sb.rpc("ejecutivo", { p_fuente: conGeo(fuente, geo), desde, hasta, p_filtros });
   if (error) throw new Error(`Error leyendo la base: ${JSON.stringify(error)}`);
   const d = data as Record<"actual" | "anterior" | "meses" | "meses_ly", Record<string, unknown>[]>;
   const n = <T,>(xs: Record<string, unknown>[]) => (xs ?? []).map((r) => ({ ...r, und: Number(r.und ?? 0), venta: Number(r.venta ?? 0) })) as T[];

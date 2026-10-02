@@ -29,11 +29,30 @@ export type PanelContaNet = {
   comprobantes: { tipo: string; und: number; venta: number; documentos: number }[];
   clientes: (Base & { doc: string; tipo_doc: string; cliente: string; ultima: string })[];
 };
-export type FiltroContaNet = { tiendas: string[]; skus: string[]; medios: string[]; dias: number[] };
+/** Filtro por zona del canal digital: subcanal (Lima/Provincia), distrito, provincia, departamento. */
+export type ClaveGeo = "subc" | "dist" | "prov" | "dep";
+export type FiltroGeo = Partial<Record<ClaveGeo, string[]>>;
+export type FiltroContaNet = { tiendas: string[]; skus: string[]; medios: string[]; dias: number[]; geo?: FiltroGeo };
+
+/** El filtro por zona viaja dentro del nombre del canal ('digital_provincia|{"dep":["Áncash"]}'): así lo aplican todas las funciones. */
+export function conGeo(canal: string, geo?: FiltroGeo): string {
+  const g = Object.fromEntries(Object.entries(geo ?? {}).filter(([, v]) => v && v.length));
+  return Object.keys(g).length ? `${canal}|${JSON.stringify(g)}` : canal;
+}
+
+export type OpcionesGeo = Record<ClaveGeo, string[]>;
+export const opcionesDigital = (sb: Supabase, canal: CanalContaNet) => leer<OpcionesGeo>(sb.rpc("digital_opciones", { p_canal: canal }));
+
+export type Zona = { subcanal: string; departamento: string; provincia: string; distrito: string; venta: number; und: number; pedidos: number; clientes: number };
+export async function zonasDigital(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet): Promise<Zona[]> {
+  const { p_skus, p_medios, p_dias } = parametros(f);
+  const filas = await leer<Record<string, unknown>[]>(sb.rpc("digital_zonas", { p_canal: conGeo(canal, f.geo), desde, hasta, p_skus, p_medios, p_dias }));
+  return numeros<Zona>(filas ?? [], ["venta", "und", "pedidos", "clientes"]);
+}
 
 export async function panelContaNet(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet): Promise<PanelContaNet> {
   const d = await leer<Record<keyof PanelContaNet, Record<string, unknown>[]>>(sb.rpc("contanet_panel", {
-    p_canal: canal, desde, hasta, p_tiendas: f.tiendas.length ? f.tiendas : null, p_skus: f.skus.length ? f.skus : null,
+    p_canal: conGeo(canal, f.geo), desde, hasta, p_tiendas: f.tiendas.length ? f.tiendas : null, p_skus: f.skus.length ? f.skus : null,
     p_medios: f.medios.length ? f.medios : null, p_dias: f.dias.length < 7 ? f.dias : null,
   }));
   const b = ["und", "venta", "tickets"];
@@ -52,7 +71,7 @@ export const parametros = (f: FiltroContaNet) => ({
 
 /** Venta de los 200 clientes principales por tienda (gráfico «en qué tiendas compró»). */
 export async function clientesPorTienda(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet) {
-  const filas = await leer<Record<string, unknown>[]>(sb.rpc("contanet_clientes_tiendas", { p_canal: canal, desde, hasta, ...parametros(f) }));
+  const filas = await leer<Record<string, unknown>[]>(sb.rpc("contanet_clientes_tiendas", { p_canal: conGeo(canal, f.geo), desde, hasta, ...parametros(f) }));
   return numeros<{ doc: string; tienda: string; venta: number; und: number }>(filas ?? [], ["venta", "und"]);
 }
 
@@ -82,9 +101,9 @@ export type Avance = {
   clientes: { doc: string; cliente: string | null; venta: number; tickets: number; hora: string | null; tiendas: string | null }[];
 };
 /** Avance de un día (por defecto el último día del reporte cargado, el mismo para todos los canales). */
-export async function avanceContaNet(sb: Supabase, canal: CanalContaNet, fecha?: string): Promise<Avance> {
+export async function avanceContaNet(sb: Supabase, canal: CanalContaNet, fecha?: string, geo?: FiltroGeo): Promise<Avance> {
   const p_fecha = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : null;
-  const d = await leer<Record<string, unknown>>(sb.rpc("contanet_avance", { p_canal: canal, p_fecha }));
+  const d = await leer<Record<string, unknown>>(sb.rpc("contanet_avance", { p_canal: conGeo(canal, geo), p_fecha }));
   return {
     fecha: (d.fecha as string) ?? null, corte: (d.corte as string) ?? null, actualizado: (d.actualizado as string) ?? null,
     anio_pasado_fecha: (d.anio_pasado_fecha as string) ?? null, anio_pasado_misma_fecha: (d.anio_pasado_misma_fecha as string) ?? null,

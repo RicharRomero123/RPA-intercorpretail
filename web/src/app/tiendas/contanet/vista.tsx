@@ -11,7 +11,7 @@ import { Pestanas } from "@/components/Pestanas";
 import { Tabla, type Columna } from "@/components/Tabla";
 import { Aviso, Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/components/ui";
 import type { Equivalencia } from "@/lib/cargas";
-import { parametros, type CanalContaNet, type FiltroContaNet, type MaestrosContaNet, type PanelContaNet } from "@/lib/contanet";
+import { conGeo, parametros, type CanalContaNet, type ClaveGeo, type FiltroContaNet, type MaestrosContaNet, type OpcionesGeo, type PanelContaNet, type Zona } from "@/lib/contanet";
 import { ClientesContaNet, type ClienteTienda } from "@/components/ClientesContaNet";
 import type { Avance } from "@/lib/contanet";
 import { seccionAvance } from "./avance";
@@ -41,8 +41,13 @@ export type FuenteContaNet = {
   carga: () => Promise<{ equivalencias: Equivalencia[]; skus: string[]; cargas: CargaWeb[] }>;
   ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo>;
   clientesTiendas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<ClienteTienda[]>;
-  avance: (fecha?: string) => Promise<{ avance: Avance; meta: number | null }>;
+  avance: (fecha?: string, geo?: FiltroContaNet["geo"]) => Promise<{ avance: Avance; meta: number | null }>;
+  /** Solo canal digital: filtros por zona y venta por zona. */
+  geo?: { opciones: () => Promise<OpcionesGeo>; zonas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<Zona[]> };
 };
+const GEO: { clave: ClaveGeo; etiqueta: string }[] = [
+  { clave: "subc", etiqueta: "Canal" }, { clave: "dep", etiqueta: "Departamento" }, { clave: "prov", etiqueta: "Provincia" }, { clave: "dist", etiqueta: "Distrito" },
+];
 
 /** Cómo se muestra cada canal del reporte de ContaNet. */
 /** «dim»: qué es la columna «tienda» en cada canal (en el canal digital: Lima/Provincia, el distrito o el departamento). */
@@ -87,11 +92,13 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   const comp = rangoComparacion(comparar, desde, hasta);
   const agrupar = (["dia", "semana", "mes"].includes(uno(sp.g) ?? "") ? uno(sp.g) : "dia") as Agrupar;
   const dias = uno(sp.ds) ? [...new Set(uno(sp.ds)!.split("").map(Number).filter((d) => d >= 0 && d <= 6))] : [0, 1, 2, 3, 4, 5, 6];
-  const filtro: FiltroContaNet = { tiendas: lista(sp.tienda), skus: lista(sp.prod), medios: lista(sp.medio), dias };
+  const filtro: FiltroContaNet = { tiendas: lista(sp.tienda), skus: lista(sp.prod), medios: lista(sp.medio), dias,
+    geo: Object.fromEntries(GEO.map((g) => [g.clave, lista(sp[g.clave])])) };
 
-  const [A, B, ej, cliTiendas, av] = await Promise.all([fuente.panel(desde, hasta, filtro), comp ? fuente.panel(comp[0], comp[1], filtro) : Promise.resolve(null),
-    fuente.ejecutivo(desde, hasta, { tienda: filtro.tiendas, sku: filtro.skus, medio: filtro.medios, dias: filtro.dias }),
-    fuente.clientesTiendas(desde, hasta, filtro), fuente.avance(uno(sp.dia))]);
+  const [A, B, ej, cliTiendas, av, opcGeo, zonas] = await Promise.all([fuente.panel(desde, hasta, filtro), comp ? fuente.panel(comp[0], comp[1], filtro) : Promise.resolve(null),
+    fuente.ejecutivo(desde, hasta, { tienda: filtro.tiendas, sku: filtro.skus, medio: filtro.medios, dias: filtro.dias, geo: filtro.geo }),
+    fuente.clientesTiendas(desde, hasta, filtro), fuente.avance(uno(sp.dia), filtro.geo),
+    fuente.geo ? fuente.geo.opciones() : Promise.resolve(null), fuente.geo ? fuente.geo.zonas(desde, hasta, filtro) : Promise.resolve([] as Zona[])]);
   const R = sumar(A.dias), RC = B ? sumar(B.dias) : null;
   const hayComp = !!B && B.dias.length > 0;
   const diasVenta = A.dias.filter((d) => d.venta > 0).length;
@@ -158,6 +165,9 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
         ...(cfg.porTienda ? [{ clave: "tienda", etiqueta: cfg.dim, opciones: m.tiendas.map((x) => ({ valor: x, texto: x })) }] : []),
         { clave: "prod", etiqueta: "Producto", buscar: true, opciones: m.productos.map((p) => ({ valor: p.sku, texto: `${p.producto} (${p.sku})` })) },
         ...(cfg.porMedio ? [{ clave: "medio", etiqueta: "Medio de pago", opciones: m.medios.map((x) => ({ valor: x, texto: x })) }] : []),
+        // Canal digital: filtros por zona (solo los que tienen más de una opción en este canal).
+        ...(opcGeo ? GEO.filter((g) => opcGeo[g.clave].length > 1)
+          .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, buscar: opcGeo[g.clave].length > 12, opciones: opcGeo[g.clave].map((x) => ({ valor: x, texto: x })) })) : []),
       ]} />
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
       {canal.startsWith("digital") && (
@@ -174,6 +184,21 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       )}
     </header>
   );
+
+  // Canal digital: venta por zona. En Lima se mira el distrito; en Provincia y en el total, la provincia (ciudad) y su departamento.
+  const zonaClave: "distrito" | "provincia" = canal === "digital_lima" ? "distrito" : "provincia";
+  const porZona = (() => {
+    const mm = new Map<string, { zona: string; departamento: string; subcanal: string; venta: number; und: number; pedidos: number; clientes: number }>();
+    for (const z of zonas) {
+      const k = zonaClave === "distrito" ? z.distrito : `${z.provincia}|${z.departamento}`;
+      const a = mm.get(k) ?? { zona: z[zonaClave], departamento: z.departamento, subcanal: z.subcanal, venta: 0, und: 0, pedidos: 0, clientes: 0 };
+      a.venta += z.venta; a.und += z.und; a.pedidos += z.pedidos; a.clientes += z.clientes;
+      mm.set(k, a);
+    }
+    const tot = [...mm.values()].reduce((a, x) => a + x.venta, 0);
+    return [...mm.values()].sort((a, b) => b.venta - a.venta).map((x) => ({ ...x, pct: div(x.venta, tot), ticket: div(x.venta, x.pedidos) }));
+  })();
+  const nombreZona = zonaClave === "distrito" ? "Distrito" : "Provincia";
 
   const seccionVentas = (
     <>
@@ -194,7 +219,12 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
               <GraficoTendencia datos={tendencia} agrupar={agrupar} conPrevio={hayComp} nombrePrevio={COMPARAR[comparar]} rango={rango}
                                 metricas={["venta", "und"]} nombres={{ venta: "Venta" }} />
             </div>
-            {cfg.porTienda ? (
+            {fuente.geo && porZona.length > 0 ? (
+              <Tarjeta icono={Store} titulo={`${nombreZona === "Distrito" ? "Distritos" : "Provincias"} que más compran`} subtitulo={rango}>
+                {barras(porZona.slice(0, 10).map((x) => ({ etiqueta: zonaClave === "provincia" ? `${x.zona} · ${x.departamento}` : x.zona, valor: x.venta,
+                  detalle: `${entero(x.pedidos)} pedidos · ${entero(x.clientes)} clientes` })))}
+              </Tarjeta>
+            ) : cfg.porTienda ? (
               <Tarjeta icono={Store} titulo={`Venta por ${cfg.dim.toLowerCase()}`} subtitulo={rango}>
                 {barras(porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.tickets)} tickets · ${entero(x.und)} und` })))}
               </Tarjeta>
@@ -234,6 +264,20 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       <Encabezado titulo="Detalle de ventas" descripcion={<>{cfg.titulo}: la venta abierta por {cfg.porTienda ? `${cfg.dim.toLowerCase()}, ` : ""}producto, hora, medio de pago y cliente. {rango}.</>} />
       {A.dias.length === 0 ? vacio : (
         <Pestanas pestanas={[
+          ...(!fuente.geo || !porZona.length ? [] : [{ id: "zonas", titulo: `Por ${nombreZona.toLowerCase()}`, contenido: (
+            <Tarjeta icono={Store} titulo={`Venta por ${nombreZona.toLowerCase()}`} subtitulo={`${rango} · zona según el reporte de ventas virtuales`}>
+              <Tabla archivo={archivo("zonas")} hoja={nombreZona} filas={porZona} buscar
+                     columnas={[{ clave: "zona", titulo: nombreZona, tipo: "texto" },
+                       ...(zonaClave === "provincia" ? [{ clave: "departamento", titulo: "Departamento", tipo: "texto" } as Columna] : []),
+                       ...(canal === "digital" ? [{ clave: "subcanal", titulo: "Canal", tipo: "texto" } as Columna] : []),
+                       { clave: "pedidos", titulo: "Pedidos", tipo: "entero" }, { clave: "clientes", titulo: "Clientes", tipo: "entero" },
+                       { clave: "und", titulo: "Unidades", tipo: "entero" }, { clave: "venta", titulo: "Venta S/", tipo: "soles" },
+                       { clave: "pct", titulo: "% venta", tipo: "porcentaje" }, { clave: "ticket", titulo: "Ticket prom. S/", tipo: "soles" }]}
+                     total={{ zona: "TOTAL", pedidos: porZona.reduce((a, x) => a + x.pedidos, 0), und: porZona.reduce((a, x) => a + x.und, 0),
+                              venta: porZona.reduce((a, x) => a + x.venta, 0), pct: 1 }} />
+              <p className="text-xs text-[var(--tenue)]">Pedidos = comprobantes. Clientes = con DNI o RUC distintos en cada zona (un cliente que compra en dos zonas cuenta en ambas).</p>
+            </Tarjeta>
+          ) }]),
           ...(!cfg.porTienda ? [] : [{ id: "tiendas", titulo: `Por ${cfg.dim.toLowerCase()}`, contenido: (
             <Tarjeta icono={Store} titulo={`Por ${cfg.dim.toLowerCase()}`} subtitulo={rango}>
               <Tabla archivo={archivo("tiendas")} hoja={cfg.dim} filas={porTienda}
@@ -281,7 +325,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
           { id: "clientes", titulo: "Clientes identificados", contenido: (
             <Tarjeta icono={IdCard} titulo="Clientes con DNI o RUC" subtitulo={`Los 200 que más compraron · ${rango} · el resto es público general`}>
               <ClientesContaNet clientes={A.clientes} porTienda={cliTiendas} conTiendas={cfg.porTienda} archivo={archivo("clientes").replace(".xlsx", "")}
-                                consulta={{ canal, desde, hasta, ...parametros(filtro) }}
+                                consulta={{ canal: conGeo(canal, filtro.geo), desde, hasta, ...parametros(filtro) }}
                                 referencia={{ ticketProm: div(R.venta, R.tickets), undTicket: div(R.und, R.tickets) }} />
             </Tarjeta>
           ) },

@@ -1,6 +1,6 @@
 import type { CargaWeb } from "@/components/HistorialCargas";
 import type { Equivalencia } from "@/lib/cargas";
-import { avanceContaNet, clientesPorTienda, maestrosContaNet, metaMes, panelContaNet } from "@/lib/contanet";
+import { avanceContaNet, clientesPorTienda, maestrosContaNet, metaMes, opcionesDigital, panelContaNet, zonasDigital } from "@/lib/contanet";
 import { datosEjecutivo } from "@/lib/ejecutivo";
 import { tiposRetail } from "@/lib/retail";
 import { clienteSupabase } from "@/lib/supabase/server";
@@ -17,8 +17,9 @@ export default async function CanalDigital({ searchParams }: { searchParams: Pro
     maestros: () => maestrosContaNet(sb, "digital"),
     panel: (a, b, f) => panelContaNet(sb, "digital", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "digital", a, b, f),
-    avance: async (fecha) => {
-      const avance = await avanceContaNet(sb, "digital", fecha);
+    geo: { opciones: () => opcionesDigital(sb, "digital"), zonas: (a, b, f) => zonasDigital(sb, "digital", a, b, f) },
+    avance: async (fecha, geo) => {
+      const avance = await avanceContaNet(sb, "digital", fecha, geo);
       // Meta del canal digital = LIMA + PROVINCIA del consolidado (el reporte virtual cuadra con esos dos canales).
       const [a, m] = avance.fecha ? [Number(avance.fecha.slice(0, 4)), Number(avance.fecha.slice(5, 7))] : [0, 0];
       const metas = avance.fecha ? await Promise.all([metaMes(sb, "LIMA", a, m), metaMes(sb, "PROVINCIA", a, m)]) : [null, null];
