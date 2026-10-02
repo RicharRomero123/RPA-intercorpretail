@@ -23,7 +23,7 @@ export function seccionConciliacion(c: ConciliacionSellout, nombre = "Supermerca
     costo: a.costo + p.costo, stock: a.stock + p.stock }), { despachado: 0, monto: 0, vendido: 0, costo: 0, stock: 0 });
   const esperado = T.despachado - T.vendido, dif = T.stock - esperado;
   const pctDif = div(Math.abs(dif), esperado) ?? 0;
-  const periodo = `del ${fechaLarga(c.inicio)} (primer despacho) al ${c.hasta_venta ? fechaLarga(c.hasta_venta) : "—"}`;
+  const periodo = `${c.temporada ? "temporada, " : ""}del ${fechaLarga(c.inicio)} (primer despacho${c.temporada ? " de la campaña" : ""}) al ${c.hasta_venta ? fechaLarga(c.hasta_venta) : "—"}`;
   const signo = (x: number) => `${x >= 0 ? "+" : "−"}${entero(Math.abs(x))}`;
 
   return (
@@ -40,8 +40,8 @@ export function seccionConciliacion(c: ConciliacionSellout, nombre = "Supermerca
       </div>
       {c.inicio_venta && c.inicio_venta > c.inicio && (
         <Aviso tipo="alerta" titulo={`${corto} reporta ventas desde el ${fechaLarga(c.inicio_venta)}, pero el primer despacho fue el ${fechaLarga(c.inicio)}`}>
-          Lo que se vendió antes del {fechaLarga(c.inicio_venta)} no está en los reportes, así que el «saldo esperado» (despachado − vendido) sale más alto
-          que el real en los productos despachados antes de esa fecha. Compara sobre todo el stock y el ritmo de venta desde que hay reportes.
+          Lo que se vendió entre el {fechaLarga(c.inicio)} y el {fechaLarga(c.inicio_venta)} no está en los reportes, así que el «saldo esperado»
+          (despachado − vendido) sale algo más alto que el real. Si el stock supera al esperado en un producto, es stock que ya había antes de la campaña.
         </Aviso>
       )}
       <Aviso tipo={pctDif <= 0.03 ? "bueno" : "alerta"}

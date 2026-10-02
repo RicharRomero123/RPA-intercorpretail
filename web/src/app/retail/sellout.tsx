@@ -55,6 +55,8 @@ const ICONO_ESTADO: Record<Estado, typeof PackageX> = { quiebre: PackageX, sin: 
 export type ConfigSellout = {
   cliente: string; tipoRetail: string; ubicacion: string; titulo: string; etiqueta: string; corto: string;
   fuente: Fuente; ejecutivo: ConfigEjecutivo; cadena: string; zona: string; ayudaIngreso: string; notaFuente: string;
+  /** Inicio de la temporada (campaña): el despachado vs vendido cuenta solo los despachos desde esa fecha. */
+  temporada?: string;
 };
 
 export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
@@ -375,7 +377,7 @@ export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
       { id: "stock", titulo: "Stock y quiebres", contenido: seccionStock },
-      { id: "despachos", titulo: "Despachado vs vendido", contenido: seccionConciliacion(await conciliacionSellout(sb, cfg.cliente, cfg.tipoRetail), cfg.titulo, cfg.corto) },
+      { id: "despachos", titulo: "Despachado vs vendido", contenido: seccionConciliacion(await conciliacionSellout(sb, cfg.cliente, cfg.tipoRetail, cfg.temporada), cfg.titulo, cfg.corto) },
     ]} />
   );
 }
