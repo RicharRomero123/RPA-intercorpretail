@@ -15,8 +15,8 @@ const numeros = <T,>(xs: Record<string, unknown>[], claves: string[]) =>
 export type MaestrosContaNet = {
   desde: string | null; hasta: string | null; tiendas: string[]; medios: string[]; productos: { sku: string; producto: string }[];
 };
-/** Canal dentro del reporte de ContaNet: tiendas, canal digital (usuario VENTAS01) o Rappi (cobrado con RAPPI). */
-export type CanalContaNet = "tiendas" | "digital" | "rappi";
+/** Canal dentro del reporte de ContaNet: tiendas, canal digital (usuario VENTAS01) —total, Lima o Provincia— o Rappi (cobrado con RAPPI). */
+export type CanalContaNet = "tiendas" | "digital" | "digital_lima" | "digital_provincia" | "rappi";
 export const maestrosContaNet = (sb: Supabase, canal: CanalContaNet) => leer<MaestrosContaNet>(sb.rpc("contanet_maestros", { p_canal: canal }));
 
 type Base = { und: number; venta: number; tickets: number };

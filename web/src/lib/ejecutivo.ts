@@ -3,7 +3,7 @@ import type { clienteSupabase } from "@/lib/supabase/server";
 
 /** Datos del resumen ejecutivo de un canal, con el periodo y los filtros de la página (función ejecutivo de la base). */
 type Supabase = Awaited<ReturnType<typeof clienteSupabase>>;
-export type Fuente = "retail" | "spsa" | `retail:${string}` | "tiendas" | "contanet_tiendas" | "digital" | "rappi";
+export type Fuente = "retail" | "spsa" | `retail:${string}` | "tiendas" | "contanet_tiendas" | "digital" | "digital_lima" | "digital_provincia" | "rappi";
 /** Filtros de la página. Una lista vacía (o días = los 7) no filtra. */
 export type FiltrosEjecutivo = Partial<Record<"tienda" | "sku" | "tipo" | "medio" | "cliente" | "status" | "cadena" | "zona" | "local", (string | number)[]>
   & { dias: number[] }>;
@@ -20,7 +20,7 @@ export async function datosEjecutivo(sb: Supabase, fuente: Fuente, desde: string
 }
 
 /** Qué es «cliente» en cada canal. */
-export const CONFIG: Record<"retail" | "spsa" | "tipo" | "tiendas" | "contanet_tiendas" | "digital" | "rappi", ConfigEjecutivo> = {
+export const CONFIG: Record<"retail" | "spsa" | "tipo" | "tiendas" | "contanet_tiendas" | "digital" | "digital_lima" | "digital_provincia" | "rappi", ConfigEjecutivo> = {
   retail: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta retail S/",
             nota: "Monto cancelado de los despachos a cada cliente retail (Excel «Ventas RETAIL»); cuadra con el consolidado en RETAIL." },
   spsa: { dim: "Cadena", dims: "cadenas", activos: "Cadenas activas", venta: "Ingreso Calderón S/",
@@ -31,5 +31,9 @@ export const CONFIG: Record<"retail" | "spsa" | "tipo" | "tiendas" | "contanet_t
   contanet_tiendas: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/", nota: "Comprobantes de ContaNet de las 7 tiendas, sin RAPPI ni el canal digital." },
   digital: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta S/",
              nota: "Comprobantes de ContaNet del usuario VENTAS01. Las ventas sin DNI/RUC se agrupan como «PÚBLICO GENERAL»." },
+  digital_lima: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta S/",
+                  nota: "Canal digital · Lima (delivery): comprobantes de VENTAS01 que el reporte de ventas virtuales marca como DELIVERY." },
+  digital_provincia: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta S/",
+                       nota: "Canal digital · Provincia: comprobantes de VENTAS01 que el reporte de ventas virtuales marca como PROVINCIA." },
   rappi: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/", nota: "Ventas de las tiendas cobradas con RAPPI en ContaNet." },
 };

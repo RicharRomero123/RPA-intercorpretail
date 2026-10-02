@@ -34,7 +34,7 @@ function SelectorDia({ fecha, primera, ultima }: { fecha: string; primera: strin
   );
 }
 
-export function seccionAvance(av: Avance, meta: number | null, conTiendas: boolean, archivo: string, canal = "El canal") {
+export function seccionAvance(av: Avance, meta: number | null, conTiendas: boolean, archivo: string, canal = "El canal", dim = "Tienda") {
   if (!av.fecha) return <p className="text-sm text-[var(--tenue)]">Todavía no hay ventas cargadas de ContaNet.</p>;
   const fecha = av.fecha, esHoy = fecha === hoyLima();
   const corte = av.corte ? av.corte.slice(0, 5) : null;
@@ -184,9 +184,9 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
       </Tarjeta>
 
       {conTiendas && (
-        <Tarjeta icono={Store} titulo="Por tienda" subtitulo={`${titulo} vs el ${compara}`}>
+        <Tarjeta icono={Store} titulo={`Por ${dim.toLowerCase()}`} subtitulo={`${titulo} vs el ${compara}`}>
           <Tabla archivo={`${archivo}.xlsx`} hoja="Avance" filas={porTienda}
-                 columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "hoy", titulo: `${esHoy ? "Hoy " : ""}${conDia(fecha)} S/`, tipo: "soles" },
+                 columnas={[{ clave: "tienda", titulo: dim, tipo: "texto" }, { clave: "hoy", titulo: `${esHoy ? "Hoy " : ""}${conDia(fecha)} S/`, tipo: "soles" },
                    { clave: "antes_corte", titulo: `${conDia(antes)} S/`, tipo: "soles" }, { clave: "var", titulo: "Variación", tipo: "porcentaje" },
                    { clave: "tickets", titulo: "Tickets", tipo: "entero" }, { clave: "var_tickets", titulo: "Var. tickets", tipo: "porcentaje" },
                    { clave: "ultima", titulo: "Última venta", tipo: "texto" }, { clave: "antes_dia", titulo: `${conDia(antes)}, día completo S/`, tipo: "soles" },
@@ -228,7 +228,7 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
         <Tarjeta icono={IdCard} titulo="Principales clientes del día" subtitulo={`${conDia(fecha)} · clientes con DNI/RUC (las ventas sin documento no se listan)`}>
           <Tabla archivo={`${archivo}_clientes.xlsx`} hoja="Clientes" filas={av.clientes.map((c) => ({ ...c, pct: T.hoy ? c.venta / T.hoy : null }))}
                  columnas={[{ clave: "cliente", titulo: "Cliente", tipo: "texto" }, { clave: "doc", titulo: "DNI/RUC", tipo: "texto" },
-                   ...(conTiendas ? [{ clave: "tiendas", titulo: "Tienda", tipo: "texto" } as const] : []),
+                   ...(conTiendas ? [{ clave: "tiendas", titulo: dim, tipo: "texto" } as const] : []),
                    { clave: "venta", titulo: "Venta S/", tipo: "soles" }, { clave: "pct", titulo: "% del día", tipo: "porcentaje" },
                    { clave: "tickets", titulo: "Tickets", tipo: "entero" }, { clave: "hora", titulo: "Última compra", tipo: "texto" }]} />
         </Tarjeta>

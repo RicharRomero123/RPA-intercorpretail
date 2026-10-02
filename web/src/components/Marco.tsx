@@ -39,11 +39,14 @@ function menu(tipos: TipoRetail[]): Nodo[] {
       { id: "tiendas/interno", titulo: "Reporte interno", icono: FileSpreadsheet, ruta: "/tiendas/interno", secciones: VENTAS },
       { id: "tiendas/contanet", titulo: "ContaNet", icono: Database, ruta: "/tiendas/contanet", secciones: CONTANET },
     ] },
-    { id: "canales/digital", titulo: "Canal digital", icono: Globe, ruta: "/canales/digital", secciones: CONTANET },
+    // Canal digital (usuario VENTAS01): total y su división en Lima (delivery) y Provincia, según el reporte de ventas virtuales.
+    { id: "canales/digital", titulo: "Canal digital", icono: Globe, hijos: [
+      { id: "canales/digital/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/canales/digital", secciones: CONTANET },
+      { id: "canales/digital/lima", titulo: "Lima · delivery", icono: MapPin, ruta: "/canales/digital/lima", secciones: CONTANET },
+      { id: "canales/digital/provincia", titulo: "Provincia", icono: Map, ruta: "/canales/digital/provincia", secciones: CONTANET },
+    ] },
     { id: "canales/rappi", titulo: "Rappi", icono: Bike, ruta: "/canales/rappi", secciones: CONTANET },
     { id: "b2b", titulo: "B2B", icono: Building2 },
-    { id: "lima", titulo: "Lima", icono: MapPin },
-    { id: "provincia", titulo: "Provincia", icono: Map },
   ];
 }
 const ANCHO = { abierto: 236, cerrado: 76 };

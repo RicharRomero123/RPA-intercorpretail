@@ -45,13 +45,19 @@ export type FuenteContaNet = {
 };
 
 /** Cómo se muestra cada canal del reporte de ContaNet. */
-const CANALES: Record<CanalContaNet, { ubicacion: string; etiqueta: string; titulo: string; porTienda: boolean; porMedio: boolean; nota: string }> = {
+/** «dim»: qué es la columna «tienda» en cada canal (en el canal digital: Lima/Provincia, el distrito o el departamento). */
+const CANALES: Record<CanalContaNet, { ubicacion: string; etiqueta: string; titulo: string; porTienda: boolean; porMedio: boolean; nota: string; dim: string }> = {
   tiendas: { ubicacion: "tiendas/contanet", etiqueta: "Tiendas · ContaNet (ERP)", titulo: "Tiendas según ContaNet", porTienda: true, porMedio: true,
-             nota: "Las 7 tiendas, sin lo cobrado con RAPPI (está en el módulo Rappi) ni el usuario VENTAS01 (está en Canal digital)." },
-  digital: { ubicacion: "canales/digital", etiqueta: "Canal digital · ContaNet (usuario VENTAS01)", titulo: "Canal digital", porTienda: false, porMedio: true,
+             nota: "Las 7 tiendas, sin lo cobrado con RAPPI (está en el módulo Rappi) ni el usuario VENTAS01 (está en Canal digital).", dim: "Tienda" },
+  digital: { ubicacion: "canales/digital/resumen", etiqueta: "Canal digital · ContaNet (usuario VENTAS01)", titulo: "Canal digital", porTienda: true, porMedio: true, dim: "Subcanal",
              nota: "Todo lo registrado en ContaNet por el usuario VENTAS01." },
   rappi: { ubicacion: "canales/rappi", etiqueta: "Rappi · ContaNet (cobrado con RAPPI)", titulo: "Rappi", porTienda: true, porMedio: false,
-           nota: "Ventas de las tiendas con condición de pago RAPPI en ContaNet." },
+           nota: "Ventas de las tiendas con condición de pago RAPPI en ContaNet.", dim: "Tienda" },
+  digital_lima: { ubicacion: "canales/digital/lima", etiqueta: "Canal digital · Lima (delivery)", titulo: "Canal digital · Lima", porTienda: true, porMedio: true,
+                  dim: "Distrito", nota: "Comprobantes de VENTAS01 que el reporte de ventas virtuales marca como DELIVERY (= canal LIMA del consolidado)." },
+  digital_provincia: { ubicacion: "canales/digital/provincia", etiqueta: "Canal digital · Provincia", titulo: "Canal digital · Provincia", porTienda: true,
+                       porMedio: true, dim: "Departamento",
+                       nota: "Comprobantes de VENTAS01 que el reporte de ventas virtuales marca como PROVINCIA (= canal PROVINCIA del consolidado)." },
 };
 
 export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: string | undefined, fuente: FuenteContaNet) {
@@ -149,11 +155,17 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
         {boton}
       </div>
       <Filtros ultimo={ultimo} primero={primero} grupos={[
-        ...(cfg.porTienda ? [{ clave: "tienda", etiqueta: "Tienda", opciones: m.tiendas.map((x) => ({ valor: x, texto: x })) }] : []),
+        ...(cfg.porTienda ? [{ clave: "tienda", etiqueta: cfg.dim, opciones: m.tiendas.map((x) => ({ valor: x, texto: x })) }] : []),
         { clave: "prod", etiqueta: "Producto", buscar: true, opciones: m.productos.map((p) => ({ valor: p.sku, texto: `${p.producto} (${p.sku})` })) },
         ...(cfg.porMedio ? [{ clave: "medio", etiqueta: "Medio de pago", opciones: m.medios.map((x) => ({ valor: x, texto: x })) }] : []),
       ]} />
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
+      {canal.startsWith("digital") && (
+        <Aviso titulo="Lima y Provincia salen del reporte de ventas virtuales, cruzado con ContaNet comprobante por comprobante">
+          Antes del 01/09/2026 (cuando empieza ContaNet) la venta sale de ese mismo reporte, sin hora ni tickets por hora. Lo que ContaNet registra y
+          el reporte aún no trae (días más nuevos, notas de crédito) aparece como «Sin clasificar» en el resumen del canal digital.
+        </Aviso>
+      )}
       {canal === "tiendas" && comp && comp[0] < primero && (
         <Aviso titulo={`La comparación usa el reporte interno de tiendas (ContaNet empieza el ${fechaLarga(primero)})`}>
           Para fechas anteriores se compara con la venta del reporte interno (el del Power BI). Ahí hay venta y unidades, pero no tickets, horas,
@@ -183,7 +195,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
                                 metricas={["venta", "und"]} nombres={{ venta: "Venta" }} />
             </div>
             {cfg.porTienda ? (
-              <Tarjeta icono={Store} titulo="Venta por tienda" subtitulo={rango}>
+              <Tarjeta icono={Store} titulo={`Venta por ${cfg.dim.toLowerCase()}`} subtitulo={rango}>
                 {barras(porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.tickets)} tickets · ${entero(x.und)} und` })))}
               </Tarjeta>
             ) : (
@@ -219,13 +231,13 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
 
   const seccionDetalle = (
     <>
-      <Encabezado titulo="Detalle de ventas" descripcion={<>{cfg.titulo}: la venta abierta por {cfg.porTienda ? "tienda, " : ""}producto, hora, medio de pago y cliente. {rango}.</>} />
+      <Encabezado titulo="Detalle de ventas" descripcion={<>{cfg.titulo}: la venta abierta por {cfg.porTienda ? `${cfg.dim.toLowerCase()}, ` : ""}producto, hora, medio de pago y cliente. {rango}.</>} />
       {A.dias.length === 0 ? vacio : (
         <Pestanas pestanas={[
-          ...(!cfg.porTienda ? [] : [{ id: "tiendas", titulo: "Por tienda", contenido: (
-            <Tarjeta icono={Store} titulo="Por tienda" subtitulo={rango}>
-              <Tabla archivo={archivo("tiendas")} hoja="Tiendas" filas={porTienda}
-                     columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "dias", titulo: "Días con venta", tipo: "entero" },
+          ...(!cfg.porTienda ? [] : [{ id: "tiendas", titulo: `Por ${cfg.dim.toLowerCase()}`, contenido: (
+            <Tarjeta icono={Store} titulo={`Por ${cfg.dim.toLowerCase()}`} subtitulo={rango}>
+              <Tabla archivo={archivo("tiendas")} hoja={cfg.dim} filas={porTienda}
+                     columnas={[{ clave: "tienda", titulo: cfg.dim, tipo: "texto" }, { clave: "dias", titulo: "Días con venta", tipo: "entero" },
                        COL.tickets, COL.und, COL.venta, COL.pct, COL.ticket, { clave: "venta_dia", titulo: "Venta/día S/", tipo: "soles" }, ...colComp]}
                      total={{ tienda: "TOTAL", dias: diasVenta, venta_dia: div(R.venta, diasVenta), ...total }} />
             </Tarjeta>
@@ -281,7 +293,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   return (
     <Marco seccion={sp.s} ubicacion={cfg.ubicacion} tiposRetail={tipos} encabezado={encabezado} usuario={usuario} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
       { id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ej} desde={desde} hasta={hasta} config={CONFIG[canal === "tiendas" ? "contanet_tiendas" : canal]} archivo={`${canal}_contanet_ejecutivo`} /> },
-      { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`, cfg.titulo) },
+      { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`, cfg.titulo, cfg.dim) },
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
     ]} />
