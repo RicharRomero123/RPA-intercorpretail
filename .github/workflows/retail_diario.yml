@@ -1,18 +1,18 @@
-# Carga diaria del sell-out de Supermercados Peruanos (portal B2B de Intercorp) a Supabase.
+﻿# Carga diaria del sell-out de Supermercados Peruanos (portal B2B de Intercorp) a Supabase.
 # SPSA publica una vez al día la venta del día anterior: se intenta varias veces en la mañana; si el día ya
 # está cargado, el robot termina en segundos. A las 12:00 (Lima), si ayer sigue sin publicarse, el flujo
 # falla a propósito y GitHub avisa por correo.
-# Además corre a las 23:59 como respaldo: el portal no tiene la venta del día en curso (SPSA publica el día
+# Además corre a las 23:41 como respaldo: el portal no tiene la venta del día en curso (SPSA publica el día
 # anterior), pero recoge lo que se haya publicado tarde o lo que una corrida de la mañana no pudo cargar.
-# Horas en UTC (Lima = UTC-5): 12 = 7:00, 13 = 8:00 ... 17 = 12:00; 4:59 UTC = 23:59 del día anterior en Lima.
-# GitHub puede iniciar las corridas programadas con algunos minutos de retraso.
+# Horas en UTC (Lima = UTC-5): 12 = 7:00, 13 = 8:00 ... 17 = 12:00; 4:41 UTC = 23:41 del día anterior en Lima.
+# GitHub retrasa o se salta corridas programadas cuando está cargado, sobre todo en punto (xx:00): por eso se usan
+# minutos «raros» (:07 y :37) y se intenta cada 30 minutos. Respaldo: tarea de Windows en la laptop (rpa/retail_diario.bat).
 name: Retail SPSA diario
 
 on:
   schedule:
-    - cron: "0 12,13,14,15,16 * * *"   # 7:00 a 11:00 (Lima)
-    - cron: "0 17 * * *"               # 12:00 (Lima): avisa por correo si ayer sigue sin publicarse
-    - cron: "59 4 * * *"               # 23:59 (Lima): respaldo del cierre del día
+    - cron: "7,37 12-18 * * *"   # cada 30 min de 7:07 a 13:37 (Lima); a las 12 avisa por correo si ayer sigue sin publicarse
+    - cron: "41 4 * * *"         # 23:41 (Lima): respaldo del cierre del día
   workflow_dispatch:   # botón "Run workflow" para correrlo a mano
     inputs:
       desde:
