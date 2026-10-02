@@ -9,4 +9,4 @@ Carpeta de trabajo local para construir y probar el modelo antes de llevarlo a l
 - `crear_cuaderno.py` — regenera el cuaderno 01 desde código.
 
 Abrir en VS Code: abrir el `.ipynb`, elegir el kernel **Python 3.14** y «Ejecutar todo».
-Fuente: reporte interno (`tiendas_venta`, desde 02/01/2025); los días que aún no trae se completan con ContaNet tiendas.
+Fuente: solo el reporte interno (`tiendas_venta`, desde 02/01/2025). ContaNet no se usa: día por día difiere del interno.

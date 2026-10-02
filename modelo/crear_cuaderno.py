@@ -9,7 +9,7 @@ celdas = [
 Antes de armar el modelo de pronóstico: cómo se comporta la venta por día, semana, mes y tienda, y qué tan bien proyecta
 la regla simple actual (mismo día del año pasado × crecimiento reciente). Todo sale de los archivos locales de `datos/`:
 **no consulta la base** (para traer datos nuevos: `cargar(actualizar=True)` o `python datos.py`).
-Se usa **solo el reporte interno** (data oficial); ContaNet no entra al análisis ni al entrenamiento."""),
+Se usa **solo el reporte interno** (data oficial). ContaNet no se usa: día por día difiere del interno."""),
     code("""import pandas as pd, numpy as np, matplotlib.pyplot as plt
 import matplotlib.ticker as mt
 from datos import cargar
