@@ -46,12 +46,17 @@ def descargar() -> dict:
     return info
 
 
-def cargar(actualizar: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    """(ventas, metas, info) desde los archivos locales; solo consulta la base si no existen o si actualizar=True."""
+def cargar(actualizar: bool = False, con_contanet: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """(ventas, metas, info) desde los archivos locales; solo consulta la base si no existen o si actualizar=True.
+    Para entrenar y probar se usa SOLO el reporte interno (por defecto). con_contanet=True agrega los días que el interno
+    aún no trae (ContaNet tiendas), y sirve únicamente al pronosticar hoy, para conocer la tendencia de la última semana."""
     if actualizar or not (CARPETA / "ventas_diarias.parquet").exists():
         descargar()
     info = json.loads((CARPETA / "descarga.json").read_text(encoding="utf-8"))
-    return pd.read_parquet(CARPETA / "ventas_diarias.parquet"), pd.read_parquet(CARPETA / "metas.parquet"), info
+    ventas = pd.read_parquet(CARPETA / "ventas_diarias.parquet")
+    if not con_contanet:
+        ventas = ventas[ventas.origen == "interno"].reset_index(drop=True)
+    return ventas, pd.read_parquet(CARPETA / "metas.parquet"), info
 
 
 if __name__ == "__main__":

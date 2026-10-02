@@ -8,7 +8,8 @@ celdas = [
     md("""# 01 · Exploración de la venta diaria de tiendas
 Antes de armar el modelo de pronóstico: cómo se comporta la venta por día, semana, mes y tienda, y qué tan bien proyecta
 la regla simple actual (mismo día del año pasado × crecimiento reciente). Todo sale de los archivos locales de `datos/`:
-**no consulta la base** (para traer datos nuevos: `cargar(actualizar=True)` o `python datos.py`)."""),
+**no consulta la base** (para traer datos nuevos: `cargar(actualizar=True)` o `python datos.py`).
+Se usa **solo el reporte interno** (data oficial); ContaNet no entra al análisis ni al entrenamiento."""),
     code("""import pandas as pd, numpy as np, matplotlib.pyplot as plt
 import matplotlib.ticker as mt
 from datos import cargar
@@ -21,9 +22,7 @@ miles = mt.FuncFormatter(lambda v, _: f"{v/1e3:,.0f} mil")
 ventas, metas, info = cargar()
 info"""),
     md("## 1. Cuadre de la data\nEl total del reporte interno debe ser **S/ 20,974,761.04** (igual a los Excel del Power BI)."),
-    code("""interno = ventas[ventas.origen == "interno"]
-print(f"Reporte interno: S/ {interno.venta.sum():,.2f}  ·  {interno.fecha.min():%d/%m/%Y} a {interno.fecha.max():%d/%m/%Y}")
-print(f"Completado con ContaNet: {ventas[ventas.origen=='contanet'].fecha.dt.date.nunique()} días hasta {ventas.fecha.max():%d/%m/%Y}")
+    code("""print(f"Reporte interno: S/ {ventas.venta.sum():,.2f}  ·  {ventas.fecha.min():%d/%m/%Y} a {ventas.fecha.max():%d/%m/%Y}")
 (ventas.groupby("tienda")
    .agg(desde=("fecha", "min"), hasta=("fecha", "max"), dias=("fecha", "nunique"), venta=("venta", "sum"))
    .sort_values("venta", ascending=False).style.format({"venta": "S/ {:,.0f}", "desde": "{:%d/%m/%Y}", "hasta": "{:%d/%m/%Y}"}))"""),
@@ -63,7 +62,7 @@ tm["crecimiento"] = tm[2026] / tm[2025] - 1; tm["% 2026"] = tm[2026] / tm[2026].
 tm.sort_values(2026, ascending=False).style.format({2025: "S/ {:,.0f}", 2026: "S/ {:,.0f}", "crecimiento": "{:+.1%}", "% 2026": "{:.1%}"}, na_rep="—")"""),
     md("""## 7. Línea base: la regla simple actual
 **Pronóstico = venta del mismo día de la semana del año pasado (364 días antes) × crecimiento de las últimas 4 semanas**
-(últimas 4 semanas de este año ÷ las mismas 4 semanas del año pasado). Se prueba día por día de julio a septiembre 2026
+(últimas 4 semanas de este año ÷ las mismas 4 semanas del año pasado). Se prueba día por día del 01/07 al 25/09/2026 (último día del reporte interno)
 usando solo lo que se sabía antes de ese día. **El modelo tiene que ganarle a esta regla.**"""),
     code("""def regla(f):
     ly = dia.get(f - pd.Timedelta(days=364))
@@ -71,7 +70,7 @@ usando solo lo que se sabía antes de ese día. **El modelo tiene que ganarle a 
     den = dia[f - pd.Timedelta(days=392): f - pd.Timedelta(days=365)].sum()
     return ly * num / den if ly and den else np.nan
 
-prueba = pd.DataFrame({"real": dia["2026-07-01":"2026-09-30"]})
+prueba = pd.DataFrame({"real": dia["2026-07-01":]})
 prueba = prueba[prueba.real > 0]
 prueba["pronostico"] = [regla(f) for f in prueba.index]
 prueba["error"] = (prueba.pronostico - prueba.real).abs() / prueba.real
@@ -80,7 +79,7 @@ prueba.groupby(prueba.index.month).error.mean().rename(lambda x: ["Jul","Ago","S
     code("""fig, ax = plt.subplots()
 ax.plot(prueba.index, prueba.real, color=NARANJA, lw=2, label="real")
 ax.plot(prueba.index, prueba.pronostico, color=GRIS, lw=1.5, ls="--", label="pronóstico (regla)")
-ax.yaxis.set_major_formatter(miles); ax.set_title("Real vs pronóstico de la regla · jul–sep 2026"); ax.legend(); plt.show()
+ax.yaxis.set_major_formatter(miles); ax.set_title("Real vs pronóstico de la regla · 01/07–25/09/2026"); ax.legend(); plt.show()
 prueba.sort_values("error", ascending=False).head(8).style.format({"real": "S/ {:,.0f}", "pronostico": "S/ {:,.0f}", "error": "{:.1%}"})"""),
     md("""## Qué mirar
 - **Sección 4 y 5:** si el día de la semana y la quincena mueven mucho la venta, el modelo debe usarlos como variables.
