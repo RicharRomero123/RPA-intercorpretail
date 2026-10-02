@@ -22,12 +22,18 @@ export function seccionCuadre(c: CuadreDigital, rango: string) {
       <Encabezado titulo="Cuadre con ContaNet"
                   descripcion={<>Cada comprobante del usuario VENTAS01 en ContaNet contra el reporte de ventas virtuales (el que divide Lima y Provincia).
                     Desde el {fechaLarga(c.inicio)}, cuando empieza ContaNet en la base · {rango}.</>} />
+      <Aviso titulo="Reglas del cuadre: ContaNet es el monto oficial; el reporte (llenado a mano) solo clasifica en Lima / Provincia">
+        <b>Cuadra:</b> mismo comprobante y monto; el comprobante puede emitirse de 0 a 2 días después del pago (cuando no había stock).
+        <b> Cuadra con otro número:</b> el número del reporte no existe en ContaNet, pero hay un comprobante del mismo cliente (DNI/RUC) y
+        el mismo monto emitido hasta 10 días después: es la misma venta (la de ContaNet toma la clasificación del reporte).
+        <b> Sobra en ContaNet:</b> venta o anulación que el reporte no trae (queda «Sin clasificar»). <b>Falta en ContaNet:</b> el reporte
+        trae una venta sin comprobante (no se cuenta). Si el monto difiere, vale el de ContaNet.
+      </Aviso>
       <Aviso tipo={Math.abs(dif) < 0.01 ? "bueno" : "alerta"}
              titulo={Math.abs(dif) < 0.01 ? `Cuadra: ContaNet y el reporte suman ${soles(cn)}`
                : `ContaNet ${soles(cn)} vs reporte ${soles(rep)}: ${dif > 0 ? "sobran" : "faltan"} ${soles(Math.abs(dif))} en ContaNet`}>
         {cuadra && <>{entero(cuadra.comprobantes)} comprobantes cuadran exacto ({soles(cuadra.contanet)}). </>}
-        La diferencia sale solo de los comprobantes de la lista de abajo: lo que «sobra» está en ContaNet pero no en el reporte (y por eso queda
-        «Sin clasificar», fuera de Lima y Provincia); lo que «falta» está en el reporte pero no en ContaNet.
+        La diferencia sale solo de los comprobantes marcados abajo como «Sobra», «Falta» o «Monto distinto».
       </Aviso>
 
       <Tarjeta icono={Scale} titulo="Resumen del cuadre" subtitulo={rango}>
@@ -39,7 +45,8 @@ export function seccionCuadre(c: CuadreDigital, rango: string) {
       </Tarjeta>
 
       {c.detalle.length > 0 && (
-        <Tarjeta icono={ListChecks} titulo="Comprobantes que no cuadran" subtitulo={`${entero(c.detalle.length)} comprobantes · diferencia total ${signo(dif)}`}>
+        <Tarjeta icono={ListChecks} titulo="Comprobantes con observación"
+                 subtitulo={`${entero(c.detalle.length)} comprobantes (incluye los que cuadran con otro número o con el comprobante emitido después) · diferencia total ${signo(dif)}`}>
           <Tabla archivo="digital_cuadre_detalle.xlsx" hoja="No cuadran" buscar
                  filas={c.detalle.map((d) => ({ ...d, fecha: fechaLarga(d.fecha_contanet ?? d.fecha_reporte ?? ""), dif: (d.contanet ?? 0) - (d.reporte ?? 0) }))}
                  columnas={[{ clave: "estado", titulo: "Estado", tipo: "texto" }, { clave: "fecha", titulo: "Fecha", tipo: "texto" },
