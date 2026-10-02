@@ -8,14 +8,14 @@ export type Explicacion = { titulo: string; que: string; formula: string; ejempl
 export const GLOSARIO = {
   venta: {
     titulo: "Venta al público",
-    que: "Lo que pagaron los clientes en caja por nuestros productos en los locales de Supermercados Peruanos, sin IGV.",
-    formula: "Suma de la venta al público de cada local y día del periodo (columna «Vta. Púb s/IGV» del portal).",
+    que: "Lo que pagaron los clientes en caja por nuestros productos en los locales de Supermercados Peruanos.",
+    formula: "Suma de la venta al público de cada local y día del periodo (columna de venta al público del portal).",
     uso: "Mide el tamaño del negocio en el canal. Si sube, los clientes están comprando más.",
   },
   ingreso: {
     titulo: "Ingreso Calderón",
-    que: "Lo que Supermercados Peruanos le paga a Calderón por las unidades que se vendieron (el precio de compra del supermercado), sin IGV.",
-    formula: "Suma de la «venta a costo» de cada local y día del periodo (columna «Vta. Costo s/IGV» del portal).",
+    que: "Lo que Supermercados Peruanos le paga a Calderón por las unidades que se vendieron (el precio de compra del supermercado).",
+    formula: "Suma de la «venta a costo» de cada local y día del periodo (columna de venta a costo del portal).",
     uso: "Es el ingreso real de Calderón en este canal. Es el número que importa para la empresa.",
   },
   margen: {
@@ -73,7 +73,7 @@ export const GLOSARIO = {
   },
   precio: {
     titulo: "Precio promedio al público",
-    que: "El precio al que, en promedio, se vendió cada unidad al cliente, sin IGV.",
+    que: "El precio al que, en promedio, se vendió cada unidad al cliente.",
     formula: "Venta al público ÷ unidades vendidas.",
     uso: "Si baja sin que hayas cambiado el precio, probablemente hubo promociones o descuentos del supermercado.",
   },

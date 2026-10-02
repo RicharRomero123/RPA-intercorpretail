@@ -168,7 +168,7 @@ export default async function SupermercadosSPSA({ searchParams }: { searchParams
           <h1 className="text-[28px] font-bold leading-tight">Supermercados Peruanos</h1>
           <p className="text-sm text-[var(--tenue)]">
             <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {fechaLarga(desde)} – {fechaLarga(hasta)} · {nDias} días
-            {nConDatos !== nDias && ` (${nConDatos} con venta)`} · sin IGV
+            {nConDatos !== nDias && ` (${nConDatos} con venta)`}
           </p>
         </div>
       </div>
@@ -192,9 +192,9 @@ export default async function SupermercadosSPSA({ searchParams }: { searchParams
   const indicadores = (
     <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
       <Indicador comparadoCon={COMPARAR_CORTO[comparar]} info="venta" icono="venta" titulo="Venta al público" valor={soles(R.venta)} variacion={variacion(R.venta, RC?.venta)}
-                 ayuda="Lo que pagó el consumidor final, sin IGV." />
+                 ayuda="Lo que pagó el consumidor final." />
       <Indicador comparadoCon={COMPARAR_CORTO[comparar]} info="ingreso" icono="ingreso" titulo="Ingreso Calderón" valor={soles(R.costo)} variacion={variacion(R.costo, RC?.costo)}
-                 ayuda="Venta a costo del portal: lo que SPSA paga a Calderón por lo vendido, sin IGV." />
+                 ayuda="Venta a costo del portal: lo que SPSA paga a Calderón por lo vendido." />
       <Indicador comparadoCon={COMPARAR_CORTO[comparar]} info="unidades" icono="unidades" titulo="Unidades vendidas" valor={entero(R.und)} variacion={variacion(R.und, RC?.und)} />
       <Indicador comparadoCon={COMPARAR_CORTO[comparar]} info="rotacion" icono="rotacion" titulo="Und por local / semana" valor={decimal1(R.rotacion)} variacion={variacion(R.rotacion, RC?.rotacion)}
                  detalle={`${R.locales} locales con venta`} ayuda="Unidades ÷ locales con venta ÷ semanas del periodo." />

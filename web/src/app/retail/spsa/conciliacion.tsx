@@ -54,7 +54,7 @@ export function seccionConciliacion(c: ConciliacionSPSA) {
                         esperado, stock: T.stock, dif }} />
         <p className="text-xs text-[var(--tenue)]">
           Saldo esperado = despachado − vendido. Diferencia = stock reportado − saldo esperado (negativa: falta en tiendas lo que aún está en el CD,
-          en tránsito o se perdió). El facturado es el monto del Excel; el vendido a costo del portal es sin IGV.
+          en tránsito o se perdió). El facturado es el monto del Excel; el vendido es la venta a costo del portal.
         </p>
       </Tarjeta>
       <Tarjeta icono={Truck} titulo="Despachos a Supermercados Peruanos" subtitulo="Del Excel «Ventas RETAIL»">

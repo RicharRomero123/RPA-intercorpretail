@@ -24,7 +24,7 @@ export const CONFIG: Record<"retail" | "spsa" | "tipo" | "tiendas" | "contanet_t
   retail: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Venta retail S/",
             nota: "Monto cancelado de los despachos a cada cliente retail (Excel «Ventas RETAIL»); cuadra con el consolidado en RETAIL." },
   spsa: { dim: "Cadena", dims: "cadenas", activos: "Cadenas activas", venta: "Ingreso Calderón S/",
-          nota: "Venta a costo (lo que SPSA le paga a Calderón por lo vendido), sin IGV, del portal de Intercorp." },
+          nota: "Venta a costo (lo que SPSA le paga a Calderón por lo vendido), del portal de Intercorp." },
   tipo: { dim: "Cliente", dims: "clientes", activos: "Clientes activos", venta: "Monto S/", nota: "Monto cancelado de los despachos, del Excel de ventas retail." },
   tiendas: { dim: "Tienda", dims: "tiendas", activos: "Tiendas activas", venta: "Venta S/",
              nota: "Del reporte interno (Excel de venta diaria de las tiendas)." },
