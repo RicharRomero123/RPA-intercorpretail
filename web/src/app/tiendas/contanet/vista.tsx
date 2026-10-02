@@ -44,6 +44,8 @@ export type FuenteContaNet = {
   avance: (fecha?: string, geo?: FiltroContaNet["geo"]) => Promise<{ avance: Avance; meta: number | null }>;
   /** Solo canal digital: filtros por zona y venta por zona. */
   geo?: { opciones: () => Promise<OpcionesGeo>; zonas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<Zona[]> };
+  /** Solo el resumen del canal digital: cuadre con ContaNet (sección propia). */
+  cuadre?: (desde: string, hasta: string) => Promise<React.ReactNode>;
 };
 const GEO: { clave: ClaveGeo; etiqueta: string }[] = [
   { clave: "subc", etiqueta: "Canal" }, { clave: "dep", etiqueta: "Departamento" }, { clave: "prov", etiqueta: "Provincia" }, { clave: "dist", etiqueta: "Distrito" },
@@ -99,6 +101,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
     fuente.ejecutivo(desde, hasta, { tienda: filtro.tiendas, sku: filtro.skus, medio: filtro.medios, dias: filtro.dias, geo: filtro.geo }),
     fuente.clientesTiendas(desde, hasta, filtro), fuente.avance(uno(sp.dia), filtro.geo),
     fuente.geo ? fuente.geo.opciones() : Promise.resolve(null), fuente.geo ? fuente.geo.zonas(desde, hasta, filtro) : Promise.resolve([] as Zona[])]);
+  const cuadre = fuente.cuadre ? await fuente.cuadre(desde, hasta) : null;
   const R = sumar(A.dias), RC = B ? sumar(B.dias) : null;
   const hayComp = !!B && B.dias.length > 0;
   const diasVenta = A.dias.filter((d) => d.venta > 0).length;
@@ -340,6 +343,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`, cfg.titulo, cfg.dim) },
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
+      ...(cuadre ? [{ id: "cuadre" as const, titulo: "Cuadre con ContaNet", contenido: cuadre }] : []),
     ]} />
   );
 }

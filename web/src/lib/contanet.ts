@@ -41,6 +41,25 @@ export function conGeo(canal: string, geo?: FiltroGeo): string {
 }
 
 export type OpcionesGeo = Record<ClaveGeo, string[]>;
+
+/** Cuadre del canal digital: ContaNet (VENTAS01) vs reporte de ventas virtuales, comprobante por comprobante. */
+export type CuadreDigital = {
+  inicio: string | null;
+  resumen: { estado: string; comprobantes: number; contanet: number; reporte: number }[];
+  por_dia: { fecha: string; contanet: number; reporte: number; sobra: number; falta: number; dif_monto: number }[];
+  detalle: { estado: string; comprobante: string; tipo: string | null; cliente: string | null; medio: string | null; fecha_contanet: string | null;
+             fecha_reporte: string | null; contanet: number | null; reporte: number | null; canal: string | null; zona: string | null; motivo: string | null }[];
+};
+export async function cuadreDigital(sb: Supabase, desde: string, hasta: string): Promise<CuadreDigital> {
+  const d = await leer<CuadreDigital>(sb.rpc("digital_cuadre", { desde, hasta }));
+  const opc = (v: unknown) => (v === null || v === undefined ? null : num(v));
+  return {
+    inicio: d.inicio,
+    resumen: numeros(d.resumen ?? [], ["comprobantes", "contanet", "reporte"]),
+    por_dia: numeros(d.por_dia ?? [], ["contanet", "reporte", "sobra", "falta", "dif_monto"]),
+    detalle: (d.detalle ?? []).map((x) => ({ ...x, contanet: opc(x.contanet), reporte: opc(x.reporte) })),
+  };
+}
 export const opcionesDigital = (sb: Supabase, canal: CanalContaNet) => leer<OpcionesGeo>(sb.rpc("digital_opciones", { p_canal: canal }));
 
 export type Zona = { subcanal: string; departamento: string; provincia: string; distrito: string; venta: number; und: number; pedidos: number; clientes: number };

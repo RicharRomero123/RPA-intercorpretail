@@ -2,7 +2,7 @@
 
 import {
   Bike, Building2, CalendarCheck, ChartLine, ChevronDown, Clock, Database, FileSpreadsheet, Globe, LayoutDashboard, LayoutGrid, Map, MapPin, PanelLeftClose, PanelLeftOpen, Presentation,
-  ShoppingBasket, ShoppingCart, Store, TableProperties, Tag, Truck, Warehouse, type LucideIcon,
+  Scale, ShoppingBasket, ShoppingCart, Store, TableProperties, Tag, Truck, Warehouse, type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion, type Transition } from "motion/react";
 import Image from "next/image";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
 
-const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck } satisfies Record<string, LucideIcon>;
+const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck, cuadre: Scale } satisfies Record<string, LucideIcon>;
 type IdSeccion = keyof typeof ICONOS;
 
 type Hoja = { id: IdSeccion; titulo: string };
@@ -41,7 +41,8 @@ function menu(tipos: TipoRetail[]): Nodo[] {
     ] },
     // Canal digital (usuario VENTAS01): total y su división en Lima (delivery) y Provincia, según el reporte de ventas virtuales.
     { id: "canales/digital", titulo: "Canal digital", icono: Globe, hijos: [
-      { id: "canales/digital/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/canales/digital", secciones: CONTANET },
+      { id: "canales/digital/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/canales/digital",
+        secciones: [...CONTANET, { id: "cuadre", titulo: "Cuadre con ContaNet" }] },
       { id: "canales/digital/lima", titulo: "Lima · delivery", icono: MapPin, ruta: "/canales/digital/lima", secciones: CONTANET },
       { id: "canales/digital/provincia", titulo: "Provincia", icono: Map, ruta: "/canales/digital/provincia", secciones: CONTANET },
     ] },
