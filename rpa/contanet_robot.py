@@ -358,6 +358,19 @@ def cerrar_excel(auto, nombre: str, espera: int = 60):
     log.warning("No pude cerrar el Excel del reporte (se puede cerrar a mano; no afecta la carga).")
 
 
+def aviso_contanet(auto, pid: int) -> str | None:
+    """Texto del cuadro de mensaje que ContaNet tenga abierto (y lo cierra), o None si no hay ninguno."""
+    for c in auto.GetRootControl().GetChildren():
+        if c.ClassName == "#32770" and c.ProcessId == pid:
+            mensaje = " ".join(t.Name for t, _ in auto.WalkControl(c, maxDepth=3) if t.ControlTypeName == "TextControl" and t.Name)
+            for b, _ in auto.WalkControl(c, maxDepth=3):
+                if b.ControlTypeName == "ButtonControl":
+                    b.GetInvokePattern().Invoke()
+                    break
+            return mensaje
+    return None
+
+
 def descargar(desde: date, hasta: date, espera: int = 900) -> Path:
     import shutil
 
@@ -374,16 +387,17 @@ def descargar(desde: date, hasta: date, espera: int = 900) -> Path:
     while time.time() - t0 < espera:
         time.sleep(3)
         # Si ContaNet muestra un aviso en lugar de generar el Excel (p. ej. «no hay datos»), se lee, se cierra y se informa.
-        for c in auto.GetRootControl().GetChildren():
-            if c.ClassName == "#32770" and c.ProcessId == pid:
-                mensaje = " ".join(t.Name for t, _ in auto.WalkControl(c, maxDepth=3) if t.ControlTypeName == "TextControl" and t.Name)
-                for b, _ in auto.WalkControl(c, maxDepth=3):
-                    if b.ControlTypeName == "ButtonControl":
-                        b.GetInvokePattern().Invoke()
-                        break
-                if any(x in mensaje.lower() for x in ("no hay", "no existe", "sin datos", "no se encontr")):
-                    raise SinVentas(f"ContaNet: {mensaje}")
-                raise RuntimeError(f"ContaNet mostró un aviso: {mensaje}")
+        # Mientras se abre o cierra una ventana (el Excel del reporte), Windows puede fallar un instante al recorrerlas
+        # («Un evento no pudo invocar a ninguno de los subscriptores»): eso no es un aviso, se ignora y se sigue esperando.
+        try:
+            mensaje = aviso_contanet(auto, pid)
+        except Exception as e:  # noqa: BLE001
+            log.info(f"Aviso: falla momentánea al revisar ventanas ({e}); sigo esperando el Excel")
+            mensaje = None
+        if mensaje is not None:
+            if any(x in mensaje.lower() for x in ("no hay", "no existe", "sin datos", "no se encontr")):
+                raise SinVentas(f"ContaNet: {mensaje}")
+            raise RuntimeError(f"ContaNet mostró un aviso: {mensaje}")
         nuevos = [x for x in CONTAFILES.glob("Reporte_ConsultaVentasProductoDetallado*.xlsx")
                   if not x.name.startswith("~$") and x.stat().st_mtime >= t0]
         if not nuevos:
