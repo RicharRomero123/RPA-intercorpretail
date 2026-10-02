@@ -7,13 +7,13 @@ import { Tabla } from "@/components/Tabla";
 import { Aviso, Encabezado, Tarjeta } from "@/components/ui";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { fechaLarga } from "@/lib/periodos";
-import type { ConciliacionSPSA } from "@/lib/retail";
+import type { ConciliacionSellout } from "@/lib/retail";
 
 const div = (a: number, b: number) => (b ? a / b : null);
 
-export function seccionConciliacion(c: ConciliacionSPSA) {
+export function seccionConciliacion(c: ConciliacionSellout, nombre = "Supermercados Peruanos", corto = "SPSA") {
   if (!c.productos.length || !c.inicio) {
-    return <Aviso titulo="Todavía no hay despachos a Supermercados Peruanos">Sube el Excel «Ventas RETAIL» desde Configuración.</Aviso>;
+    return <Aviso titulo={`Todavía no hay despachos a ${nombre}`}>Sube el Excel «Ventas RETAIL» desde Configuración.</Aviso>;
   }
   const filas = c.productos.map((p) => {
     const esperado = p.despachado - p.vendido;
@@ -29,19 +29,25 @@ export function seccionConciliacion(c: ConciliacionSPSA) {
   return (
     <>
       <Encabezado titulo="Despachado vs vendido"
-                  descripcion={<>Lo que Calderón despachó a Supermercados Peruanos (Excel «Ventas RETAIL», el mismo del consolidado) frente a lo que SPSA
+                  descripcion={<>Lo que Calderón despachó a {nombre} (Excel «Ventas RETAIL», el mismo del consolidado) frente a lo que {corto}
                     vendió al público y el stock que reporta en sus tiendas (portal de Intercorp). {periodo}.</>} />
       <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
-        <Indicador icono="unidades" titulo="Despachado a SPSA" valor={`${entero(T.despachado)} und`} detalle={`${soles(T.monto)} facturado`} />
+        <Indicador icono="unidades" titulo={`Despachado a ${corto}`} valor={`${entero(T.despachado)} und`} detalle={`${soles(T.monto)} facturado`} />
         <Indicador icono="venta" titulo="Vendido al público" valor={`${entero(T.vendido)} und`} detalle={`${soles(T.costo)} a costo (ingreso Calderón)`} />
         <Indicador icono="rotacion" titulo="Sell-through" valor={porcentaje(div(T.vendido, T.despachado))} detalle="vendido ÷ despachado" />
-        <Indicador icono="instock" titulo="Stock en tiendas SPSA" valor={`${entero(T.stock)} und`}
+        <Indicador icono="instock" titulo={`Stock en tiendas ${corto}`} valor={`${entero(T.stock)} und`}
                    detalle={`esperado ${entero(esperado)} · diferencia ${signo(dif)} (${porcentaje(pctDif)})`} />
       </div>
+      {c.inicio_venta && c.inicio_venta > c.inicio && (
+        <Aviso tipo="alerta" titulo={`${corto} reporta ventas desde el ${fechaLarga(c.inicio_venta)}, pero el primer despacho fue el ${fechaLarga(c.inicio)}`}>
+          Lo que se vendió antes del {fechaLarga(c.inicio_venta)} no está en los reportes, así que el «saldo esperado» (despachado − vendido) sale más alto
+          que el real en los productos despachados antes de esa fecha. Compara sobre todo el stock y el ritmo de venta desde que hay reportes.
+        </Aviso>
+      )}
       <Aviso tipo={pctDif <= 0.03 ? "bueno" : "alerta"}
-             titulo={`Despachado − vendido = ${entero(esperado)} und; SPSA reporta ${entero(T.stock)} und en tiendas al ${c.fecha_stock ? fechaLarga(c.fecha_stock) : "—"}`}>
-        La diferencia ({signo(dif)} und, {porcentaje(pctDif)}) es lo que está en el centro de distribución de SPSA, en tránsito a tiendas o merma.
-        Si supera el 3%, conviene revisarla con SPSA.
+             titulo={`Despachado − vendido = ${entero(esperado)} und; ${corto} reporta ${entero(T.stock)} und en tiendas al ${c.fecha_stock ? fechaLarga(c.fecha_stock) : "—"}`}>
+        La diferencia ({signo(dif)} und, {porcentaje(pctDif)}) es lo que está en el centro de distribución de {corto}, en tránsito a tiendas o merma.
+        Si supera el 3%, conviene revisarla con {corto}.
       </Aviso>
       <Tarjeta icono={PackageCheck} titulo="Por producto" subtitulo={periodo}>
         <Tabla archivo="spsa_despachado_vs_vendido.xlsx" hoja="Despachado vs vendido" filas={filas}
@@ -57,7 +63,7 @@ export function seccionConciliacion(c: ConciliacionSPSA) {
           en tránsito o se perdió). El facturado es el monto del Excel; el vendido es la venta a costo del portal.
         </p>
       </Tarjeta>
-      <Tarjeta icono={Truck} titulo="Despachos a Supermercados Peruanos" subtitulo="Del Excel «Ventas RETAIL»">
+      <Tarjeta icono={Truck} titulo={`Despachos a ${nombre}`} subtitulo="Del Excel «Ventas RETAIL»">
         <Tabla archivo="spsa_despachos.xlsx" hoja="Despachos" filas={c.despachos.map((d) => ({ ...d, fecha: fechaLarga(d.fecha) }))}
                columnas={[{ clave: "fecha", titulo: "Día de despacho", tipo: "texto" }, { clave: "producto", titulo: "Producto", tipo: "texto" },
                  { clave: "und", titulo: "Unidades", tipo: "entero" }, { clave: "precio", titulo: "Precio unit. S/", tipo: "decimal2" },

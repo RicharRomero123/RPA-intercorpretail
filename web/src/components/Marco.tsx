@@ -31,8 +31,11 @@ function menu(tipos: TipoRetail[]): Nodo[] {
       { id: "retail/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/retail", secciones: [EJECUTIVO, { id: "ventas", titulo: "Por tipo de retail" }] },
       { id: "retail/spsa", titulo: "Supermercados · SPSA", icono: ShoppingBasket, ruta: "/retail/spsa",
         secciones: [...VENTAS, { id: "stock", titulo: "Stock y quiebres" }, { id: "despachos", titulo: "Despachado vs vendido" }] },
-      // Supermercados Peruanos ya está arriba (vista SPSA del bot); los demás clientes retail, cada uno con su vista.
-      ...tipos.filter((t) => t.slug !== "supermercados-peruanos").map((t) => ({ id: `retail/${t.slug}`, titulo: t.tipo, icono: Tag, ruta: `/retail/tipo/${t.slug}`, secciones: VENTAS })),
+      // OXXO: sell-out de sus reportes diarios (misma vista que SPSA, por cluster y distrito).
+      { id: "retail/oxxo", titulo: "OXXO", icono: Store, ruta: "/retail/oxxo",
+        secciones: [...VENTAS, { id: "stock", titulo: "Stock y quiebres" }, { id: "despachos", titulo: "Despachado vs vendido" }] },
+      // Supermercados Peruanos y OXXO ya están arriba (sell-out); los demás clientes retail, cada uno con su vista de despachos.
+      ...tipos.filter((t) => t.slug !== "supermercados-peruanos" && t.slug !== "oxxo").map((t) => ({ id: `retail/${t.slug}`, titulo: t.tipo, icono: Tag, ruta: `/retail/tipo/${t.slug}`, secciones: VENTAS })),
     ] },
     { id: "tiendas", titulo: "Tiendas", icono: Store, hijos: [
       { id: "tiendas/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/tiendas", secciones: [EJECUTIVO, { id: "ventas", titulo: "Interno vs ContaNet" }] },
