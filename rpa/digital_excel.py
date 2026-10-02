@@ -7,12 +7,17 @@ la carga reemplaza toda la tabla y verifica que lo guardado cuadre al céntimo c
 Uso:  python digital_excel.py "REPORTE DE VENTAS 2026 PROVINCIA - DELIVERY.xlsx" [--prueba]
 """
 import argparse
+import json
 import re
 from pathlib import Path
 
 import pandas as pd
 
+from psycopg.types.json import Jsonb
+
 from conexion import conectar
+
+SISTEMA = "00000000-0000-0000-0000-00000000c0a7"  # usuario del robot (si no se indica --correo)
 
 CANAL = {"DELIVERY": "LIMA", "PROVINCIA": "PROVINCIA"}
 TIPO = {"B": "Boleta", "F": "Factura"}
@@ -86,6 +91,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("archivo", type=Path)
     ap.add_argument("--prueba", action="store_true", help="carga y verifica, pero deshace todo")
+    ap.add_argument("--correo", help="usuario de la web a nombre de quien queda la carga")
     a = ap.parse_args()
     with conectar() as con:
         eq = dict(con.execute("select codigo, sku from sku_equivalencia where sistema = 'ContaNet'").fetchall())
@@ -98,18 +104,25 @@ def main():
         if len(sin_sku):
             print(f"Códigos sin SKU oficial (se cargan igual): {list(sin_sku)}")
         cols = ["fecha", "comprobante", "serie", "numero", "tipo_comprobante", "cliente", "doc_cliente", "codigo", "sku", "producto",
-                "und", "precio_unit", "total", "medio_pago", "canal", "distrito", "provincia", "departamento", "salio_de", "observacion", "archivo"]
+                "und", "precio_unit", "total", "medio_pago", "canal", "distrito", "provincia", "departamento", "salio_de", "observacion"]
+        filas_json = json.loads(d[cols].assign(fecha=d.fecha.astype(str)).to_json(orient="records", force_ascii=False))
+        uid = con.execute("select id from auth.users where email = %s", (a.correo,)).fetchone() if a.correo else None
+        sub = str(uid[0]) if uid else SISTEMA
         with con.transaction(force_rollback=a.prueba):
-            antes = con.execute("select count(*), coalesce(sum(total), 0) from digital_ventas").fetchone()
-            con.execute("delete from digital_ventas")
-            with con.cursor().copy(f"copy digital_ventas ({', '.join(cols)}) from stdin") as cp:
-                for fila in d[cols].astype(object).where(d[cols].notna(), None).itertuples(index=False):
-                    cp.write_row(fila)
-            n, s = con.execute("select count(*), coalesce(sum(total), 0) from digital_ventas").fetchone()
-            if n != filas or abs(float(s) - total) > 0.005:
-                raise SystemExit(f"No cuadra: se leyeron {filas} líneas y S/ {total}, se guardaron {n} y S/ {s}. No se cambió nada.")
-        print(f"{'PRUEBA (deshecha): ' if a.prueba else ''}Cargado y verificado: {n:,} líneas · S/ {float(s):,.2f} "
-              f"(reemplazó {antes[0]:,} líneas · S/ {float(antes[1]):,.2f})")
+            # Mismo camino que el botón «Cargar ventas virtuales» de la web: carga preparada -> filas -> confirmar_carga
+            # (reemplaza las fechas del archivo, deja respaldo para deshacer y verifica al céntimo).
+            con.execute("select set_config('request.jwt.claims', %s, true)", (json.dumps({"sub": sub, "role": "authenticated"}),))
+            con.execute("set local role authenticated")
+            desde, hasta = str(d.fecha.min()), str(d.fecha.max())
+            cid = con.execute(
+                "insert into cargas_web (tipo, archivo, desde, hasta, rangos, filas, und, venta, correo) "
+                "values ('virtual', %s, %s, %s, %s, %s, %s, %s, %s) returning id",
+                (a.archivo.name, desde, hasta, Jsonb([{"tienda": None, "desde": desde, "hasta": hasta}]), filas,
+                 round(float(d.und.fillna(0).sum()), 3), total, a.correo or "Carga desde rpa")).fetchone()[0]
+            for k in range(0, filas, 2000):
+                con.execute("insert into cargas_web_filas (carga, parte, filas) values (%s, %s, %s)", (cid, k // 2000, Jsonb(filas_json[k:k + 2000])))
+            res = con.execute("select confirmar_carga(%s)", (cid,)).fetchone()[0]
+        print(f"{'PRUEBA (deshecha): ' if a.prueba else ''}Cargado y verificado: {res}")
 
 
 if __name__ == "__main__":

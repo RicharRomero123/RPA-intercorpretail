@@ -10,7 +10,7 @@ export type CargaWeb = {
   id: string; creada: string; correo: string | null; tipo: string; archivo: string; desde: string; hasta: string;
   filas: number; venta: number; estado: string; reemplazo_venta: number | null;
 };
-const TIPO: Record<string, string> = { contanet: "ContaNet", tiendas: "Tiendas", retail: "Retail" };
+const TIPO: Record<string, string> = { contanet: "ContaNet", tiendas: "Tiendas", retail: "Retail", virtual: "Ventas virtuales" };
 const fecha = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 const cuando = (s: string) => new Date(s).toLocaleString("es-PE", { timeZone: "America/Lima", dateStyle: "short", timeStyle: "short" });
 

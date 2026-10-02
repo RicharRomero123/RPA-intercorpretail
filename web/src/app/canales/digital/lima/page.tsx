@@ -28,7 +28,7 @@ export default async function CanalDigitalLima({ searchParams }: { searchParams:
         sb.from("sku_equivalencia").select("sistema, codigo, sku"),
         sb.from("sku_maestro").select("sku"),
         sb.from("cargas_web").select("id, creada, correo, tipo, archivo, desde, hasta, filas, venta, estado, reemplazo_venta")
-          .eq("tipo", "contanet").in("estado", ["cargada", "deshecha"]).order("creada", { ascending: false }).limit(50),
+          .in("tipo", ["contanet", "virtual"]).in("estado", ["cargada", "deshecha"]).order("creada", { ascending: false }).limit(50),
       ]);
       return { equivalencias: (eq.data ?? []) as Equivalencia[], skus: (m.data ?? []).map((x) => x.sku as string), cargas: (c.data ?? []) as CargaWeb[] };
     },

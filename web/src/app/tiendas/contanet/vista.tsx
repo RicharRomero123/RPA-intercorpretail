@@ -70,7 +70,16 @@ const CANALES: Record<CanalContaNet, { ubicacion: string; etiqueta: string; titu
 export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: string | undefined, fuente: FuenteContaNet) {
   const cfg = CANALES[canal];
   const [tipos, m, carga] = await Promise.all([fuente.tipos(), fuente.maestros(), fuente.carga()]);
-  const boton = <PanelCarga titulo="Cargar reporte ContaNet" solo="contanet" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario} cargas={carga.cargas} />;
+  const esDigital = canal.startsWith("digital");
+  const boton = (
+    <div className="flex flex-wrap gap-2">
+      <PanelCarga titulo="Cargar reporte ContaNet" solo="contanet" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario}
+                  cargas={carga.cargas.filter((c) => c.tipo === "contanet")} />
+      {/* Canal digital: el reporte de ventas virtuales clasifica cada comprobante de ContaNet en Lima o Provincia. */}
+      {esDigital && <PanelCarga titulo="Cargar ventas virtuales" solo="virtual" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario}
+                                cargas={carga.cargas.filter((c) => c.tipo === "virtual")} />}
+    </div>
+  );
 
   if (!m.hasta) {
     const vacio = (
@@ -173,12 +182,22 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
           .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, buscar: opcGeo[g.clave].length > 12, opciones: opcGeo[g.clave].map((x) => ({ valor: x, texto: x })) })) : []),
       ]} />
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
-      {canal.startsWith("digital") && (
-        <Aviso titulo="Lima y Provincia salen del reporte de ventas virtuales, cruzado con ContaNet comprobante por comprobante">
-          Antes del 01/09/2026 (cuando empieza ContaNet) la venta sale de ese mismo reporte, sin hora ni tickets por hora. Lo que ContaNet registra y
-          el reporte aún no trae (días más nuevos, notas de crédito) aparece como «Sin clasificar» en el resumen del canal digital.
-        </Aviso>
-      )}
+      {esDigital && (() => {
+        // Venta sin clasificar: ContaNet la registra (monto oficial) pero el reporte de ventas virtuales no la ubica en Lima ni Provincia.
+        const sin = canal === "digital" ? A.tiendas.find((t) => t.tienda === "Sin clasificar") : undefined;
+        return sin && Math.abs(sin.venta) >= 0.01 ? (
+          <Aviso tipo="alerta" titulo={`Venta sin clasificar: ${soles(sin.venta)} (${entero(sin.tickets)} comprobantes) en ${rango}`}>
+            ContaNet la registra, pero el reporte de ventas virtuales no la ubica en Lima ni Provincia (comprobantes que el reporte aún no trae,
+            anulaciones o números mal anotados). Revisa la lista en <a className="underline font-semibold" href="?s=cuadre">Cuadre con ContaNet</a> y
+            vuelve a subir el reporte corregido con «Cargar ventas virtuales»: el cruce se recalcula solo.
+          </Aviso>
+        ) : (
+          <Aviso titulo="Montos de ContaNet; Lima y Provincia según el reporte de ventas virtuales, cruzado comprobante por comprobante">
+            Desde que hay ContaNet cargado ({fechaLarga(primero)}) el monto es siempre el de ContaNet. Antes de esa fecha la venta sale del mismo reporte
+            (sin horas ni tickets por hora).
+          </Aviso>
+        );
+      })()}
       {canal === "tiendas" && comp && comp[0] < primero && (
         <Aviso titulo={`La comparación usa el reporte interno de tiendas (ContaNet empieza el ${fechaLarga(primero)})`}>
           Para fechas anteriores se compara con la venta del reporte interno (el del Power BI). Ahí hay venta y unidades, pero no tickets, horas,

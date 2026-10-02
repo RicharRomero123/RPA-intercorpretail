@@ -8,10 +8,12 @@
  *   - Ventas retail de Calderón (OXXO y otros clientes retail): una fila por despacho, con RAZON SOCIAL CLIENTE, SKU,
  *     CANTIDAD, MONTO CANCELADO y DÍA DE DESPACHO. Reemplaza, por cada cliente del archivo, desde su primer hasta su
  *     último despacho. Cada cliente se asigna a un tipo de retail en la vista previa.
+ *   - Ventas virtuales (rpa/digital_excel.py): hoja con Nro Comprobante, Canal (DELIVERY/PROVINCIA), Distrito, Provincia y
+ *     Departamento. Clasifica el canal digital de ContaNet en Lima y Provincia. Reemplaza el rango de fechas del archivo.
  */
 import { abrirXls, abrirXlsx, esXls, type Celda, type Libro } from "./xlsx";
 
-export type Tipo = "contanet" | "tiendas" | "retail";
+export type Tipo = "contanet" | "tiendas" | "retail" | "virtual";
 export type Aviso = { nivel: "ok" | "aviso" | "error"; texto: string };
 export type Rango = { tienda: string | null; desde: string; hasta: string };
 export type ResumenTienda = { tienda: string; desde: string; hasta: string; filas: number; und: number; venta: number };
@@ -311,6 +313,86 @@ function leerRetail(archivo: string, filas: Celda[][], iTitulos: number, eq: Equ
   });
 }
 
+// ------------------------------------------------------------------ Ventas virtuales (canal digital: Lima delivery y Provincia)
+/** Hoja con las ventas virtuales: una fila por línea de comprobante del usuario VENTAS01, con su canal y zona.
+ *  Mismas reglas que rpa/digital_excel.py. ContaNet es el monto oficial; este archivo solo clasifica cada comprobante. */
+const OBLIGATORIAS_VIRTUAL = ["FECHA REGISTRO", "NRO COMPROBANTE", "TOTAL LINEA", "CANAL", "DEPARTAMENTO"];
+const esVirtual = (filas: Celda[][]) => filas.slice(0, 5).findIndex((f) => {
+  const t = f.map(normal);
+  return OBLIGATORIAS_VIRTUAL.every((c) => t.includes(c));
+});
+const CANAL_VIRTUAL: Record<string, string> = { DELIVERY: "LIMA", PROVINCIA: "PROVINCIA" };
+/** «B008-3140», «BOL/B008/00004837», «OTR/NV08/00000001» → ["B008", 3140]. */
+function comprobanteDe(v: string): [string, number] | null {
+  const m = v.trim().toUpperCase().match(/^(?:[A-Z]{3}\/)?([A-Z]{1,2}\d{2,3}|SN)[-/]0*(\d+)$/);
+  return m ? [m[1], Number(m[2])] : null;
+}
+/** YAPE → Yape; BCP/BBVA → Transferencia; EFECTIVO → Contado (como en ContaNet). */
+function medioDe(v: string): string {
+  const t = v.toUpperCase();
+  if (t.includes("YAPE")) return "Yape";
+  if (t.includes("BCP") || t.includes("BBVA")) return "Transferencia";
+  if (t.includes("EFECTIVO")) return "Contado";
+  return v ? v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() : "";
+}
+/** «ica» → «Ica», «LA LIBERTAD» → «La Libertad», «PE-AMA» → «Amazonas». */
+function lugarDe(v: string): string | null {
+  if (!v) return null;
+  if (v.toUpperCase() === "PE-AMA") return "Amazonas";
+  return v.toLowerCase().split(" ").map((w, i) => (i && ["de", "del", "la", "las", "los", "el"].includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
+}
+
+function leerVirtual(archivo: string, filas: Celda[][], iTitulos: number, eq: Equivalencia[], skus: Set<string>): Lectura {
+  const pos: Record<string, number> = {};
+  filas[iTitulos].forEach((t, i) => { const k = normal(t); if (k && !(k in pos)) pos[k] = i; });
+  const col = (f: Celda[], nombre: string) => (nombre in pos ? f[pos[nombre]] ?? null : null);
+  const porContaNet = new Map(eq.filter((e) => e.sistema === "ContaNet").map((e) => [e.codigo, e.sku]));
+  const salida: Fila[] = [];
+  let sinNumero = 0, sinFecha = 0;
+  const malos = new Set<string>(), canales = new Set<string>();
+  for (const f of filas.slice(iTitulos + 1)) {
+    const fecha = fechaDe(col(f, "FECHA REGISTRO"));
+    const total = numero(col(f, "TOTAL LINEA"));
+    if (!fecha) { if (f.some((v) => texto(v) !== "")) sinFecha += 1; continue; }
+    let nro = texto(col(f, "NRO COMPROBANTE"));
+    if (!nro) { sinNumero += 1; nro = `SN-${sinNumero}`; }
+    const sn = comprobanteDe(nro);
+    if (!sn) { malos.add(nro); continue; }
+    const canalTxt = texto(col(f, "CANAL")).toUpperCase();
+    const canal = CANAL_VIRTUAL[canalTxt];
+    if (!canal) { canales.add(canalTxt || "(vacío)"); continue; }
+    const codigo = texto(col(f, "CODIGO")).toUpperCase() || null;
+    const doc = texto(col(f, "DOCUMENTO")).replace(/\.0$/, "") || null;
+    salida.push({
+      fecha, comprobante: `${sn[0]}-${sn[1]}`, serie: sn[0], numero: sn[1],
+      tipo_comprobante: sn[0] === "SN" ? "Otro" : sn[0].startsWith("B") ? "Boleta" : sn[0].startsWith("F") ? "Factura" : "Otro",
+      cliente: texto(col(f, "TERCERO")) || null, doc_cliente: doc, codigo,
+      sku: codigo ? porContaNet.get(codigo) ?? (skus.has(codigo) ? codigo : null) : null, producto: texto(col(f, "DESCRIPCION")) || null,
+      und: numero(col(f, "CANTIDAD")), precio_unit: numero(col(f, "PRECIO UNITARIO")), total: total === null ? null : redondear(total, 4),
+      medio_pago: medioDe(texto(col(f, "MEDIO PAGO"))), canal,
+      distrito: lugarDe(texto(col(f, "DISTRITO"))), provincia: lugarDe(texto(col(f, "PROVINCIA"))), departamento: lugarDe(texto(col(f, "DEPARTAMENTO"))),
+      salio_de: texto(col(f, "SALIO DE")) || null, observacion: texto(col(f, "OBSERVACION")) || null,
+    });
+  }
+  const dias = salida.map((x) => String(x.fecha)).sort();
+  const avisos: Aviso[] = [];
+  if (!salida.length) avisos.push({ nivel: "error", texto: "El archivo no tiene ventas." });
+  else avisos.push({ nivel: "ok", texto: `Ventas virtuales del ${fechaCorta(dias[0])} al ${fechaCorta(dias[dias.length - 1])}: ${salida.length} líneas. Se reemplazan esas fechas; después el cruce con ContaNet se recalcula solo.` });
+  if (malos.size) avisos.push({ nivel: "error", texto: `Números de comprobante que no se entienden: ${[...malos].slice(0, 8).join(", ")}. Corrígelos en el Excel.` });
+  if (canales.size) avisos.push({ nivel: "error", texto: `Canal desconocido (debe ser DELIVERY o PROVINCIA): ${[...canales].join(", ")}.` });
+  if (sinFecha) avisos.push({ nivel: "error", texto: `${sinFecha} filas sin Fecha Registro válida: corrígelas en el Excel.` });
+  if (sinNumero) avisos.push({ nivel: "aviso", texto: `${sinNumero} líneas sin número de comprobante: se cargan igual (no se podrán cruzar con ContaNet).` });
+  avisos.push({ nivel: "ok", texto: "ContaNet es el monto oficial: este archivo solo dice si cada comprobante es de Lima o Provincia y de qué zona." });
+  return cerrar({
+    tipo: "virtual", archivo, desde: dias[0] ?? "", hasta: dias[dias.length - 1] ?? "",
+    rangos: [{ tienda: null, desde: dias[0] ?? "", hasta: dias[dias.length - 1] ?? "" }], filas: salida,
+    und: redondear(salida.reduce((a, x) => a + Number(x.und ?? 0), 0), 3),
+    venta: redondear(salida.reduce((a, x) => a + Number(x.total ?? 0), 0), 4),
+    porTienda: resumirPorTienda(salida, "total", "canal"), avisos,
+    pendientes: listarPendientes(salida, "total", (x) => String(x.producto ?? "")),
+  });
+}
+
 // ------------------------------------------------------------------ entrada
 const fechaCorta = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 
@@ -337,11 +419,13 @@ export async function leerArchivo(archivo: string, datos: ArrayBuffer | Uint8Arr
   if (data) return leerTiendas(archivo, libro.filas(data), eq);
   for (const hoja of libro.hojas) {
     const filas = libro.filas(hoja);
+    const iVirtual = esVirtual(filas);
+    if (iVirtual >= 0) return leerVirtual(archivo, filas, iVirtual, eq, new Set(skus));
     const iRetail = esRetail(filas);
     if (iRetail >= 0) return leerRetail(archivo, filas, iRetail, eq, new Set(skus));
     if (filas.slice(0, 10).some((f) => f.some((v) => texto(v).toUpperCase() === "REPORTE DETALLADO"))) {
       return leerContaNet(archivo, filas, eq, new Set(skus));
     }
   }
-  throw new ErrorArchivo("No se reconoce el archivo: no es un «Reporte detallado» de ContaNet, ni un Excel de tienda con hoja «Data», ni un Excel de ventas retail (RAZON SOCIAL CLIENTE, MONTO CANCELADO…).");
+  throw new ErrorArchivo("No se reconoce el archivo: no es un «Reporte detallado» de ContaNet, ni un Excel de tienda con hoja «Data», ni un Excel de ventas retail (RAZON SOCIAL CLIENTE, MONTO CANCELADO…), ni el reporte de ventas virtuales (Nro Comprobante, Canal, Departamento…).");
 }
