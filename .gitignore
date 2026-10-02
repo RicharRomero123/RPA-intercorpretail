@@ -26,3 +26,7 @@ web/next-env.d.ts
 rpa/build/
 rpa/dist/
 *.spec
+
+# Modelo: datos descargados de la base (se regeneran con modelo/datos.py)
+modelo/datos/
+.ipynb_checkpoints/
