@@ -79,6 +79,8 @@ def leer_reporte(ruta: Path, equivalencias: dict[str, str]) -> dict:
     primera = crudo[0].map(_texto)
     titulos_idx = primera.index[primera.eq("Fecha")]
     if not len(titulos_idx):
+        if len(crudo) < 20:  # solo la cabecera: ContaNet no tiene ventas en ese rango (p. ej. temprano en la mañana)
+            raise SinVentas("el reporte vino vacío (todavía no hay ventas registradas)")
         raise ErrorReporte("No se encontró la fila de títulos.")
     it = titulos_idx[0]
     cabecera = crudo.iloc[:it]
@@ -90,7 +92,8 @@ def leer_reporte(ruta: Path, equivalencias: dict[str, str]) -> dict:
     for _, fila in cabecera.iterrows():
         vals = [v for v in fila if _texto(v)]
         for a, b in zip(vals, vals[1:]):
-            if isinstance(a, str) and a.strip().endswith(":"):
+            # Si al rótulo le sigue otro rótulo («Marca:» «Cliente:»), el filtro está en blanco: no se toma el rótulo como valor.
+            if isinstance(a, str) and a.strip().endswith(":") and not _texto(b).endswith(":"):
                 filtros[a.strip()] = _texto(b)
     aplicados = {k: v for k, v in filtros.items() if k in FILTROS_TODOS and v.upper() != "TODOS"}
     if aplicados:
@@ -159,7 +162,7 @@ def leer_reporte(ruta: Path, equivalencias: dict[str, str]) -> dict:
 
 
 # ============================================================================ carga a la base
-def cargar(ruta: Path, prueba: bool = False) -> dict:
+def cargar(ruta: Path, prueba: bool = False, rango: tuple[date, date] | None = None) -> dict:
     from psycopg.types.json import Jsonb
 
     from conexion import conectar
@@ -167,6 +170,9 @@ def cargar(ruta: Path, prueba: bool = False) -> dict:
     with conectar() as con:
         eq = dict(con.execute("select codigo, sku from sku_equivalencia where sistema = 'ContaNet'").fetchall())
         r = leer_reporte(ruta, eq)
+        if rango and (r["desde"], r["hasta"]) != rango:
+            raise ErrorReporte(f"El reporte trae del {r['desde']:%d/%m/%Y} al {r['hasta']:%d/%m/%Y}, pero se pidió del {rango[0]:%d/%m/%Y} al "
+                               f"{rango[1]:%d/%m/%Y} (ContaNet entendió mal la fecha). No se cargó nada.")
         log.info(f"Leído {ruta.name}: {r['desde']} a {r['hasta']} · {len(r['filas']):,} líneas · S/ {r['venta']:,.2f} · cuadra con TOTAL GENERAL")
         with con.transaction(force_rollback=prueba):
             # Mismo camino que la web: carga preparada -> filas -> confirmar_carga (reemplaza el rango con respaldo y verifica).
@@ -274,15 +280,36 @@ def elegir(rep, nombre: str):
         raise RuntimeError(f"No pude elegir «{nombre}».")
 
 
+def _partes(texto: str) -> tuple[int, int, int] | None:
+    import re
+    m = re.match(r"^\s*(\d{1,2})/(\d{1,2})/(\d{4})", texto)
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+
 def poner_fecha(auto, rep, auto_id: str, f: date):
     combo = rep.ComboBoxControl(AutomationId=auto_id, searchDepth=12)
     edit = combo.EditControl(searchDepth=2)
-    esperado = {f"{f.day}/{f.month:02d}/{f.year}", f"{f.day:02d}/{f.month:02d}/{f.year}"}
-    # El campo interpreta el texto según su propio formato: se prueba ISO, luego mes/día y día/mes, y se verifica lo que muestra.
-    for texto in (f.isoformat(), f"{f.month}/{f.day}/{f.year}", f"{f.day:02d}/{f.month:02d}/{f.year}"):
+    # 1) ¿El campo muestra día/mes o mes/día? Se escribe una fecha con día 13 (no se puede confundir) y se mira cómo la muestra.
+    prueba = date(f.year, f.month, 13)
+    formato = None
+    for texto in (prueba.isoformat(), f"{prueba.day:02d}/{prueba.month:02d}/{prueba.year}", f"{prueba.month}/{prueba.day}/{prueba.year}"):
         edit.GetValuePattern().SetValue(texto)
         time.sleep(0.5)
-        if combo.Name.strip() in esperado:
+        x = _partes(combo.Name)
+        if x and x[0] == 13 and x[1] == prueba.month:
+            formato = "dm"
+            break
+        if x and x[1] == 13 and x[0] == prueba.month:
+            formato = "md"
+            break
+    if formato is None:
+        raise RuntimeError(f"No pude saber el formato de fecha del campo {auto_id} (muestra «{combo.Name.strip()}»).")
+    # 2) Se escribe la fecha pedida y se exige que el campo la muestre exactamente (día y mes en su lugar).
+    quiere = (f.day, f.month, f.year) if formato == "dm" else (f.month, f.day, f.year)
+    for texto in (f.isoformat(), f"{f.day:02d}/{f.month:02d}/{f.year}", f"{f.month}/{f.day}/{f.year}"):
+        edit.GetValuePattern().SetValue(texto)
+        time.sleep(0.5)
+        if _partes(combo.Name) == quiere:
             return
     raise RuntimeError(f"La fecha {auto_id} quedó en «{combo.Name.strip()}» en vez de {f:%d/%m/%Y}.")
 
@@ -446,7 +473,7 @@ def main() -> None:
             explorar(auto, rep)
             return
         ruta = descargar(desde, hasta, espera=300 if a.hoy else 900)
-        cargar(ruta, a.prueba)
+        cargar(ruta, a.prueba, rango=(desde, hasta))
     except SinVentas as e:
         log.info(f"Sin ventas que cargar en {desde:%d/%m/%Y} – {hasta:%d/%m/%Y}: {e}")
     except Exception as e:  # noqa: BLE001 — se anota en el registro y la tarea termina con error
