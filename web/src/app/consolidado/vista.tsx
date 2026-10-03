@@ -20,7 +20,8 @@ const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "O
 const nombre = (c: string) => (c === TOTAL ? "Total del negocio" : c.length <= 3 ? c
   : c.charAt(0) + c.slice(1).toLowerCase().replace("-descontinuado", " (descontinuado)"));
 const div = (a: number, b: number) => (b ? a / b : null);
-const miles = (x: number | null) => (x === null ? "—" : Math.round(x).toLocaleString("en-US"));
+/** Monto en soles redondeado, con su símbolo: «S/ 1,234,567». */
+const miles = (x: number | null) => (x === null ? "—" : `S/ ${Math.round(x).toLocaleString("en-US")}`);
 const signo = (x: number | null) => (x === null ? "—" : `${x >= 0 ? "+" : ""}${porcentaje(x)}`);
 export type Celda = { canal: string; anio: number; mes: number; real: number | null; meta: number | null };
 

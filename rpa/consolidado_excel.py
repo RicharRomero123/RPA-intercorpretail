@@ -96,8 +96,14 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--archivo", type=Path, default=ARCHIVO)
     ap.add_argument("--revisar", action="store_true")
+    ap.add_argument("--corte", type=lambda x: datetime.strptime(x, "%Y-%m-%d"),
+                    help="AAAA-MM-DD: hasta qué día llega la data de verdad (p. ej. el reporte interno de tiendas). Si es el último día "
+                         "del mes, ese mes cuenta como cerrado; si no, queda «en curso». Por defecto: la fecha más reciente del Excel.")
     a = ap.parse_args()
     filas, corte = leer(a.archivo)
+    if a.corte:
+        print(f"Corte indicado a mano: {a.corte:%d/%m/%Y} (el Excel dice {corte:%d/%m/%Y})" if corte else f"Corte indicado a mano: {a.corte:%d/%m/%Y}")
+        corte = a.corte
     d = armar(filas)
     canales = sorted({c for c, _, _ in d})
     print(f"{a.archivo.name}: {len(d)} celdas canal-mes · canales {canales} · corte {corte:%d/%m/%Y}" if corte else "sin fecha de corte")
