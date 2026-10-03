@@ -158,8 +158,13 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                    detalle={`de ${soles(T.metaAnio)}${enCurso && T.avanceMes !== null ? ` · ${mesTxt}: ${porcentaje(T.avanceMes)} de su meta` : ""}`} />
       </div>
 
-      {/* 2. Todos los canales */}
-      <Tarjeta icono={Layers} titulo="Todos los canales" subtitulo={`Meses cerrados (${tramo}): real vs meta y vs ${anio - 1}${enCurso ? ` · ${mesTxt} aparte` : ""} · año: avance de la meta`}>
+      {/* 2. Mes a mes: el total del negocio (primera pestaña) y cada canal, como el Excel */}
+      <Tarjeta icono={CalendarRange} titulo="Mes a mes: total del negocio y por canal" subtitulo={`Como en el Excel: ${anio - 1}, real, meta, variaciones y cumplimiento de cada mes`}>
+        <Pestanas pestanas={[TOTAL, ...canales].map((c) => ({ id: c, titulo: c === TOTAL ? "Total" : nombre(c), contenido: bloque(c) }))} />
+      </Tarjeta>
+
+      {/* 3. Análisis por canal: cumplimiento y crecimiento de cada uno */}
+      <Tarjeta icono={Layers} titulo="Análisis por canal" subtitulo={`Meses cerrados (${tramo}): real vs meta y vs ${anio - 1}${enCurso ? ` · ${mesTxt} aparte` : ""} · año: avance de la meta`}>
         <GraficoCanales tramo={tramo} anioAnt={anio - 1}
                         datos={[...porCanal, { ...T, canal: "Total" }].map((x) => ({ canal: x.canal, cumpl: x.cumpl, var: x.var, real: x.real, meta: x.meta, ant: x.ant }))} />
         <Tabla archivo={`resumen_general_canales_${corte}.xlsx`} hoja="Canales" filas={porCanal}
@@ -170,11 +175,6 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                  { clave: "metaAnio", titulo: `Meta año ${anio} S/`, tipo: "soles" }, { clave: "avance", titulo: "Avance anual", tipo: "porcentaje" },
                  { clave: "part", titulo: "% del total", tipo: "porcentaje" }]}
                total={{ ...T, canal: "TOTAL", part: 1 }} />
-      </Tarjeta>
-
-      {/* 3. Detalle mensual por canal, como el Excel */}
-      <Tarjeta icono={CalendarRange} titulo="Detalle mensual por canal" subtitulo={`Como en el Excel: ${anio - 1}, real, meta, variaciones y cumplimiento de cada mes`}>
-        <Pestanas pestanas={[TOTAL, ...canales].map((c) => ({ id: c, titulo: c === TOTAL ? "Total" : nombre(c), contenido: bloque(c) }))} />
       </Tarjeta>
 
       {/* 4. Semáforo */}
