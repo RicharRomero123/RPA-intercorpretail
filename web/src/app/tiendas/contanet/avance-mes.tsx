@@ -6,7 +6,7 @@ import { CalendarRange, Flag, Store } from "lucide-react";
 import { GraficoAvanceMes, type PuntoMes } from "@/components/GraficoAvanceMes";
 import { Indicador } from "@/components/Graficos";
 import { Tabla } from "@/components/Tabla";
-import { Aviso, Tarjeta } from "@/components/ui";
+import { Tarjeta } from "@/components/ui";
 import type { AvanceMes } from "@/lib/contanet";
 import { porcentaje, soles } from "@/lib/formato";
 import { fechaLarga } from "@/lib/periodos";
@@ -67,6 +67,34 @@ export function seccionAvanceMes(m: AvanceMes, meta: number | null, conTiendas: 
           · meta del mes: {nombreMeta}</span>
       </div>
 
+      {(() => {
+        // Titular: la conclusión en una frase (¿llego a la meta? ¿cuánto más por día?).
+        const porDia = cerrados.length ? realCerrado / cerrados.length : null;
+        const llega = meta !== null && proyeccion >= meta;
+        const color = meta === null ? "var(--tinta)" : llega ? "var(--bueno)" : proyeccion >= meta * 0.9 ? "var(--alerta)" : "var(--critico)";
+        return (
+          <section className="tarjeta p-5 grid gap-2 border-l-4" style={{ borderLeftColor: color }}>
+            <p className="text-[22px] @3xl:text-[26px] font-semibold leading-tight" style={{ color }}>
+              {meta === null ? `${mes.charAt(0).toUpperCase() + mes.slice(1)} cerraría en ${soles(proyeccion)}`
+                : llega ? `Vas camino a superar la meta de ${mes}: ${porcentaje(proyeccion / meta)}`
+                : `Vas camino al ${porcentaje(proyeccion / meta)} de la meta de ${mes}`}
+            </p>
+            <p className="text-[15px]">
+              {meta !== null && necesario !== null && porDia !== null ? (llega
+                ? <>Mantén al menos <b className="num">{soles(necesario)}</b> por día ({cerrados.length ? <>vas <b className="num">{soles(porDia)}</b></> : null}).</>
+                : <>Te faltan <b className="num">{soles(Math.max(0, necesario - porDia))}</b> más por día: necesitas <b className="num">{soles(necesario)}</b> diarios
+                    y vas <b className="num">{soles(porDia)}</b>.</>)
+                : lyMes ? <>Proyección {variacion(proyeccion, lyMes)! >= 0 ? "+" : "−"}{porcentaje(Math.abs(variacion(proyeccion, lyMes)!))} vs {mes} {anio - 1}.</> : null}
+            </p>
+            <p className="text-xs text-[var(--tenue)]">
+              Cierre estimado {soles(proyeccion)}{meta !== null ? ` · meta ${soles(meta)}${llega ? "" : ` · faltarían ${soles(meta - proyeccion)}`}` : ""}
+              {lyMes ? ` · ${mes} ${anio - 1}: ${soles(lyMes)}` : ""} · con {cerrados.length} {cerrados.length === 1 ? "día cerrado" : "días cerrados"}
+              {cerrados.length < 7 ? " (todavía cambia mucho; se vuelve confiable a mediados de mes)" : ""}.
+            </p>
+          </section>
+        );
+      })()}
+
       {meta !== null && (() => {
         // Barra de la meta del mes: se llena con lo acumulado (sólido) y la proyección hasta el cierre (claro).
         const ancho = (v: number) => `${Math.min(100, Math.max(0, (v / meta) * 100))}%`;
@@ -117,20 +145,15 @@ export function seccionAvanceMes(m: AvanceMes, meta: number | null, conTiendas: 
                    detalle={necesario === null ? "sin meta" : cerrados.length ? `vas ${soles(realCerrado / cerrados.length)} por día en promedio` : ""} />
       </div>
 
-      {meta !== null && (
-        <Aviso tipo={proyeccion >= meta ? "bueno" : proyeccion >= meta * 0.9 ? "alerta" : "critico"}
-               titulo={proyeccion >= meta ? `Al ritmo actual, ${mes} cerraría en ${soles(proyeccion)}: llega a la meta (${porcentaje(proyeccion / meta)})`
-                 : `Al ritmo actual, ${mes} cerraría en ${soles(proyeccion)}: ${porcentaje(proyeccion / meta)} de la meta, faltarían ${soles(meta - proyeccion)}`}>
-          {conLY ? <>Proyección: lo vendido + cada día que falta con la venta del mismo día de la semana de {anio - 1} × el ritmo actual
-            ({ritmo! >= 1 ? "+" : "−"}{porcentaje(Math.abs(ritmo! - 1))} vs esos mismos días de {anio - 1}). Captura el peso de cada semana del mes
-            (en octubre, la semana del Señor de los Milagros).</> : <>Proyección con el promedio diario de lo que va del mes (no hay venta del año pasado para este canal).</>}
-          {" "}Es una estimación: temprano en el mes cambia más.
-        </Aviso>
-      )}
 
       <Tarjeta icono={CalendarRange} titulo={`${mes.charAt(0).toUpperCase() + mes.slice(1)} día a día, acumulado`}
                subtitulo={`Real hasta ${esHoy ? "hoy" : fechaLarga(m.fecha)} · proyección punteada hasta el ${fechaLarga(m.fin!)} · ${anio - 1} misma fecha (gris)${meta ? " · línea de meta" : ""}`}>
         <GraficoAvanceMes puntos={puntos} meta={meta} etiquetaAnterior={`${mes} ${anio - 1}`} />
+        <p className="text-xs text-[var(--tenue)]">
+          {conLY ? <>Cómo se proyecta: cada día que falta = lo que se vendió el mismo día de la semana en {anio - 1} × el ritmo actual
+            ({ritmo! >= 1 ? "+" : "−"}{porcentaje(Math.abs(ritmo! - 1))} vs {anio - 1}). Así pesa más la semana fuerte del mes.</>
+            : <>Cómo se proyecta: el promedio diario de lo que va del mes × los días que faltan (no hay venta del año pasado en este canal).</>}
+        </p>
       </Tarjeta>
 
       {conTiendas && filas.length > 0 && (
