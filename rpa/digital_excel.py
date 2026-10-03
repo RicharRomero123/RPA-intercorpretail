@@ -9,6 +9,7 @@ Uso:  python digital_excel.py "REPORTE DE VENTAS 2026 PROVINCIA - DELIVERY.xlsx"
 import argparse
 import json
 import re
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +19,32 @@ from psycopg.types.json import Jsonb
 from conexion import conectar
 
 SISTEMA = "00000000-0000-0000-0000-00000000c0a7"  # usuario del robot (si no se indica --correo)
+
+# SKU oficial a partir de la DESCRIPCIÓN: en el Excel virtual el mismo código se usó para productos distintos según el mes
+# (TUR1110 fue el 950 g y también el turroncito del Día de la Madre), así que la descripción manda y el código es el último recurso.
+# Cada regla: palabras que deben estar (sin tildes, en minúscula) → SKU. Si ninguna calza, queda sin SKU (pendiente), nunca uno adivinado.
+REGLAS_SKU = [
+    (("promocion", "30", "turroncitos", "ajonjoli"), "TUR12477"), (("promocion", "30", "turroncitos", "tradicional"), "TUR12478"),
+    (("ramo", "san val"), "RTSV1116"), (("turroncito", "madre"), "TUR1110"), (("turroncito", "san valentin"), "TUR1111"),
+    (("turroncito", "ajonjoli"), "TA1115"), (("turroncito", "tradicional"), "TT1114"), (("turron", "fiestas patrias"), "TFP1119"),
+    (("turron", "ajonjoli", "900"), "TKA1111"), (("turron", "ajonjoli", "450"), "TMA1113"),
+    (("turron", "tradicional", "950"), "TK1110"), (("turron", "tradicional", "500"), "TMT1112"),
+    (("chocopaneton",), "CHP1126"), (("paneton", "ziploc"), "PZ1125"), (("paneton", "caja"), "PAN1124"), (("paneton", "bolsa"), "PB1124"),
+    (("taper", "alfaj"), "ALFA1145"), (("alfajores", "taper"), "ALFA1145"), (("taper", "oreja"), "OREJA1146"), (("oreja", "taper"), "OREJA1146"),
+    (("taper", "empanada"), "EMP1147"), (("taper", "milhoja"), "MH11152"), (("taper", "pionono"), "PIONONO1149"),
+    (("empanada",), "EMP1132"), (("milhoja",), "MH1135"), (("rosquita",), "ROS1133"), (("pie de manzana",), "PYE1134"),
+]
+
+
+def sku_por_descripcion(desc: str | None) -> str | None:
+    if not desc:
+        return None
+    t = unicodedata.normalize("NFD", str(desc)).encode("ascii", "ignore").decode().lower()
+    for palabras, sku in REGLAS_SKU:
+        if all(p in t for p in palabras):
+            return sku
+    return None
+
 
 CANAL = {"DELIVERY": "LIMA", "PROVINCIA": "PROVINCIA"}
 TIPO = {"B": "Boleta", "F": "Factura"}
@@ -56,7 +83,12 @@ def lugar(v) -> str | None:
 
 
 def leer(ruta: Path, eq: dict[str, str], skus: set[str]) -> pd.DataFrame:
-    d = pd.read_excel(ruta, sheet_name="2026", usecols=range(20))
+    # La hoja con las ventas: «2026» en el Excel actual o «Pedidos» en la plantilla; si no, la primera que tenga las columnas.
+    hojas = pd.ExcelFile(ruta).sheet_names
+    hoja = next((h for h in ("2026", "Pedidos") if h in hojas), None)
+    if hoja is None:
+        hoja = next(h for h in hojas if {"Fecha Registro", "Nro Comprobante", "Total Linea"} <= set(pd.read_excel(ruta, sheet_name=h, nrows=0).columns))
+    d = pd.read_excel(ruta, sheet_name=hoja)
     d = d[d["Fecha Registro"].notna()].copy()
     # Líneas sin número de comprobante (pocas): se cargan igual con la serie «SN» para no perder venta.
     sin_num = d["Nro Comprobante"].isna()
@@ -73,7 +105,9 @@ def leer(ruta: Path, eq: dict[str, str], skus: set[str]) -> pd.DataFrame:
         "fecha": pd.to_datetime(d["Fecha Registro"]).dt.date,
         "serie": sn.map(lambda x: x[0]), "numero": sn.map(lambda x: x[1]),
         "cliente": d["Tercero"].map(texto), "doc_cliente": d["Documento"].map(texto),
-        "codigo": codigo, "sku": codigo.map(lambda c: eq.get(c) or (c if c in skus else None)),
+        "codigo": codigo,
+        "sku": [sku_por_descripcion(dsc) or (None if dsc else (eq.get(c) or (c if c in skus else None)))
+                for c, dsc in zip(codigo, d["Descripción"].map(texto))],
         "producto": d["Descripción"].map(texto),
         "und": pd.to_numeric(d["Cantidad"], errors="coerce"), "precio_unit": pd.to_numeric(d["Precio Unitario"], errors="coerce"),
         "total": pd.to_numeric(d["Total Linea"], errors="coerce").round(4),

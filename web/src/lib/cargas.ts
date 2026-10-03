@@ -342,6 +342,25 @@ function lugarDe(v: string): string | null {
   return v.toLowerCase().split(" ").map((w, i) => (i && ["de", "del", "la", "las", "los", "el"].includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
 }
 
+/** SKU oficial a partir de la DESCRIPCIÓN (en el Excel virtual el mismo código se usó para productos distintos según el mes).
+ *  Mismas reglas que rpa/digital_excel.py: si ninguna calza, queda sin SKU (pendiente), nunca uno adivinado. */
+const REGLAS_SKU: [string[], string][] = [
+  [["promocion", "30", "turroncitos", "ajonjoli"], "TUR12477"], [["promocion", "30", "turroncitos", "tradicional"], "TUR12478"],
+  [["ramo", "san val"], "RTSV1116"], [["turroncito", "madre"], "TUR1110"], [["turroncito", "san valentin"], "TUR1111"],
+  [["turroncito", "ajonjoli"], "TA1115"], [["turroncito", "tradicional"], "TT1114"], [["turron", "fiestas patrias"], "TFP1119"],
+  [["turron", "ajonjoli", "900"], "TKA1111"], [["turron", "ajonjoli", "450"], "TMA1113"],
+  [["turron", "tradicional", "950"], "TK1110"], [["turron", "tradicional", "500"], "TMT1112"],
+  [["chocopaneton"], "CHP1126"], [["paneton", "ziploc"], "PZ1125"], [["paneton", "caja"], "PAN1124"], [["paneton", "bolsa"], "PB1124"],
+  [["taper", "alfaj"], "ALFA1145"], [["alfajores", "taper"], "ALFA1145"], [["taper", "oreja"], "OREJA1146"], [["oreja", "taper"], "OREJA1146"],
+  [["taper", "empanada"], "EMP1147"], [["taper", "milhoja"], "MH11152"], [["taper", "pionono"], "PIONONO1149"],
+  [["empanada"], "EMP1132"], [["milhoja"], "MH1135"], [["rosquita"], "ROS1133"], [["pie de manzana"], "PYE1134"],
+];
+function skuPorDescripcion(desc: string): string | null {
+  if (!desc) return null;
+  const t = desc.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return REGLAS_SKU.find(([palabras]) => palabras.every((w) => t.includes(w)))?.[1] ?? null;
+}
+
 function leerVirtual(archivo: string, filas: Celda[][], iTitulos: number, eq: Equivalencia[], skus: Set<string>): Lectura {
   const pos: Record<string, number> = {};
   filas[iTitulos].forEach((t, i) => { const k = normal(t); if (k && !(k in pos)) pos[k] = i; });
@@ -367,7 +386,9 @@ function leerVirtual(archivo: string, filas: Celda[][], iTitulos: number, eq: Eq
       fecha, comprobante: `${sn[0]}-${sn[1]}`, serie: sn[0], numero: sn[1],
       tipo_comprobante: sn[0] === "SN" ? "Otro" : sn[0].startsWith("B") ? "Boleta" : sn[0].startsWith("F") ? "Factura" : "Otro",
       cliente: texto(col(f, "TERCERO")) || null, doc_cliente: doc, codigo,
-      sku: codigo ? porContaNet.get(codigo) ?? (skus.has(codigo) ? codigo : null) : null, producto: texto(col(f, "DESCRIPCION")) || null,
+      sku: skuPorDescripcion(texto(col(f, "DESCRIPCION"))) ?? (texto(col(f, "DESCRIPCION")) ? null
+             : codigo ? porContaNet.get(codigo) ?? (skus.has(codigo) ? codigo : null) : null),
+      producto: texto(col(f, "DESCRIPCION")) || null,
       und: numero(col(f, "CANTIDAD")), precio_unit: numero(col(f, "PRECIO UNITARIO")), total: total === null ? null : redondear(total, 4),
       medio_pago: medioDe(texto(col(f, "MEDIO PAGO"))), canal,
       distrito: lugarDe(texto(col(f, "DISTRITO"))), provincia: lugarDe(texto(col(f, "PROVINCIA"))), departamento: lugarDe(texto(col(f, "DEPARTAMENTO"))),
