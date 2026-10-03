@@ -142,6 +142,20 @@ export async function avanceContaNet(sb: Supabase, canal: CanalContaNet, fecha?:
 }
 
 /** Meta del mes de un canal en el consolidado (Excel «Consolidado-all-canales»), si existe. */
+/** Avance del mes: venta de cada día del mes y del año pasado (misma fecha y mismo día de la semana), y por tienda. */
+export type AvanceMes = {
+  fecha: string | null; inicio: string | null; fin: string | null; actualizado: string | null; corte: string | null;
+  dias: { dia: string; venta: number | null; ly_fecha: number | null; ly_sem: number | null }[];
+  tiendas: { tienda: string; mes: number; ly_corte: number | null; ly_mes: number | null }[];
+};
+export async function avanceMesContaNet(sb: Supabase, canal: CanalContaNet, fecha?: string, geo?: FiltroGeo): Promise<AvanceMes> {
+  const p_fecha = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : null;
+  const d = await leer<AvanceMes>(sb.rpc("contanet_avance_mes", { p_canal: conGeo(canal, geo), p_fecha }));
+  const opc = (v: unknown) => (v === null || v === undefined ? null : num(v));
+  return { ...d, dias: (d.dias ?? []).map((x) => ({ dia: x.dia, venta: opc(x.venta), ly_fecha: opc(x.ly_fecha), ly_sem: opc(x.ly_sem) })),
+           tiendas: (d.tiendas ?? []).map((x) => ({ tienda: x.tienda, mes: num(x.mes), ly_corte: opc(x.ly_corte), ly_mes: opc(x.ly_mes) })) };
+}
+
 export async function metaMes(sb: Supabase, canalConsolidado: string, anio: number, mes: number): Promise<number | null> {
   const { data } = await sb.from("consolidado_mensual").select("meta").eq("canal", canalConsolidado).eq("anio", anio).eq("mes", mes).maybeSingle();
   return data?.meta === null || data?.meta === undefined ? null : Number(data.meta);

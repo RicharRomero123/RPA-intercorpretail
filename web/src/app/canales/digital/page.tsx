@@ -1,6 +1,6 @@
 import type { CargaWeb } from "@/components/HistorialCargas";
 import type { Equivalencia } from "@/lib/cargas";
-import { avanceContaNet, clientesPorTienda, cuadreDigital, maestrosContaNet, metaMes, opcionesDigital, panelContaNet, zonasDigital } from "@/lib/contanet";
+import { avanceContaNet, avanceMesContaNet, clientesPorTienda, cuadreDigital, maestrosContaNet, metaMes, opcionesDigital, panelContaNet, zonasDigital } from "@/lib/contanet";
 import { fechaLarga } from "@/lib/periodos";
 import { seccionCuadre } from "./cuadre";
 import { datosEjecutivo } from "@/lib/ejecutivo";
@@ -21,6 +21,8 @@ export default async function CanalDigital({ searchParams }: { searchParams: Pro
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "digital", a, b, f),
     cuadre: async (a, b) => seccionCuadre(await cuadreDigital(sb, a, b), `${fechaLarga(a)} – ${fechaLarga(b)}`),
     geo: { opciones: () => opcionesDigital(sb, "digital"), zonas: (a, b, f) => zonasDigital(sb, "digital", a, b, f) },
+    avanceMes: (fecha, geo) => avanceMesContaNet(sb, "digital", fecha, geo),
+    nombreMeta: "LIMA + PROVINCIA",
     avance: async (fecha, geo) => {
       const avance = await avanceContaNet(sb, "digital", fecha, geo);
       // Meta del canal digital = LIMA + PROVINCIA del consolidado (el reporte virtual cuadra con esos dos canales).

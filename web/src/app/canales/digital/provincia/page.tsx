@@ -1,6 +1,6 @@
 import type { CargaWeb } from "@/components/HistorialCargas";
 import type { Equivalencia } from "@/lib/cargas";
-import { avanceContaNet, clientesPorTienda, maestrosContaNet, metaMes, opcionesDigital, panelContaNet, zonasDigital } from "@/lib/contanet";
+import { avanceContaNet, avanceMesContaNet, clientesPorTienda, maestrosContaNet, metaMes, opcionesDigital, panelContaNet, zonasDigital } from "@/lib/contanet";
 import { datosEjecutivo } from "@/lib/ejecutivo";
 import { tiposRetail } from "@/lib/retail";
 import { clienteSupabase } from "@/lib/supabase/server";
@@ -18,6 +18,8 @@ export default async function CanalDigitalProvincia({ searchParams }: { searchPa
     panel: (a, b, f) => panelContaNet(sb, "digital_provincia", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "digital_provincia", a, b, f),
     geo: { opciones: () => opcionesDigital(sb, "digital_provincia"), zonas: (a, b, f) => zonasDigital(sb, "digital_provincia", a, b, f) },
+    avanceMes: (fecha, geo) => avanceMesContaNet(sb, "digital_provincia", fecha, geo),
+    nombreMeta: "PROVINCIA",
     avance: async (fecha, geo) => {
       const avance = await avanceContaNet(sb, "digital_provincia", fecha, geo);
       const meta = avance.fecha ? await metaMes(sb, "PROVINCIA", Number(avance.fecha.slice(0, 4)), Number(avance.fecha.slice(5, 7))) : null;

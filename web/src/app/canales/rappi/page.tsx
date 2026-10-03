@@ -1,6 +1,6 @@
 import type { CargaWeb } from "@/components/HistorialCargas";
 import type { Equivalencia } from "@/lib/cargas";
-import { avanceContaNet, clientesPorTienda, maestrosContaNet, metaMes, panelContaNet } from "@/lib/contanet";
+import { avanceContaNet, avanceMesContaNet, clientesPorTienda, maestrosContaNet, metaMes, panelContaNet } from "@/lib/contanet";
 import { datosEjecutivo } from "@/lib/ejecutivo";
 import { tiposRetail } from "@/lib/retail";
 import { clienteSupabase } from "@/lib/supabase/server";
@@ -17,6 +17,8 @@ export default async function CanalRappi({ searchParams }: { searchParams: Promi
     maestros: () => maestrosContaNet(sb, "rappi"),
     panel: (a, b, f) => panelContaNet(sb, "rappi", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "rappi", a, b, f),
+    avanceMes: (fecha, geo) => avanceMesContaNet(sb, "rappi", fecha),
+    nombreMeta: "RAPPI",
     avance: async (fecha) => {
       const avance = await avanceContaNet(sb, "rappi", fecha);
       const meta = avance.fecha ? await metaMes(sb, "RAPPI", Number(avance.fecha.slice(0, 4)), Number(avance.fecha.slice(5, 7))) : null;

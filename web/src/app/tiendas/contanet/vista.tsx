@@ -15,6 +15,8 @@ import { conGeo, parametros, type CanalContaNet, type ClaveGeo, type FiltroConta
 import { ClientesContaNet, type ClienteTienda } from "@/components/ClientesContaNet";
 import type { Avance } from "@/lib/contanet";
 import { seccionAvance } from "./avance";
+import { seccionAvanceMes } from "./avance-mes";
+import type { AvanceMes } from "@/lib/contanet";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import type { Agrupar } from "@/lib/kpi";
 import {
@@ -42,6 +44,10 @@ export type FuenteContaNet = {
   ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo>;
   clientesTiendas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<ClienteTienda[]>;
   avance: (fecha?: string, geo?: FiltroContaNet["geo"]) => Promise<{ avance: Avance; meta: number | null }>;
+  /** Avance del mes (la meta es la misma del avance del día: la del mes del consolidado). */
+  avanceMes: (fecha?: string, geo?: FiltroContaNet["geo"]) => Promise<AvanceMes>;
+  /** Qué meta del consolidado se usa (para mostrarlo). */
+  nombreMeta?: string;
   /** Solo canal digital: filtros por zona y venta por zona. */
   geo?: { opciones: () => Promise<OpcionesGeo>; zonas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<Zona[]> };
   /** Solo el resumen del canal digital: cuadre con ContaNet (sección propia). */
@@ -111,6 +117,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
     fuente.clientesTiendas(desde, hasta, filtro), fuente.avance(uno(sp.dia), filtro.geo),
     fuente.geo ? fuente.geo.opciones() : Promise.resolve(null), fuente.geo ? fuente.geo.zonas(desde, hasta, filtro) : Promise.resolve([] as Zona[])]);
   const cuadre = fuente.cuadre ? await fuente.cuadre(desde, hasta) : null;
+  const mesAv = await fuente.avanceMes(uno(sp.dia), filtro.geo);
   const R = sumar(A.dias), RC = B ? sumar(B.dias) : null;
   const hayComp = !!B && B.dias.length > 0;
   const diasVenta = A.dias.filter((d) => d.venta > 0).length;
@@ -360,6 +367,8 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
     <Marco seccion={sp.s} ubicacion={cfg.ubicacion} tiposRetail={tipos} encabezado={encabezado} usuario={usuario} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
       { id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ej} desde={desde} hasta={hasta} config={CONFIG[canal === "tiendas" ? "contanet_tiendas" : canal]} archivo={`${canal}_contanet_ejecutivo`} /> },
       { id: "avance", titulo: "Avance del día", contenido: seccionAvance(av.avance, av.meta, cfg.porTienda, `${canal}_avance_${av.avance.fecha}`, cfg.titulo, cfg.dim) },
+      { id: "mes", titulo: "Avance del mes", contenido: seccionAvanceMes(mesAv, av.avance.fecha?.slice(0, 7) === mesAv.fecha?.slice(0, 7) ? av.meta : null,
+          cfg.porTienda, cfg.dim, `${canal}_avance_mes_${mesAv.fecha}`, fuente.nombreMeta ?? "consolidado") },
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
       ...(cuadre ? [{ id: "cuadre" as const, titulo: "Cuadre con ContaNet", contenido: cuadre }] : []),

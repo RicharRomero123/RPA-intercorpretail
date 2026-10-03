@@ -10,7 +10,7 @@ import Link from "next/link";
 import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
 
-const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck, cuadre: Scale } satisfies Record<string, LucideIcon>;
+const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck, cuadre: Scale, mes: CalendarCheck } satisfies Record<string, LucideIcon>;
 type IdSeccion = keyof typeof ICONOS;
 
 type Hoja = { id: IdSeccion; titulo: string };
@@ -23,7 +23,7 @@ const EJECUTIVO: Hoja = { id: "ejecutivo", titulo: "Resumen ejecutivo" };
 const GENERAL: Nodo = { id: "consolidado", titulo: "Resumen general", icono: LayoutGrid, ruta: "/consolidado" };
 const VENTAS: Hoja[] = [EJECUTIVO, { id: "ventas", titulo: "Ventas" }, { id: "detalle", titulo: "Detalle de ventas" }];
 /** Vistas de ContaNet: además, el avance del día (se actualiza varias veces al día). */
-const CONTANET: Hoja[] = [EJECUTIVO, { id: "avance", titulo: "Avance del día" }, ...VENTAS.slice(1)];
+const CONTANET: Hoja[] = [EJECUTIVO, { id: "avance", titulo: "Avance del día" }, { id: "mes", titulo: "Avance del mes" }, ...VENTAS.slice(1)];
 /** Módulos de la app, uno por canal de venta. Retail se abre en sus tipos (Supermercados · SPSA y los que se carguen). */
 function menu(tipos: TipoRetail[]): Nodo[] {
   return [

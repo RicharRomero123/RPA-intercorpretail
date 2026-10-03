@@ -1,6 +1,6 @@
 import type { CargaWeb } from "@/components/HistorialCargas";
 import type { Equivalencia } from "@/lib/cargas";
-import { avanceContaNet, clientesPorTienda, maestrosContaNet, metaMes, panelContaNet } from "@/lib/contanet";
+import { avanceContaNet, avanceMesContaNet, clientesPorTienda, maestrosContaNet, metaMes, panelContaNet } from "@/lib/contanet";
 import { datosEjecutivo } from "@/lib/ejecutivo";
 import { tiposRetail } from "@/lib/retail";
 import { clienteSupabase } from "@/lib/supabase/server";
@@ -17,6 +17,8 @@ export default async function TiendasContaNet({ searchParams }: { searchParams: 
     maestros: () => maestrosContaNet(sb, "tiendas"),
     panel: (a, b, f) => panelContaNet(sb, "tiendas", a, b, f),
     clientesTiendas: (a, b, f) => clientesPorTienda(sb, "tiendas", a, b, f),
+    avanceMes: (fecha, geo) => avanceMesContaNet(sb, "tiendas", fecha),
+    nombreMeta: "TIENDAS",
     avance: async (fecha) => {
       const avance = await avanceContaNet(sb, "tiendas", fecha);
       const meta = avance.fecha ? await metaMes(sb, "TIENDAS", Number(avance.fecha.slice(0, 4)), Number(avance.fecha.slice(5, 7))) : null;
