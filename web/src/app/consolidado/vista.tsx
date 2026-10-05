@@ -184,11 +184,9 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                  subtitulo={`Unidades de cada SKU por mes, ene–${MESES[mesCorte - 1].toLowerCase()} ${anio}, sumando los canales con detalle por producto`}>
           <ProductosTop filas={productos} mesCorte={mesCorte} archivo={corte}
                         etiquetaMes={(m) => `${MESES[m - 1]}${m === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}`}
-                        sinDetalle={(() => {
-                          const fuera = canales.filter((c) => c === "B2B" || c === "RAPPI");
-                          const monto = fuera.reduce((s, c) => s + suma(c, anio, mesCorte, "real"), 0);
-                          return { canales: fuera.map(nombre).join(" y "), monto, part: div(monto, T.realFecha) };
-                        })()} />
+                        totalNegocio={T.realFecha}
+                        sinDetalle={canales.filter((c) => c === "B2B" || c === "RAPPI")
+                          .map((c) => ({ canal: nombre(c), monto: suma(c, anio, mesCorte, "real") })).filter((x) => x.monto)} />
         </Tarjeta>
       )}
 
