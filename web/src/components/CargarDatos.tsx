@@ -27,7 +27,7 @@ type Estado =
 type Archivo = { id: string; nombre: string; estado: Estado };
 
 const PARTE = 2000; // filas por envío
-const NOMBRE_TIPO = { contanet: "ContaNet · Reporte detallado", tiendas: "Tienda · venta diaria (hoja Data)", retail: "Ventas retail · despachos a clientes", virtual: "Ventas virtuales · Lima y Provincia" };
+const NOMBRE_TIPO = { contanet: "ContaNet · Reporte detallado", tiendas: "Tienda · venta diaria (hoja Data)", retail: "Ventas retail · despachos a clientes", virtual: "Ventas virtuales · Lima y Provincia", oxxo: "OXXO · reporte diario por tienda" };
 /** Tipos de retail que se sugieren al escribir (se puede escribir cualquier otro). */
 const TIPOS_SUGERIDOS = ["Supermercados", "Conveniencia", "Delivery / quick commerce", "Vending", "Mayorista / distribuidor"];
 const faltaTipo = (l: Lectura, t: Tipos) => (l.clientes ?? []).some((c) => !t.asignar[c.cliente]?.trim());
@@ -174,7 +174,7 @@ function Vista({ a, cargar, deshacer, quitar, asignar }: {
   }
 
   const { lectura: l, existente, tipos } = e;
-  const quien = l.tipo === "retail" ? "Cliente" : l.tipo === "virtual" ? "Canal" : "Tienda";
+  const quien = l.tipo === "retail" || l.tipo === "oxxo" ? "Cliente" : l.tipo === "virtual" ? "Canal" : "Tienda";
   const sinTipo = faltaTipo(l, tipos);
   const base = new Map(existente.map((x) => [x.tienda, x]));
   const tiendas = [...new Set([...l.porTienda.map((t) => t.tienda), ...existente.map((x) => x.tienda)])];
@@ -198,7 +198,7 @@ function Vista({ a, cargar, deshacer, quitar, asignar }: {
       </ul>
 
       <div className="grid gap-2">
-        <span className="etiqueta">Archivo vs lo que hoy está en la base ({l.tipo === "retail" ? "mismos clientes y fechas" : l.tipo === "virtual" ? "mismas fechas" : "mismas tiendas y fechas"})</span>
+        <span className="etiqueta">Archivo vs lo que hoy está en la base ({l.tipo === "retail" ? "mismos clientes y fechas" : (l.tipo === "virtual" || l.tipo === "oxxo") ? "mismas fechas" : "mismas tiendas y fechas"})</span>
         <Tabla archivo={`vista_previa_${l.archivo.replace(/\.xlsx$/i, "")}.xlsx`} hoja="Vista previa" filas={comparacion}
                columnas={[{ clave: "tienda", titulo: quien, tipo: "texto" }, { clave: "desde", titulo: "Desde", tipo: "texto" },
                  { clave: "hasta", titulo: "Hasta", tipo: "texto" }, { clave: "filas", titulo: "Filas", tipo: "entero" },
@@ -248,8 +248,8 @@ function Vista({ a, cargar, deshacer, quitar, asignar }: {
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--linea)] pt-4">
         <p className="text-xs text-[var(--tenue)] max-w-2xl">
           {e.paso === "cargado" ? <>Se reemplazaron {entero(e.resultado.reemplazo_filas)} filas ({soles(e.resultado.reemplazo_venta)}) que tenía la base en esas{" "}
-            {(l.tipo === "contanet" || l.tipo === "virtual") ? "fechas" : l.tipo === "retail" ? "clientes y fechas" : "tiendas y fechas"}. Lo guardado cuadra al céntimo con el archivo.</> : <>
-          Al cargar se reemplazan {entero(baseFilas)} filas ({soles(baseVenta)}) que hoy tiene la base en esas {(l.tipo === "contanet" || l.tipo === "virtual") ? "fechas" : l.tipo === "retail" ? "clientes y fechas" : "tiendas y fechas"}{" "}
+            {(l.tipo === "contanet" || l.tipo === "virtual" || l.tipo === "oxxo") ? "fechas" : l.tipo === "retail" ? "clientes y fechas" : "tiendas y fechas"}. Lo guardado cuadra al céntimo con el archivo.</> : <>
+          Al cargar se reemplazan {entero(baseFilas)} filas ({soles(baseVenta)}) que hoy tiene la base en esas {(l.tipo === "contanet" || l.tipo === "virtual" || l.tipo === "oxxo") ? "fechas" : l.tipo === "retail" ? "clientes y fechas" : "tiendas y fechas"}{" "}
           por las {entero(l.filas.length)} del archivo. Si lo guardado no cuadra al céntimo con lo leído, no se cambia nada.</>}
         </p>
         {e.paso === "cargado" ? (
@@ -275,7 +275,7 @@ function Vista({ a, cargar, deshacer, quitar, asignar }: {
           <b className="flex items-center gap-2 text-[15px]"><TriangleAlert size={18} className="text-[var(--alerta)]" aria-hidden /> Confirma la carga</b>
           <ul className="grid gap-1 text-sm list-disc pl-5">
             <li>Se <b>quitan {entero(baseFilas)} filas ({soles(baseVenta)})</b> que hoy tiene la base del {fecha(l.desde)} al {fecha(l.hasta)}
-              {(l.tipo === "contanet" || l.tipo === "virtual") ? "" : ` para ${l.porTienda.length === 1 ? l.porTienda[0].tienda : `${l.porTienda.length} ${l.tipo === "retail" ? "clientes" : "tiendas"}`}`}.</li>
+              {(l.tipo === "contanet" || l.tipo === "virtual" || l.tipo === "oxxo") ? "" : ` para ${l.porTienda.length === 1 ? l.porTienda[0].tienda : `${l.porTienda.length} ${l.tipo === "retail" ? "clientes" : "tiendas"}`}`}.</li>
             <li>Se <b>ponen {entero(l.filas.length)} filas ({soles(l.venta)})</b> de «{l.archivo}».</li>
             <li>La base guarda una copia de lo que se quita: si algo sale mal, puedes <b>deshacer esta carga</b>.</li>
           </ul>

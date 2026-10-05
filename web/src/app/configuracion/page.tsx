@@ -5,6 +5,7 @@ import { salir } from "@/app/login/actions";
 import { CargarDatos } from "@/components/CargarDatos";
 import { HistorialCargas, type CargaWeb } from "@/components/HistorialCargas";
 import { MenuUsuario } from "@/components/MenuUsuario";
+import { FormatoArchivo } from "@/components/PanelCarga";
 import { Tabla } from "@/components/Tabla";
 import { Encabezado, Tarjeta } from "@/components/ui";
 import * as db from "@/lib/datos";
@@ -58,7 +59,10 @@ export default async function Configuracion() {
       <main className="@container px-4 sm:px-6 2xl:px-10 py-6 grid gap-6 max-w-6xl">
         <Encabezado titulo="Configuración" descripcion="Carga de los Excel diarios, estado de los datos y registro de las descargas automáticas del portal de Intercorp." />
 
-        <Tarjeta icono={Upload} titulo="Cargar datos" subtitulo="Reporte detallado de ContaNet y Excel de venta diaria de las tiendas">
+        <Tarjeta icono={Upload} titulo="Cargar datos" subtitulo="ContaNet, reporte interno de tiendas, ventas retail, ventas virtuales y OXXO: la web reconoce sola qué archivo es">
+          <div className="grid gap-2 @3xl:grid-cols-2">
+            {(["tiendas", "retail", "virtual", "oxxo", "contanet"] as const).map((t) => <FormatoArchivo key={t} tipo={t} />)}
+          </div>
           <CargarDatos equivalencias={(eq.data ?? []) as Equivalencia[]} skus={(maestro.data ?? []).map((m) => m.sku as string)} correo={user?.email} />
         </Tarjeta>
 

@@ -3,6 +3,8 @@ import { salir } from "@/app/login/actions";
 import { Filtros } from "@/components/Filtros";
 import { GraficoTendencia, Indicador } from "@/components/Graficos";
 import { Marco } from "@/components/Marco";
+import { PanelCarga } from "@/components/PanelCarga";
+import { datosCarga } from "@/lib/cargasServidor";
 import { Tabla, type Columna } from "@/components/Tabla";
 import { FranjaComparacion, ListaBarras, Tarjeta } from "@/components/ui";
 import { entero, porcentaje, soles } from "@/lib/formato";
@@ -42,8 +44,8 @@ export default async function ResumenRetail({ searchParams }: { searchParams: Pa
   const comp = rangoComparacion(comparar, desde, hasta);
   const agrupar = (["dia", "semana", "mes"].includes(uno(sp.g) ?? "") ? uno(sp.g) : "mes") as Agrupar;
 
-  const [A, B, ej] = await Promise.all([resumenRetail(sb, desde, hasta), comp ? resumenRetail(sb, comp[0], comp[1]) : Promise.resolve([]),
-    datosEjecutivo(sb, "retail", desde, hasta)]);
+  const [A, B, ej, carga] = await Promise.all([resumenRetail(sb, desde, hasta), comp ? resumenRetail(sb, comp[0], comp[1]) : Promise.resolve([]),
+    datosEjecutivo(sb, "retail", desde, hasta), datosCarga(sb, "retail")]);
   const R = sumar(A), RC = comp ? sumar(B) : null;
   const hayComp = B.length > 0;
 
@@ -81,7 +83,10 @@ export default async function ResumenRetail({ searchParams }: { searchParams: Pa
     <header className="grid gap-4">
       <div className="grid gap-1">
         <p className="etiqueta">Canal retail · Turrones Calderón</p>
-        <h1 className="text-[28px] font-bold leading-tight">Resumen retail</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[28px] font-bold leading-tight">Resumen retail</h1>
+          <PanelCarga titulo="Cargar ventas retail" solo="retail" equivalencias={carga.equivalencias} skus={carga.skus} correo={user?.email} cargas={carga.cargas} />
+        </div>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {diasEntre(desde, hasta)} días
           

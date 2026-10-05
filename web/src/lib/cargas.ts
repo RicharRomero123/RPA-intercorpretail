@@ -10,10 +10,12 @@
  *     último despacho. Cada cliente se asigna a un tipo de retail en la vista previa.
  *   - Ventas virtuales (rpa/digital_excel.py): hoja con Nro Comprobante, Canal (DELIVERY/PROVINCIA), Distrito, Provincia y
  *     Departamento. Clasifica el canal digital de ContaNet en Lima y Provincia. Reemplaza el rango de fechas del archivo.
+ *   - Reporte diario de OXXO (rpa/oxxo_excel.py): sell-out por tienda y EAN con venta, unidades y stock. Reemplaza los días
+ *     del archivo (venta por tienda, por producto y stock).
  */
 import { abrirXls, abrirXlsx, esXls, type Celda, type Libro } from "./xlsx";
 
-export type Tipo = "contanet" | "tiendas" | "retail" | "virtual";
+export type Tipo = "contanet" | "tiendas" | "retail" | "virtual" | "oxxo";
 export type Aviso = { nivel: "ok" | "aviso" | "error"; texto: string };
 export type Rango = { tienda: string | null; desde: string; hasta: string };
 export type ResumenTienda = { tienda: string; desde: string; hasta: string; filas: number; und: number; venta: number };
@@ -414,10 +416,81 @@ function leerVirtual(archivo: string, filas: Celda[][], iTitulos: number, eq: Eq
   });
 }
 
+// ------------------------------------------------------------------ OXXO (sell-out diario por tienda)
+/** Reporte diario que manda OXXO («…_PROVEEDORES_DIARIO_…» o «BaseInventario_…»): una fila por día, tienda y EAN.
+ *  Mismas reglas que rpa/oxxo_excel.py. El «ACUMULADO_MENSUAL» no trae stock: se rechaza para no borrar el stock del mes. */
+const OBLIGATORIAS_OXXO = ["FECHA", "NOMBRE", "DISTRITO", "CLUSTER", "EAN", "DESCRIPCION", "VENTAS NETAS(SIN IGV)", "UNIDADES VENDIDAS NETAS", "STOCK"];
+const esOxxo = (filas: Celda[][]) => filas.slice(0, 5).findIndex((f) => {
+  const t = f.map(normal);
+  return OBLIGATORIAS_OXXO.every((c) => t.includes(c));
+});
+
+function leerOxxo(archivo: string, filas: Celda[][], iTitulos: number, eq: Equivalencia[]): Lectura {
+  const pos: Record<string, number> = {};
+  filas[iTitulos].forEach((t, i) => { const k = normal(t); if (k && !(k in pos)) pos[k] = i; });
+  const col = (f: Celda[], nombre: string) => (nombre in pos ? f[pos[nombre]] ?? null : null);
+  const skuOxxo = new Map(eq.filter((e) => e.sistema === "OXXO").map((e) => [e.codigo, e.sku]));
+  const salida: Fila[] = [];
+  let sinFecha = 0, conStock = 0;
+  const vistas = new Set<string>(), repetidas: string[] = [];
+  for (const f of filas.slice(iTitulos + 1)) {
+    const tienda = texto(col(f, "NOMBRE"));
+    if (!tienda && !texto(col(f, "FECHA"))) continue;
+    const fecha = fechaDe(col(f, "FECHA"));
+    if (!fecha) { sinFecha += 1; continue; }
+    const ean = texto(col(f, "EAN")).replace(/\.0$/, "");
+    const k = `${fecha}|${tienda}|${ean}`;
+    if (vistas.has(k)) repetidas.push(`${fechaCorta(fecha)} · ${tienda} · ${ean}`);
+    vistas.add(k);
+    const stock = numero(col(f, "STOCK"));
+    if (stock !== null) conStock += 1;
+    const cluster = texto(col(f, "CLUSTER")).toUpperCase();
+    const estado = texto(col(f, "ESTADO DEL CODIGO")).toUpperCase().charAt(0);
+    salida.push({
+      fecha, cliente: "OXXO", tienda, distrito: lugarDe(texto(col(f, "DISTRITO"))), cluster: cluster ? `Cluster ${cluster}` : "Sin cluster",
+      ean, codigo: ean, sku: skuOxxo.get(ean) ?? null, descripcion: texto(col(f, "DESCRIPCION")),
+      estado: estado === "A" ? "Activo" : estado === "I" ? "Inactivo" : "",
+      und: numero(col(f, "UNIDADES VENDIDAS NETAS")) ?? 0, venta: redondear(numero(col(f, "VENTAS NETAS(SIN IGV)")) ?? 0, 4), stock: stock ?? 0,
+    });
+  }
+  const dias = salida.map((x) => String(x.fecha)).sort();
+  const tiendas = new Set(salida.map((x) => x.tienda)).size;
+  const avisos: Aviso[] = [];
+  if (!salida.length) avisos.push({ nivel: "error", texto: "El archivo no tiene filas de venta." });
+  else if (!conStock) avisos.push({ nivel: "error", texto: "El archivo no trae STOCK (parece el «ACUMULADO MENSUAL»). Sube los reportes diarios: si se carga este, se borraría el stock de esos días." });
+  else avisos.push({ nivel: "ok", texto: `Reporte de OXXO del ${fechaCorta(dias[0])} al ${fechaCorta(dias[dias.length - 1])}: ${tiendas} tiendas. Se reemplazan esos días (venta y stock).` });
+  if (sinFecha) avisos.push({ nivel: "error", texto: `${sinFecha} filas sin FECHA válida: corrígelas en el Excel.` });
+  if (repetidas.length) avisos.push({ nivel: "error", texto: `${repetidas.length} fila(s) repetidas (mismo día, tienda y EAN), ej.: ${repetidas.slice(0, 3).join(" | ")}. OXXO manda una sola fila por tienda y producto: revisa el archivo.` });
+  if (dias.length && dias[0] !== dias[dias.length - 1]) {
+    const unicos = [...new Set(dias)];
+    const total = Math.round((Date.parse(dias[dias.length - 1]) - Date.parse(dias[0])) / 86_400_000) + 1;
+    if (unicos.length < total) avisos.push({ nivel: "aviso", texto: `Faltan ${total - unicos.length} día(s) entre el ${fechaCorta(dias[0])} y el ${fechaCorta(dias[dias.length - 1])}: en esos días se borra lo que haya en la base.` });
+  }
+  return cerrar({
+    tipo: "oxxo", archivo, desde: dias[0] ?? "", hasta: dias[dias.length - 1] ?? "",
+    rangos: [{ tienda: null, desde: dias[0] ?? "", hasta: dias[dias.length - 1] ?? "" }], filas: salida,
+    und: redondear(salida.reduce((a, x) => a + Number(x.und), 0), 3), venta: redondear(salida.reduce((a, x) => a + Number(x.venta), 0), 4),
+    porTienda: resumirPorTienda(salida, "venta", "cliente"), avisos,
+    pendientes: listarPendientes(salida, "venta", (x) => String(x.descripcion ?? "")),
+  });
+}
+
 // ------------------------------------------------------------------ entrada
 const fechaCorta = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 
 function cerrar(l: Omit<Lectura, "puedeCargar">): Lectura {
+  // Filas idénticas en todas sus columnas en los Excel que se llenan a mano (retail y virtuales): puede ser una línea copiada
+  // dos veces. Se avisa y no se borra, porque también puede ser real (la boleta B008-4474 tiene dos líneas iguales y ContaNet
+  // también las trae). No aplica a ContaNet (sale del sistema) ni a tiendas (su hoja Data repite filas iguales de ventas reales).
+  const vistas = new Map<string, number>();
+  for (const f of l.tipo === "retail" || l.tipo === "virtual" ? l.filas : []) { const k = JSON.stringify(f); vistas.set(k, (vistas.get(k) ?? 0) + 1); }
+  const repetidas = [...vistas.entries()].filter(([, n]) => n > 1);
+  if (repetidas.length) {
+    const extra = repetidas.reduce((a, [, n]) => a + n - 1, 0);
+    const ejemplos = repetidas.slice(0, 3).map(([k]) => { const f = JSON.parse(k) as Fila;
+      return [f.fecha, f.comprobante ?? f.tienda ?? f.cliente, f.producto ?? f.codigo, f.und].filter((x) => x !== null && x !== undefined).join(" · "); });
+    l.avisos.push({ nivel: "aviso", texto: `${extra} fila(s) repetidas exactamente igual dentro del archivo (ej.: ${ejemplos.join(" | ")}). Si fue una línea copiada dos veces, corrígela en el Excel; si es una venta real repetida, carga igual.` });
+  }
   if (l.pendientes.length) {
     const filas = l.pendientes.reduce((a, p) => a + p.filas, 0);
     l.avisos.push({ nivel: "aviso", texto: `${l.pendientes.length} código(s) sin SKU oficial (${filas} filas): se cargan igual y quedan pendientes de asignar en la tabla de equivalencias.` });
@@ -440,6 +513,8 @@ export async function leerArchivo(archivo: string, datos: ArrayBuffer | Uint8Arr
   if (data) return leerTiendas(archivo, libro.filas(data), eq);
   for (const hoja of libro.hojas) {
     const filas = libro.filas(hoja);
+    const iOxxo = esOxxo(filas);
+    if (iOxxo >= 0) return leerOxxo(archivo, filas, iOxxo, eq);
     const iVirtual = esVirtual(filas);
     if (iVirtual >= 0) return leerVirtual(archivo, filas, iVirtual, eq, new Set(skus));
     const iRetail = esRetail(filas);
@@ -448,5 +523,5 @@ export async function leerArchivo(archivo: string, datos: ArrayBuffer | Uint8Arr
       return leerContaNet(archivo, filas, eq, new Set(skus));
     }
   }
-  throw new ErrorArchivo("No se reconoce el archivo: no es un «Reporte detallado» de ContaNet, ni un Excel de tienda con hoja «Data», ni un Excel de ventas retail (RAZON SOCIAL CLIENTE, MONTO CANCELADO…), ni el reporte de ventas virtuales (Nro Comprobante, Canal, Departamento…).");
+  throw new ErrorArchivo("No se reconoce el archivo: no es un «Reporte detallado» de ContaNet, ni un Excel de tienda con hoja «Data», ni un Excel de ventas retail (RAZON SOCIAL CLIENTE, MONTO CANCELADO…), ni el reporte de ventas virtuales (Nro Comprobante, Canal, Departamento…), ni el reporte diario de OXXO (NOMBRE, CLUSTER, EAN, STOCK…).");
 }

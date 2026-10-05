@@ -4,7 +4,9 @@ import { salir } from "@/app/login/actions";
 import { Filtros } from "@/components/Filtros";
 import { GraficoTendencia, Indicador } from "@/components/Graficos";
 import { Marco, type TipoRetail } from "@/components/Marco";
+import { PanelCarga } from "@/components/PanelCarga";
 import { Pestanas } from "@/components/Pestanas";
+import type { DatosCarga } from "@/lib/cargasServidor";
 import { Tabla, type Columna } from "@/components/Tabla";
 import { Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/components/ui";
 import { entero, porcentaje, soles } from "@/lib/formato";
@@ -35,7 +37,7 @@ const COL = {
 } satisfies Record<string, Columna>;
 
 /** De dónde salen los datos (la base, o datos de prueba). */
-export type Fuente = { maestros: () => Promise<t.MaestrosTiendas>; panel: (desde: string, hasta: string, f: t.FiltroTiendas) => Promise<t.Panel>; tipos: () => Promise<TipoRetail[]>; ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo> };
+export type Fuente = { maestros: () => Promise<t.MaestrosTiendas>; panel: (desde: string, hasta: string, f: t.FiltroTiendas) => Promise<t.Panel>; tipos: () => Promise<TipoRetail[]>; ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo>; carga?: () => Promise<DatosCarga> };
 
 export async function vistaTiendas(sp: Params, usuario: string | undefined, fuente: Fuente) {
   const [m, tipos] = await Promise.all([fuente.maestros(), fuente.tipos()]);
@@ -115,6 +117,7 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
   const comparadoCon = COMPARAR_CORTO[comparar];
 
   // --------------------------------------------------------------- encabezado
+  const carga = fuente.carga ? await fuente.carga() : null;
   const chips = [
     dias.length < 7 && `Días: ${dias.map((d) => DIAS_SEM[d]).join(", ")}`,
     filtro.tiendas.length && `Tienda: ${filtro.tiendas.join(", ")}`,
@@ -126,7 +129,10 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
     <header className="grid gap-4">
       <div className="grid gap-1">
         <p className="etiqueta">Tiendas · Reporte interno (Excel de los jefes) · Turrones Calderón</p>
-        <h1 className="text-[28px] font-bold leading-tight">Reporte interno de tiendas</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[28px] font-bold leading-tight">Reporte interno de tiendas</h1>
+          {carga && <PanelCarga titulo="Cargar reporte interno" solo="tiendas" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario} cargas={carga.cargas} />}
+        </div>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {nDias} días
           {diasVenta !== nDias && ` (${diasVenta} con venta)`}

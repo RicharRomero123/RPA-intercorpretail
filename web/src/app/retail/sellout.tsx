@@ -1,4 +1,6 @@
 // Vista de sell-out por local (Supermercados Peruanos, OXXO): ventas, rotación, stock y quiebres, y despachado vs vendido.
+import { PanelCarga } from "@/components/PanelCarga";
+import { datosCarga } from "@/lib/cargasServidor";
 import {
   CalendarDays, CircleAlert, MapPinned, Package, PackageX, PieChart, Store, Timer, TriangleAlert, Warehouse,
 } from "lucide-react";
@@ -57,6 +59,8 @@ export type ConfigSellout = {
   fuente: Fuente; ejecutivo: ConfigEjecutivo; cadena: string; zona: string; ayudaIngreso: string; notaFuente: string;
   /** Inicio de la temporada (campaña): el despachado vs vendido cuenta solo los despachos desde esa fecha. */
   temporada?: string;
+  /** Si los reportes se suben a mano desde la web (OXXO), muestra el botón de carga con su formato. */
+  carga?: "oxxo";
 };
 
 export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
@@ -65,7 +69,7 @@ export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
                 margen: { ...COL_BASE.margen, titulo: `Margen ${cfg.corto} S/` } } satisfies Record<string, Columna>;
   const sb = await clienteSupabase();
   const { data: { user } } = await sb.auth.getUser();
-  const [lim, tipos] = await Promise.all([db.limites(sb, cfg.cliente), tiposRetail(sb)]);
+  const [lim, tipos, carga] = await Promise.all([db.limites(sb, cfg.cliente), tiposRetail(sb), cfg.carga ? datosCarga(sb, cfg.carga) : null]);
 
   if (!lim.ultimo) {
     return (
@@ -181,6 +185,8 @@ export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
             {nConDatos !== nDias && ` (${nConDatos} con venta)`}
           </p>
         </div>
+        {carga && cfg.carga && <PanelCarga titulo={`Cargar reporte ${cfg.corto}`} solo={cfg.carga} equivalencias={carga.equivalencias} skus={carga.skus}
+                                           correo={user?.email} cargas={carga.cargas} />}
       </div>
       <Filtros ultimo={ultimo} primero={primero} stock grupos={[
         { clave: "prod", etiqueta: "Producto", opciones: maestro.productos.map((p) => ({ valor: p.sku, texto: p.nombre })) },
