@@ -1,6 +1,6 @@
 // Vista del Resumen general: el Excel «Consolidado-all-canales» (VENTAS NEGOCIO) mapeado a la web.
 // Por canal y por mes: 2025, real, meta, variación vs 2025, variación vs meta y cumplimiento.
-import { CalendarRange, Grid3x3, Layers } from "lucide-react";
+import { CalendarRange, Grid3x3, Layers, Package } from "lucide-react";
 import Link from "next/link";
 import { salir } from "@/app/login/actions";
 import { GraficoCanales } from "@/components/GraficoCanales";
@@ -12,6 +12,7 @@ import { Tabla } from "@/components/Tabla";
 import { Tarjeta } from "@/components/ui";
 import { porcentaje, soles } from "@/lib/formato";
 import { fechaLarga } from "@/lib/periodos";
+import { type FilaSku, ProductosTop } from "./productos";
 
 const TOTAL = "CALDERON";
 const ORDEN = ["TIENDAS", "RETAIL", "LIMA", "PROVINCIA", "B2B", "RAPPI", "B2C-DESCONTINUADO"];
@@ -31,7 +32,7 @@ const colorCumpl = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x
 const colorVar = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x >= 0 ? "text-[var(--bueno)]" : "text-[var(--critico)]");
 
 export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; corte: string } | null, tipos: TipoRetail[], usuario: string | undefined,
-                                 sp: { [k: string]: string | string[] | undefined }) {
+                                 sp: { [k: string]: string | string[] | undefined }, productos: FilaSku[] = []) {
   if (!celdas.length || !carga?.corte) {
     return <main className="p-8"><h1 className="text-2xl font-bold">Resumen general</h1><p>Todavía no se cargó el consolidado (rpa/consolidado_excel.py).</p></main>;
   }
@@ -177,7 +178,21 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                total={{ ...T, canal: "TOTAL", part: 1 }} />
       </Tarjeta>
 
-      {/* 4. Semáforo */}
+      {/* 4. Productos más vendidos entre todos los canales */}
+      {productos.length > 0 && (
+        <Tarjeta icono={Package} titulo="Productos más vendidos: todos los canales"
+                 subtitulo={`Unidades de cada SKU por mes, ene–${MESES[mesCorte - 1].toLowerCase()} ${anio}, sumando los canales con detalle por producto`}>
+          <ProductosTop filas={productos} mesCorte={mesCorte} archivo={corte}
+                        etiquetaMes={(m) => `${MESES[m - 1]}${m === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}`}
+                        sinDetalle={(() => {
+                          const fuera = canales.filter((c) => c === "B2B" || c === "RAPPI");
+                          const monto = fuera.reduce((s, c) => s + suma(c, anio, mesCorte, "real"), 0);
+                          return { canales: fuera.map(nombre).join(" y "), monto, part: div(monto, T.realFecha) };
+                        })()} />
+        </Tarjeta>
+      )}
+
+      {/* 5. Semáforo */}
       <Tarjeta icono={Grid3x3} titulo="Semáforo de cumplimiento de meta" subtitulo="Real ÷ meta de cada mes · verde ≥ 100% · ámbar 90–99% · rojo < 90%">
         <div className="overflow-x-auto rounded-lg border border-[var(--linea)]">
           <table className="datos">
