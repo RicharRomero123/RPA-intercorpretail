@@ -35,7 +35,7 @@ export function GraficoCanales({ datos, tramo, anioAnt }: { datos: PuntoCanal[];
         </ResponsiveContainer>
       </div>
       <div className="grid gap-1 min-w-0">
-        <span className="text-sm font-semibold">Crecimiento vs {anioAnt} ({tramo})</span>
+        <span className="text-sm font-semibold">Crecimiento {anioAnt + 1} vs {anioAnt} ({tramo})</span>
         <span className="text-xs text-[var(--tenue)]">A la derecha creció, a la izquierda cayó</span>
         <ResponsiveContainer width="100%" height={alto}>
           <BarChart data={crec} layout="vertical" margin={{ left: 4, right: 48, top: 8, bottom: 0 }}>

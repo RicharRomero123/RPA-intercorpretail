@@ -64,6 +64,20 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
              realFecha, metaAnio, avance: div(realFecha, metaAnio), realAnt: suma(c, anio - 1, 12, "real") };
   };
   const T = aLaFecha(TOTAL);
+  // Filtro de meses de las 4 tarjetas: un mes («m=8») o un rango («m=3-6»). Sin filtro: los meses cerrados.
+  const pedido = String(Array.isArray(sp.m) ? sp.m[0] : sp.m ?? "").split("-").map(Number);
+  const valido = (x: number) => Number.isInteger(x) && x >= 1 && x <= mesCorte;
+  const sel: [number, number] | null = pedido.length && pedido.every(valido)
+    ? [Math.min(...pedido), Math.max(...pedido)] : null;
+  /** Enlace de cada mes: con un mes ya marcado, el segundo clic arma el rango entre los dos; si no, marca solo ese mes. */
+  const enlaceMes = (m: number | null) => {
+    const q = new URLSearchParams();
+    if (typeof sp.s === "string") q.set("s", sp.s);
+    let r: [number, number] | null = m ? [m, m] : null;
+    if (m && sel && sel[0] === sel[1]) r = m === sel[0] ? null : [Math.min(m, sel[0]), Math.max(m, sel[0])];
+    if (r) q.set("m", r[0] === r[1] ? String(r[0]) : `${r[0]}-${r[1]}`);
+    return `?${q.toString()}`;
+  };
   const porCanal = canales.map(aLaFecha).map((x) => ({ ...x, part: div(x.realFecha, T.realFecha) })).sort((a, b) => b.realFecha - a.realFecha);
 
   /** Bloque mensual de un canal, igual que en el Excel: filas 2025 / real / meta / variaciones / cumplimiento. */
@@ -149,14 +163,38 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
 
   const contenido = (
     <>
-      {/* 1. Total del negocio a la fecha */}
-      <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
-        <Indicador icono="venta" titulo={`Real ${anio} a la fecha`} valor={soles(T.realFecha)} detalle={`1 ene – ${diaCorte} ${MESES[mesCorte - 1].toLowerCase()}`} />
-        <Indicador icono="rotacion" titulo="Cumplimiento de meta" valor={T.cumpl === null ? "—" : porcentaje(T.cumpl)}
-                   detalle={`${tramo} cerrado · meta ${soles(T.meta)}`} />
-        <Indicador icono="ingreso" titulo={`Crecimiento vs ${anio - 1}`} valor={signo(T.var)} detalle={`${tramo} cerrado · ${anio - 1}: ${soles(T.ant)}`} />
-        <Indicador icono="cobertura" titulo="Avance meta anual" valor={T.avance === null ? "—" : porcentaje(T.avance)}
-                   detalle={`de ${soles(T.metaAnio)}${enCurso && T.avanceMes !== null ? ` · ${mesTxt}: ${porcentaje(T.avanceMes)} de su meta` : ""}`} />
+      {/* 1. Total del negocio en los meses elegidos (por defecto, los cerrados): real, var. vs año pasado, var. vs meta y cumplimiento */}
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <nav className="segmento w-fit max-w-full overflow-x-auto" aria-label="Meses de los indicadores">
+            <Link href={enlaceMes(null)} aria-current={sel === null}>Acumulado {tramo}</Link>
+            {Array.from({ length: mesCorte }, (_, i) => i + 1).map((m) => (
+              <Link key={m} href={enlaceMes(m)} aria-current={sel !== null && m >= sel[0] && m <= sel[1]}>
+                {MESES[m - 1]}{m === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}
+              </Link>
+            ))}
+          </nav>
+          <span className="text-xs text-[var(--tenue)]">Un clic: un mes · otro clic en otro mes: el rango entre los dos</span>
+        </div>
+        {(() => {
+          const [a, b] = sel ?? [1, cerr];
+          const nombre = a === b ? MESES[a - 1].toLowerCase() : `${MESES[a - 1].toLowerCase()}–${MESES[b - 1].toLowerCase()}`;
+          const parcial = enCurso && b === mesCorte;
+          const real = suma(TOTAL, anio, b, "real", a), meta = suma(TOTAL, anio, b, "meta", a), ant = suma(TOTAL, anio - 1, b, "real", a);
+          const etiqueta = `${nombre}${parcial ? ` (${MESES[b - 1].toLowerCase()} al ${diaCorte})` : sel ? "" : " cerrado"}`;
+          const nota = parcial ? ` · ${MESES[b - 1]} va al ${diaCorte}: su meta y ${anio - 1} son del mes completo` : "";
+          return (
+            <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
+              <Indicador icono="venta" titulo={`Real ${anio}`} valor={soles(real)} detalle={etiqueta} />
+              <Indicador icono="ingreso" titulo={`Var % ${anio} vs ${anio - 1}`} valor={signo(ant ? real / ant - 1 : null)}
+                         detalle={`${etiqueta} · ${anio - 1}: ${soles(ant)}${nota}`} />
+              <Indicador icono="rotacion" titulo={`Var % ${anio} vs meta`} valor={signo(meta ? real / meta - 1 : null)}
+                         detalle={`${etiqueta} · meta ${soles(meta)}${nota}`} />
+              <Indicador icono="cobertura" titulo="Nivel de cumplimiento" valor={meta ? porcentaje(real / meta) : "—"}
+                         detalle={`${etiqueta} · real ÷ meta`} />
+            </div>
+          );
+        })()}
       </div>
 
       {/* 2. Mes a mes: el total del negocio (primera pestaña) y cada canal, como el Excel */}

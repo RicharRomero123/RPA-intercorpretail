@@ -1,6 +1,7 @@
 "use client";
 
 import { LineChart, Package, PieChart, Users } from "lucide-react";
+import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { GraficoTendencia, Indicador } from "./Graficos";
@@ -14,7 +15,9 @@ export type FilaDim = { dim: string; sku: string; producto: string; und: number;
 export type FilaMes = { mes: string; sku: string; producto: string; und: number; venta: number };
 /** Qué es «cliente» en cada canal (cadena, tienda, razón social…) y cómo se llama la venta. */
 export type ConfigEjecutivo = { dim: string; dims: string; activos: string; venta: string; nota?: string };
-export type DatosEjecutivo = { actual: FilaDim[]; anterior: FilaDim[]; meses: FilaMes[]; mesesLY: FilaMes[] };
+export type DatosEjecutivo = { actual: FilaDim[]; anterior: FilaDim[]; meses: FilaMes[]; mesesLY: FilaMes[];
+  /** Meta mensual del canal («2026-07» → S/), o null con el motivo en sinMeta. */
+  metas?: Record<string, number> | null; sinMeta?: string | null };
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const COLORES = ["#c2570c", "#6b2a0f", "#e0a33a", "#8a8f3c", "#3f7d8c", "#c9c2b8"];
@@ -83,12 +86,9 @@ export function ResumenEjecutivo({ datos, desde, hasta, config, archivo }: {
   const RC = sumar(C), RL = sumar(L);
   const hayLY = RL.venta !== 0 || RL.und !== 0;
   const dimC = porClave(C, (f) => f.dim), dimL = porClave(L, (f) => f.dim);
-  const activos = [...dimC.values()].filter((s) => s.venta > 0).length;
-  const activosL = [...dimL.values()].filter((s) => s.venta > 0).length;
   const textoPeriodo = `${dmy(desde)} – ${dmy(hasta)}`;
   const textoLY = `${dmy(menosUnAnio(desde))} – ${dmy(menosUnAnio(hasta))}`;
   const anioAnt = Number(hasta.slice(0, 4)) - 1;
-  const comparadoCon = `mismas fechas ${anioAnt}`;
 
   // 2. Evolución: 12 meses que terminan en el mes de «hasta» (el último, cortado al mismo día que el periodo).
   const mesFin = hasta.slice(0, 7);
@@ -145,16 +145,7 @@ export function ResumenEjecutivo({ datos, desde, hasta, config, archivo }: {
       {/* 1. Resumen ejecutivo */}
       <section className="grid gap-4">
         <h2 className="text-lg font-bold">1. Resumen ejecutivo</h2>
-        <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
-          <Indicador icono="venta" titulo={config.venta} valor={soles(RC.venta)} variacion={hayLY ? variacion(RC.venta, RL.venta) : null}
-                     comparadoCon={comparadoCon} detalle={textoPeriodo} />
-          <Indicador icono="unidades" titulo="Unidades" valor={entero(RC.und)} variacion={hayLY ? variacion(RC.und, RL.und) : null} comparadoCon={comparadoCon} />
-          <Indicador icono="rotacion" titulo={config.activos} valor={entero(activos)} variacion={hayLY ? variacion(activos, activosL) : null}
-                     comparadoCon={comparadoCon} detalle="con venta en el periodo" />
-          <Indicador icono="ingreso" titulo={`Crecimiento vs ${anioAnt}`}
-                     valor={hayLY ? `${RC.venta >= RL.venta ? "+" : ""}${porcentaje(variacion(RC.venta, RL.venta))}` : "—"}
-                     detalle={hayLY ? `${soles(RC.venta - RL.venta)} frente a ${soles(RL.venta)}` : `Sin datos de ${anioAnt} en esas fechas`} />
-        </div>
+        <IndicadoresMes datos={datos} hasta={hasta} venta={config.venta} />
         {!vacio && (
           <Tarjeta icono={PieChart} titulo={`Participación por ${config.dim.toLowerCase()} y sus 5 productos principales`} subtitulo={textoPeriodo}>
             <ParticipacionPorSku C={C} total={RC.venta} dim={config.dim} />
@@ -209,6 +200,54 @@ export function ResumenEjecutivo({ datos, desde, hasta, config, archivo }: {
           )}
         </Tarjeta>
       </section>
+    </div>
+  );
+}
+
+/** Las 4 tarjetas del resumen con filtro de meses (un clic: un mes; otro clic en otro mes: el rango), igual que el Resumen general:
+ *  real, var % vs el mismo tramo del año anterior (cortado al mismo día si el último mes va en curso), var % vs meta y cumplimiento. */
+function IndicadoresMes({ datos, hasta, venta }: { datos: DatosEjecutivo; hasta: string; venta: string }) {
+  const anio = Number(hasta.slice(0, 4)), mesFin = Number(hasta.slice(5, 7)), dia = Number(hasta.slice(8, 10));
+  const parcial = hasta < finDeMes(hasta.slice(0, 7));
+  const cerr = parcial ? mesFin - 1 : mesFin;
+  const [sel, setSel] = useState<[number, number] | null>(null);
+  const [a, b] = sel ?? [1, Math.max(cerr, 1)];
+  const clave = (m: number) => `${anio}-${String(m).padStart(2, "0")}`;
+  const totMes = porClave(datos.meses, (f) => f.mes), totLY = porClave(datos.mesesLY, (f) => f.mes);
+  const rango = Array.from({ length: b - a + 1 }, (_, i) => clave(a + i));
+  const real = sumar(rango.map((k) => totMes.get(k) ?? { und: 0, venta: 0 }));
+  const ly = sumar(rango.map((k) => totLY.get(k) ?? { und: 0, venta: 0 }));
+  const metas = datos.metas ?? null;
+  const meta = metas ? rango.reduce((s, k) => s + (metas[k] ?? 0), 0) : 0;
+  const hayLY = ly.venta !== 0;
+  const conParcial = parcial && b === mesFin;
+  const nombre = (a === b ? MESES[a - 1] : `${MESES[a - 1]}–${MESES[b - 1]}`).toLowerCase();
+  const etiqueta = `${nombre}${conParcial ? ` (${MESES[b - 1].toLowerCase()} al ${dia})` : sel ? "" : cerr === mesFin ? "" : " cerrado"} ${anio}`;
+  const notaMeta = conParcial ? ` · ${MESES[b - 1]} va al ${dia}: su meta es del mes completo` : "";
+  const signo = (x: number | null) => (x === null ? "—" : `${x >= 0 ? "+" : ""}${porcentaje(x)}`);
+  const clic = (m: number) => setSel((s) => (s && s[0] === s[1] ? (m === s[0] ? null : [Math.min(m, s[0]), Math.max(m, s[0])]) : [m, m]));
+  return (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="segmento w-fit max-w-full overflow-x-auto" role="group" aria-label="Meses de los indicadores">
+          <button type="button" aria-pressed={sel === null} onClick={() => setSel(null)}>Acumulado ene–{MESES[Math.max(cerr, 1) - 1].toLowerCase()}</button>
+          {Array.from({ length: mesFin }, (_, i) => i + 1).map((m) => (
+            <button key={m} type="button" aria-pressed={sel !== null && m >= sel[0] && m <= sel[1]} onClick={() => clic(m)}>
+              {MESES[m - 1]}{m === mesFin && parcial ? ` (al ${dia})` : ""}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-[var(--tenue)]">Un clic: un mes · otro clic en otro mes: el rango entre los dos · con los filtros de arriba</span>
+      </div>
+      <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
+        <Indicador icono="venta" titulo={venta.replace(" S/", "")} valor={soles(real.venta)} detalle={`${etiqueta} · ${entero(real.und)} und`} />
+        <Indicador icono="ingreso" titulo={`Var % ${anio} vs ${anio - 1}`} valor={hayLY ? signo(real.venta / ly.venta - 1) : "—"}
+                   detalle={hayLY ? `${etiqueta} · ${anio - 1}: ${soles(ly.venta)}${conParcial ? " (mismas fechas)" : ""}` : `Sin datos de ${anio - 1} en esos meses`} />
+        <Indicador icono="rotacion" titulo={`Var % ${anio} vs meta`} valor={meta ? signo(real.venta / meta - 1) : "—"}
+                   detalle={meta ? `${etiqueta} · meta ${soles(meta)}${notaMeta}` : datos.sinMeta ?? "Sin meta para esos meses."} />
+        <Indicador icono="cobertura" titulo="Nivel de cumplimiento" valor={meta ? porcentaje(real.venta / meta) : "—"}
+                   detalle={meta ? `${etiqueta} · real ÷ meta` : datos.sinMeta ?? "Sin meta para esos meses."} />
+      </div>
     </div>
   );
 }
