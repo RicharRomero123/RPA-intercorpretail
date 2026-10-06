@@ -59,7 +59,7 @@ export default async function Configuracion() {
       <main className="@container px-4 sm:px-6 2xl:px-10 py-6 grid gap-6 max-w-6xl">
         <Encabezado titulo="Configuración" descripcion="Carga de los Excel diarios, estado de los datos y registro de las descargas automáticas del portal de Intercorp." />
 
-        <Tarjeta icono={Upload} titulo="Cargar datos" subtitulo="ContaNet, reporte interno de tiendas, ventas retail, ventas virtuales y OXXO: la web reconoce sola qué archivo es">
+        <Tarjeta icono={Upload} titulo="Cargar datos" subtitulo="ContaNet, Power BI de tiendas, ventas retail, ventas virtuales y OXXO: la web reconoce sola qué archivo es">
           <div className="grid gap-2 @3xl:grid-cols-2">
             {(["tiendas", "retail", "virtual", "oxxo", "contanet"] as const).map((t) => <FormatoArchivo key={t} tipo={t} />)}
           </div>

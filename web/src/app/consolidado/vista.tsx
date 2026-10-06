@@ -1,6 +1,6 @@
 // Vista del Resumen general: el Excel «Consolidado-all-canales» (VENTAS NEGOCIO) mapeado a la web.
 // Por canal y por mes: 2025, real, meta, variación vs 2025, variación vs meta y cumplimiento.
-import { CalendarRange, Grid3x3, Layers, Package } from "lucide-react";
+import { CalendarRange, Grid3x3, Layers, Package, Store } from "lucide-react";
 import Link from "next/link";
 import { salir } from "@/app/login/actions";
 import { GraficoCanales } from "@/components/GraficoCanales";
@@ -25,6 +25,12 @@ const div = (a: number, b: number) => (b ? a / b : null);
 const miles = (x: number | null) => (x === null ? "—" : `S/ ${Math.round(x).toLocaleString("en-US")}`);
 const signo = (x: number | null) => (x === null ? "—" : `${x >= 0 ? "+" : ""}${porcentaje(x)}`);
 export type Celda = { canal: string; anio: number; mes: number; real: number | null; meta: number | null };
+/** Tiendas: meta por tienda y mes (Excel «Metas tiendas») y venta real por tienda y mes del año y el anterior. */
+export type DatosTiendas = {
+  metas: { mes: number; tienda: string; meta: number }[];
+  ventas: { anio: number; mes: number; tienda: string; venta: number }[];
+  hasta: string | null;
+};
 
 /** Color del cumplimiento: verde ≥ 100%, ámbar 90–99%, rojo < 90%. */
 const colorCumpl = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x >= 1 ? "bg-[var(--bueno-suave)] text-[var(--bueno)]"
@@ -32,7 +38,8 @@ const colorCumpl = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x
 const colorVar = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x >= 0 ? "text-[var(--bueno)]" : "text-[var(--critico)]");
 
 export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; corte: string } | null, tipos: TipoRetail[], usuario: string | undefined,
-                                 sp: { [k: string]: string | string[] | undefined }, productos: FilaSku[] = []) {
+                                 sp: { [k: string]: string | string[] | undefined }, productos: FilaSku[] = [],
+                                 tiendas: DatosTiendas = { metas: [], ventas: [], hasta: null }) {
   if (!celdas.length || !carga?.corte) {
     return <main className="p-8"><h1 className="text-2xl font-bold">Resumen general</h1><p>Todavía no se cargó el consolidado (rpa/consolidado_excel.py).</p></main>;
   }
@@ -145,6 +152,83 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
     );
   };
 
+  /** Tiendas: cada tienda contra su meta (Excel «Metas tiendas»), con la venta real de la base al último día cargado. */
+  const seccionTiendas = (() => {
+    if (!tiendas.metas.length || !tiendas.hasta) return null;
+    const hastaT = tiendas.hasta, mesT = Number(hastaT.slice(5, 7)), diaT = Number(hastaT.slice(8, 10));
+    const enCursoT = new Date(Date.UTC(anio, mesT, 0)).getUTCDate() !== diaT;
+    const cerrT = enCursoT ? mesT - 1 : mesT;
+    const tramoT = cerrT ? `ene–${MESES[cerrT - 1].toLowerCase()}` : "—";
+    const mesTxtT = `${MESES[mesT - 1]} al ${diaT}`;
+    const metaDe = (t: string, m: number) => tiendas.metas.find((x) => x.tienda === t && x.mes === m)?.meta ?? null;
+    const realDe = (t: string, a: number, m: number) => tiendas.ventas.find((x) => x.tienda === t && x.anio === a && x.mes === m)?.venta ?? null;
+    const sumaT = (f: (m: number) => number | null, hasta: number) => Array.from({ length: hasta }, (_, i) => f(i + 1) ?? 0).reduce((a, x) => a + x, 0);
+    const nombres = [...new Set(tiendas.metas.map((x) => x.tienda))];
+    const filas = nombres.map((t) => {
+      const real = sumaT((m) => realDe(t, anio, m), cerrT), meta = sumaT((m) => metaDe(t, m), cerrT), ant = sumaT((m) => realDe(t, anio - 1, m), cerrT);
+      const realMes = enCursoT ? realDe(t, anio, mesT) ?? 0 : null, metaMes = enCursoT ? metaDe(t, mesT) : null;
+      const realFecha = sumaT((m) => realDe(t, anio, m), mesT), metaAnio = sumaT((m) => metaDe(t, m), 12);
+      return { tienda: t, real, meta, cumpl: div(real, meta), ant, var: ant ? real / ant - 1 : null, realMes, metaMes,
+               avanceMes: realMes !== null && metaMes ? realMes / metaMes : null, realFecha, metaAnio, avance: div(realFecha, metaAnio) };
+    }).sort((a, b) => b.metaAnio - a.metaAnio);
+    const tot = filas.reduce((a, x) => ({ real: a.real + x.real, meta: a.meta + x.meta, ant: a.ant + x.ant, realMes: a.realMes + (x.realMes ?? 0),
+      metaMes: a.metaMes + (x.metaMes ?? 0), realFecha: a.realFecha + x.realFecha, metaAnio: a.metaAnio + x.metaAnio }),
+      { real: 0, meta: 0, ant: 0, realMes: 0, metaMes: 0, realFecha: 0, metaAnio: 0 });
+    const meses = Array.from({ length: mesT }, (_, i) => i + 1);
+    const cumplDe = (r: number | null, mt: number | null) => (r !== null && mt ? r / mt : null);
+    const celda = (k: string | number, r: number | null, mt: number | null, m: number) => (
+      <td key={k} className="n !p-1">
+        <span className={`block rounded px-2 py-1 num text-center ${m === mesT && enCursoT ? "opacity-60" : ""} ${colorCumpl(cumplDe(r, mt))}`}
+              title={`real ${r === null ? "—" : soles(r)} · meta ${mt === null ? "—" : soles(mt)}`}>
+          {cumplDe(r, mt) === null ? "—" : porcentaje(cumplDe(r, mt)!)}
+        </span>
+      </td>
+    );
+    return (
+      <Tarjeta icono={Store} titulo="Tiendas: real vs meta de cada tienda"
+               subtitulo={`Meta de cada tienda (Excel «Metas tiendas ${anio}») · venta real del sistema al ${fechaLarga(hastaT)} · meses cerrados: ${tramoT}${enCursoT ? ` · ${mesTxtT} aparte` : ""}`}>
+        <Tabla archivo={`resumen_general_tiendas_${hastaT}.xlsx`} hoja="Tiendas" filas={filas}
+               columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "real", titulo: `Real ${tramoT} S/`, tipo: "soles" },
+                 { clave: "meta", titulo: `Meta ${tramoT} S/`, tipo: "soles" }, { clave: "cumpl", titulo: "Cumplimiento", tipo: "porcentaje" },
+                 { clave: "var", titulo: `Var. vs ${anio - 1}`, tipo: "porcentaje" },
+                 ...(enCursoT ? [{ clave: "realMes", titulo: `${mesTxtT} S/`, tipo: "soles" } as const, { clave: "metaMes", titulo: `Meta ${MESES[mesT - 1]} S/`, tipo: "soles" } as const,
+                   { clave: "avanceMes", titulo: `${MESES[mesT - 1]} vs meta`, tipo: "porcentaje" } as const] : []),
+                 { clave: "metaAnio", titulo: `Meta año ${anio} S/`, tipo: "soles" }, { clave: "avance", titulo: "Avance anual", tipo: "porcentaje" }]}
+               total={{ ...tot, tienda: "TOTAL", cumpl: div(tot.real, tot.meta), var: tot.ant ? tot.real / tot.ant - 1 : null,
+                        avanceMes: enCursoT && tot.metaMes ? tot.realMes / tot.metaMes : null, avance: div(tot.realFecha, tot.metaAnio) }} />
+        <div className="grid gap-2">
+          <h3 className="text-sm font-semibold">Cumplimiento de cada tienda, mes a mes</h3>
+          <div className="overflow-x-auto rounded-lg border border-[var(--linea)]">
+            <table className="datos">
+              <thead>
+                <tr>
+                  <th>Tienda</th>
+                  {meses.map((m) => <th key={m} className="n">{MESES[m - 1]}{m === mesT && enCursoT ? ` (al ${diaT})` : ""}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f) => (
+                  <tr key={f.tienda}>
+                    <td><Link href={`/tiendas/contanet?tienda=${encodeURIComponent(f.tienda)}`} className="hover:underline">{f.tienda}</Link></td>
+                    {meses.map((m) => celda(m, realDe(f.tienda, anio, m), metaDe(f.tienda, m), m))}
+                  </tr>
+                ))}
+                <tr className="total">
+                  <td>TOTAL</td>
+                  {meses.map((m) => celda(m, nombres.reduce((a, t) => a + (realDe(t, anio, m) ?? 0), 0), nombres.reduce((a, t) => a + (metaDe(t, m) ?? 0), 0), m))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-[var(--tenue)]">
+            Real ÷ meta de cada mes · verde ≥ 100% · ámbar 90–99% · rojo &lt; 90%. Pasa el cursor para ver real y meta; toca una tienda para ver su detalle.
+            La venta real es la del sistema (Power BI hasta julio y ContaNet desde agosto), por eso agosto y septiembre pueden diferir del Excel consolidado.
+          </p>
+        </div>
+      </Tarjeta>
+    );
+  })();
+
   const semaforo = [...canales, TOTAL].map((c) => ({ canal: c, celdas: Array.from({ length: mesCorte }, (_, i) => {
     const r = val(c, anio, i + 1, "real"), mt = val(c, anio, i + 1, "meta");
     return { mes: i + 1, r, cumpl: r !== null && mt ? r / mt : null };
@@ -215,6 +299,9 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                  { clave: "part", titulo: "% del total", tipo: "porcentaje" }]}
                total={{ ...T, canal: "TOTAL", part: 1 }} />
       </Tarjeta>
+
+      {/* 3b. Tiendas: real vs meta de cada tienda */}
+      {seccionTiendas}
 
       {/* 4. Productos más vendidos entre todos los canales */}
       {productos.length > 0 && (

@@ -99,21 +99,32 @@ export function Encabezado({ titulo, descripcion }: { titulo: string; descripcio
 
 /** Ranking en barras horizontales hechas con HTML (texto siempre legible, sin gráfico pesado). */
 export function ListaBarras({ filas, formato }: {
-  filas: { etiqueta: string; valor: number; detalle?: string }[]; formato: (v: number) => string;
+  /** «href»: la fila es un enlace (por ejemplo, ver solo esa tienda); «activo»: la fila elegida. */
+  filas: { etiqueta: string; valor: number; detalle?: string; href?: string; activo?: boolean }[]; formato: (v: number) => string;
 }) {
   const max = Math.max(...filas.map((f) => f.valor), 0) || 1;
   return (
     <ul className="grid gap-2">
-      {filas.map((f) => (
-        <li key={f.etiqueta} className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm" title={f.detalle}>
-          <div className="relative h-8 rounded-md overflow-hidden bg-[var(--superficie-2)]">
-            <div className="absolute inset-y-0 left-0 rounded-md bg-[color-mix(in_srgb,var(--serie-1)_16%,transparent)]"
-                 style={{ width: `${Math.max(2, (f.valor / max) * 100)}%` }} />
-            <span className="relative z-10 flex h-full items-center px-3 truncate">{f.etiqueta}</span>
-          </div>
-          <span className="num text-right min-w-20">{formato(f.valor)}</span>
-        </li>
-      ))}
+      {filas.map((f) => {
+        const barra = (
+          <>
+            <div className={`relative h-8 rounded-md overflow-hidden bg-[var(--superficie-2)] ${f.activo ? "ring-2 ring-[var(--acento)]" : ""}`}>
+              <div className="absolute inset-y-0 left-0 rounded-md bg-[color-mix(in_srgb,var(--serie-1)_16%,transparent)]"
+                   style={{ width: `${Math.max(2, (f.valor / max) * 100)}%` }} />
+              <span className={`relative z-10 flex h-full items-center px-3 truncate ${f.activo ? "font-semibold" : ""}`}>{f.etiqueta}</span>
+            </div>
+            <span className="num text-right min-w-20">{formato(f.valor)}</span>
+          </>
+        );
+        return (
+          <li key={f.etiqueta} title={f.detalle}>
+            {f.href
+              ? <a href={f.href} className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm rounded-md hover:bg-[var(--superficie-2)]"
+                   aria-current={f.activo || undefined}>{barra}</a>
+              : <div className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm">{barra}</div>}
+          </li>
+        );
+      })}
     </ul>
   );
 }

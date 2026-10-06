@@ -96,7 +96,7 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
       </div>
 
       {hayLY && av.anio_pasado_fecha && (() => {
-        // Dos referencias del año pasado (día completo, reporte interno): el mismo día de la semana (la recomendada) y la misma fecha.
+        // Dos referencias del año pasado (día completo, Power BI): el mismo día de la semana (la recomendada) y la misma fecha.
         // Cada una se lee en tres pasos: cuánto se vendió ese día el año pasado, cuánto lleva hoy y en cuánto cerraría hoy.
         const refs = [
           { titulo: "Mismo día de la semana", fecha: av.anio_pasado_fecha, total: T.ly, principal: true },
@@ -109,7 +109,7 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
         const color = (x: number | null) => (x === null ? "" : x >= 0 ? "text-[var(--bueno)]" : "text-[var(--critico)]");
         return (
           <Tarjeta icono={CalendarClock} titulo="Frente al año pasado"
-                   subtitulo="El año pasado sale del reporte interno, que solo tiene el total del día (no la venta por hora)">
+                   subtitulo="El año pasado sale del Power BI, que solo tiene el total del día (no la venta por hora)">
             {varPrincipal !== null && (
               <p className="text-[15px] leading-snug">
                 {esHoy ? "Si el resto del día sigue el ritmo del " + diaSemana + " pasado, hoy cerraría " : "Ese día cerró "}
@@ -197,7 +197,7 @@ export function seccionAvance(av: Avance, meta: number | null, conTiendas: boole
                           var_tickets: variacion(T.tickets, T.ticketsAntes), antes_dia: T.antesDia,
                           ...(hayLY ? { anio_pasado: T.ly, alcanzado: T.ly ? T.hoy / T.ly : null, anio_pasado_fecha_igual: TF } : {}) }} />
           <p className="text-xs text-[var(--tenue)]">
-            {hayLY && <>«Año pasado»: total del día en el reporte interno, el {diaSemana} {av.anio_pasado_fecha ? fechaLarga(av.anio_pasado_fecha) : ""} y la misma fecha
+            {hayLY && <>«Año pasado»: total del día en el Power BI, el {diaSemana} {av.anio_pasado_fecha ? fechaLarga(av.anio_pasado_fecha) : ""} y la misma fecha
               {av.anio_pasado_misma_fecha ? ` ${fechaLarga(av.anio_pasado_misma_fecha)}` : ""} (S/ 0 = ese día no tuvo venta registrada). </>}
             «Última venta»: hora del último comprobante de esa tienda; si una tienda se quedó muy atrás en la hora, revisa si está registrando en ContaNet.
             El robot actualiza el día varias veces (por defecto 10:00, 13:00, 16:00 y 19:00); el cierre de las 07:30 deja el día anterior completo.

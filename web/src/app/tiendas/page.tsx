@@ -22,16 +22,16 @@ const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 type Suma = { und_interno: number; venta_interno: number; und_contanet: number; venta_contanet: number };
 const cero = (): Suma => ({ und_interno: 0, venta_interno: 0, und_contanet: 0, venta_contanet: 0 });
 const sumar = (a: Suma, b: Suma) => { a.und_interno += b.und_interno; a.venta_interno += b.venta_interno; a.und_contanet += b.und_contanet; a.venta_contanet += b.venta_contanet; };
-/** Diferencias ContaNet − Reporte interno y cómo leerlas. */
+/** Diferencias ContaNet − Power BI y cómo leerlas. */
 function comparar(s: Suma) {
   const dif = s.venta_contanet - s.venta_interno;
   const pct = s.venta_interno ? dif / s.venta_interno : null;
-  const estado = !s.venta_contanet && s.venta_interno ? "Falta en ContaNet" : !s.venta_interno && s.venta_contanet ? "Falta en reporte interno"
+  const estado = !s.venta_contanet && s.venta_interno ? "Falta en ContaNet" : !s.venta_interno && s.venta_contanet ? "Falta en Power BI"
     : Math.abs(dif) < 0.005 ? "Cuadra" : Math.abs(pct ?? 1) <= 0.005 ? "Casi igual (≤0.5%)" : "Diferencia";
   return { ...s, dif_und: s.und_contanet - s.und_interno, dif, pct, estado };
 }
 
-/** Resumen de tiendas: la venta del Reporte interno (Excel de los jefes) frente a la de ContaNet, por tienda y por día. */
+/** Resumen de tiendas: la venta del Power BI (Excel de los jefes) frente a la de ContaNet, por tienda y por día. */
 export default async function ResumenTiendas({ searchParams }: { searchParams: Params }) {
   const sp = await searchParams;
   const sb = await clienteSupabase();
@@ -64,9 +64,9 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
   const rango = `${fechaLarga(desde)} – ${fechaLarga(hasta)}`;
   const archivo = (n: string) => `tiendas_resumen_${n}_${desde}_${hasta}.xlsx`;
   const cols: Columna[] = [
-    { clave: "und_interno", titulo: "Und reporte interno", tipo: "entero" }, { clave: "und_contanet", titulo: "Und ContaNet", tipo: "entero" },
+    { clave: "und_interno", titulo: "Und Power BI", tipo: "entero" }, { clave: "und_contanet", titulo: "Und ContaNet", tipo: "entero" },
     { clave: "dif_und", titulo: "Dif. und", tipo: "entero" },
-    { clave: "venta_interno", titulo: "Venta reporte interno S/", tipo: "soles" }, { clave: "venta_contanet", titulo: "Venta ContaNet S/", tipo: "soles" },
+    { clave: "venta_interno", titulo: "Venta Power BI S/", tipo: "soles" }, { clave: "venta_contanet", titulo: "Venta ContaNet S/", tipo: "soles" },
     { clave: "dif", titulo: "Diferencia S/", tipo: "soles" }, { clave: "pct", titulo: "Dif. %", tipo: "porcentaje" },
     { clave: "estado", titulo: "Estado", tipo: "texto" },
   ];
@@ -76,10 +76,10 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
     <header className="grid gap-4">
       <div className="grid gap-1">
         <p className="etiqueta">Tiendas · Resumen · Turrones Calderón</p>
-        <h1 className="text-[28px] font-bold leading-tight">Reporte interno vs ContaNet</h1>
+        <h1 className="text-[28px] font-bold leading-tight">Power BI vs ContaNet</h1>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {diasEntre(desde, hasta)} días ·
-          Reporte interno del {cob.interno_desde ? fechaLarga(cob.interno_desde) : "—"} al {cob.interno_hasta ? fechaLarga(cob.interno_hasta) : "—"} ·
+          Power BI del {cob.interno_desde ? fechaLarga(cob.interno_desde) : "—"} al {cob.interno_hasta ? fechaLarga(cob.interno_hasta) : "—"} ·
           ContaNet del {cob.contanet_desde ? fechaLarga(cob.contanet_desde) : "—"} al {cob.contanet_hasta ? fechaLarga(cob.contanet_hasta) : "—"}
         </p>
       </div>
@@ -93,18 +93,18 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
         <p className="tarjeta p-4 text-sm">Todavía no hay datos de ContaNet: súbelos en <b>Tiendas → ContaNet → Cargar reporte ContaNet</b> para ver la comparación.</p>
       )}
       <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
-        <Indicador icono="venta" titulo="Venta · Reporte interno" valor={soles(total.venta_interno)} detalle={`${entero(total.und_interno)} und`} />
+        <Indicador icono="venta" titulo="Venta · Power BI" valor={soles(total.venta_interno)} detalle={`${entero(total.und_interno)} und`} />
         <Indicador icono="venta" titulo="Venta · ContaNet" valor={soles(total.venta_contanet)} detalle={`${entero(total.und_contanet)} und`} />
-        <Indicador icono="ingreso" titulo="Diferencia (ContaNet − interno)" valor={soles(total.dif)}
-                   detalle={total.pct === null ? "—" : `${total.pct >= 0 ? "+" : ""}${porcentaje(total.pct)} sobre el reporte interno`} />
+        <Indicador icono="ingreso" titulo="Diferencia (ContaNet − Power BI)" valor={soles(total.dif)}
+                   detalle={total.pct === null ? "—" : `${total.pct >= 0 ? "+" : ""}${porcentaje(total.pct)} sobre el Power BI`} />
         <Indicador icono="unidades" titulo="Diferencia en unidades" valor={entero(total.dif_und)}
                    detalle={total.und_interno ? `${total.dif_und >= 0 ? "+" : ""}${porcentaje(total.dif_und / total.und_interno)}` : "—"} />
       </div>
       {filas.length === 0 ? <p className="text-sm text-[var(--tenue)]">No hay ventas en este periodo.</p> : (
         <>
           <GraficoTendencia datos={tendencia} agrupar={agrupar} conPrevio={!sinContaNet} nombrePrevio="ContaNet" rango={rango}
-                            metricas={["venta", "und"]} nombres={{ venta: "Venta reporte interno", und: "Unidades reporte interno" }} />
-          <Tarjeta icono={Store} titulo="Por tienda" subtitulo={`Diferencia = ContaNet − Reporte interno · ${rango}`}>
+                            metricas={["venta", "und"]} nombres={{ venta: "Venta Power BI", und: "Unidades Power BI" }} />
+          <Tarjeta icono={Store} titulo="Por tienda" subtitulo={`Diferencia = ContaNet − Power BI · ${rango}`}>
             <Tabla archivo={archivo("tiendas")} hoja="Por tienda" filas={porTienda.map((t) => ({ ...t, tienda: t.clave }))}
                    columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, ...cols]} total={{ tienda: "TOTAL", ...total }} />
           </Tarjeta>
@@ -117,7 +117,7 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
           </Tarjeta>
           <Tarjeta icono={Scale} titulo="Cómo leer esta comparación">
             <ul className="grid gap-1 text-sm list-disc pl-5 text-[var(--tenue)]">
-              <li><b className="text-[var(--tinta)]">Reporte interno</b>: los Excel de venta diaria de cada tienda (lo que usa el Power BI de los jefes).</li>
+              <li><b className="text-[var(--tinta)]">Power BI</b>: los Excel de venta diaria de cada tienda con los que se arma el Power BI de los jefes.</li>
               <li><b className="text-[var(--tinta)]">ContaNet</b>: los comprobantes del ERP de las 7 tiendas, sin lo cobrado con RAPPI (canal aparte, como en el consolidado) ni el usuario VENTAS01 (canal digital); las notas de crédito restan.</li>
               <li>Una diferencia puede venir de ventas no registradas en uno de los dos, anulaciones, o un producto registrado con otro código o precio.</li>
               <li>El periodo llega hasta el último día que tienen las dos fuentes, para no comparar días que una todavía no tiene.</li>
@@ -131,6 +131,6 @@ export default async function ResumenTiendas({ searchParams }: { searchParams: P
   return (
     <Marco seccion={sp.s} ubicacion="tiendas/resumen" tiposRetail={tipos} encabezado={encabezado} usuario={user?.email} salir={salir} datosAl={fechaLarga(ultimo)}
            secciones={[{ id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ej} desde={desde} hasta={hasta} config={CONFIG.tiendas} archivo="tiendas_ejecutivo" /> },
-             { id: "ventas", titulo: "Interno vs ContaNet", contenido }]} />
+             { id: "ventas", titulo: "Power BI vs ContaNet", contenido }]} />
   );
 }

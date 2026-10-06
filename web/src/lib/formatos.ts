@@ -23,7 +23,7 @@ export const FORMATOS: Record<Tipo, Formato> = {
     reemplazo: "todo el rango de fechas de la cabecera del reporte",
   },
   tiendas: {
-    nombre: "Reporte interno de tiendas", plantilla: "/formatos/Formato - Reporte interno de tiendas.xlsx",
+    nombre: "Power BI de tiendas", plantilla: "/formatos/Formato - Power BI de tiendas.xlsx",
     origen: "Excel «AVANCE DE VENTA» de cada tienda: hoja llamada «Data», títulos en la fila 1, una fila por día, producto y tipo de precio.",
     columnas: ["SUCURSAL", "CANAL", "Fecha", "CODIGO", "COD. SECUNDARIO", "Tipo de Precio", "Categoría-Cliente", "Tienda-Cantidad", "Tienda-Total Venta S/"],
     obligatorias: ["SUCURSAL", "CANAL", "Fecha", "CODIGO", "COD. SECUNDARIO", "Tipo de Precio", "Categoría-Cliente", "Tienda-Cantidad", "Tienda-Total Venta S/"],

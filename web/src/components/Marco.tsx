@@ -38,8 +38,8 @@ function menu(tipos: TipoRetail[]): Nodo[] {
       ...tipos.filter((t) => t.slug !== "supermercados-peruanos" && t.slug !== "oxxo").map((t) => ({ id: `retail/${t.slug}`, titulo: t.tipo, icono: Tag, ruta: `/retail/tipo/${t.slug}`, secciones: VENTAS })),
     ] },
     { id: "tiendas", titulo: "Tiendas", icono: Store, hijos: [
-      { id: "tiendas/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/tiendas", secciones: [EJECUTIVO, { id: "ventas", titulo: "Interno vs ContaNet" }] },
-      { id: "tiendas/interno", titulo: "Reporte interno", icono: FileSpreadsheet, ruta: "/tiendas/interno", secciones: VENTAS },
+      { id: "tiendas/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/tiendas", secciones: [EJECUTIVO, { id: "ventas", titulo: "Power BI vs ContaNet" }] },
+      { id: "tiendas/interno", titulo: "Power BI", icono: FileSpreadsheet, ruta: "/tiendas/interno", secciones: VENTAS },
       { id: "tiendas/contanet", titulo: "ContaNet", icono: Database, ruta: "/tiendas/contanet", secciones: CONTANET },
     ] },
     // Canal digital (usuario VENTAS01): total y su división en Lima (delivery) y Provincia, según el reporte de ventas virtuales.

@@ -5,7 +5,7 @@ import { tiposRetail } from "@/lib/retail";
 import * as t from "@/lib/tiendas";
 import { vistaTiendas } from "../vista";
 
-export const metadata = { title: "Tiendas · Reporte interno · Calderón" };
+export const metadata = { title: "Tiendas · Power BI · Calderón" };
 
 type Params = Promise<{ [k: string]: string | string[] | undefined }>;
 

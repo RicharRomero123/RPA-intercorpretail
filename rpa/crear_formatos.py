@@ -87,7 +87,7 @@ OXXO = [
 ]
 
 PLANTILLAS = {
-    "Formato - Reporte interno de tiendas.xlsx": ("Data", TIENDAS,
+    "Formato - Power BI de tiendas.xlsx": ("Data", TIENDAS,
         "Venta diaria de una o varias tiendas. La hoja de datos DEBE llamarse «Data».",
         "Al cargar se reemplaza, por cada tienda del archivo, desde su primer hasta su último día: subir el mismo archivo dos "
         "veces no duplica la venta."),

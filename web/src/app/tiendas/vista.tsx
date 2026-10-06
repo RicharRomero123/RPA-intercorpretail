@@ -128,10 +128,10 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
   const encabezado = (
     <header className="grid gap-4">
       <div className="grid gap-1">
-        <p className="etiqueta">Tiendas · Reporte interno (Excel de los jefes) · Turrones Calderón</p>
+        <p className="etiqueta">Tiendas · Power BI (Excel de los jefes) · Turrones Calderón</p>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[28px] font-bold leading-tight">Reporte interno de tiendas</h1>
-          {carga && <PanelCarga titulo="Cargar reporte interno" solo="tiendas" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario} cargas={carga.cargas} />}
+          <h1 className="text-[28px] font-bold leading-tight">Power BI de tiendas</h1>
+          {carga && <PanelCarga titulo="Cargar datos del Power BI" solo="tiendas" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario} cargas={carga.cargas} />}
         </div>
         <p className="text-sm text-[var(--tenue)]">
           <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {nDias} días

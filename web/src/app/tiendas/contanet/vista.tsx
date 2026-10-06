@@ -1,4 +1,4 @@
-// Vista Tiendas · ContaNet: venta de las tiendas según el ERP (comprobantes), con más detalle que el reporte interno:
+// Vista Tiendas · ContaNet: venta de las tiendas según el ERP (comprobantes), con más detalle que el Power BI:
 // tickets, hora, medio de pago, tipo de comprobante y clientes identificados.
 import { CalendarDays, Clock, CreditCard, FileText, IdCard, Package, Store } from "lucide-react";
 import { salir } from "@/app/login/actions";
@@ -164,6 +164,16 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
     ticket: { clave: "ticket_prom", titulo: "Ticket prom. S/", tipo: "decimal2" },
   } satisfies Record<string, Columna>;
   const rango = `${fechaLarga(desde)} – ${fechaLarga(hasta)}`;
+  /** Enlace a la misma página con solo esa tienda (null = todas); conserva la sección, el periodo y los demás filtros. */
+  const conTienda = (t: string | null) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (k !== "tienda" && uno(v)) q.set(k, uno(v)!);
+    if (t) q.set("tienda", t);
+    return q.size ? `?${q}` : "?";
+  };
+  const tiendaSola = filtro.tiendas.length === 1 ? filtro.tiendas[0] : null;
+  // Vista rápida por tienda: botones arriba (solo si son pocas, como las 7 tiendas o Lima/Provincia).
+  const vistaTiendas = cfg.porTienda && m.tiendas.length > 1 && m.tiendas.length <= 12;
   const archivo = (n: string) => `tiendas_contanet_${n}_${desde}_${hasta}.xlsx`;
   const vacio = <p className="text-sm text-[var(--tenue)]">No hay ventas con estos filtros.</p>;
   const etiqueta = (p: string) => (agrupar === "mes" ? `${p.slice(5, 7)}/${p.slice(0, 4)}` : fechaLarga(p));
@@ -175,7 +185,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1">
           <p className="etiqueta">{cfg.etiqueta} · Turrones Calderón</p>
-          <h1 className="text-[28px] font-bold leading-tight">{cfg.titulo}</h1>
+          <h1 className="text-[28px] font-bold leading-tight">{cfg.titulo}{tiendaSola && <span className="text-[var(--acento)]"> · {tiendaSola}</span>}</h1>
           <p className="text-sm text-[var(--tenue)]">
             <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {diasEntre(desde, hasta)} días
             {diasVenta !== diasEntre(desde, hasta) && ` (${diasVenta} con venta)`}
@@ -193,6 +203,12 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
         ...(opcGeo ? GEO.filter((g) => opcGeo[g.clave].length > 1)
           .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, buscar: opcGeo[g.clave].length > 12, opciones: opcGeo[g.clave].map((x) => ({ valor: x, texto: x })) })) : []),
       ]} />
+      {vistaTiendas && (
+        <nav className="segmento w-fit max-w-full overflow-x-auto" aria-label={`Ver una ${cfg.dim.toLowerCase()}`}>
+          <a href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</a>
+          {m.tiendas.map((x) => <a key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</a>)}
+        </nav>
+      )}
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
       {esDigital && (() => {
         // Venta sin clasificar: ContaNet la registra (monto oficial) pero el reporte de ventas virtuales no la ubica en Lima ni Provincia.
@@ -211,8 +227,8 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
         );
       })()}
       {canal === "tiendas" && comp && comp[0] < primero && (
-        <Aviso titulo={`La comparación usa el reporte interno de tiendas (ContaNet empieza el ${fechaLarga(primero)})`}>
-          Para fechas anteriores se compara con la venta del reporte interno (el del Power BI). Ahí hay venta y unidades, pero no tickets, horas,
+        <Aviso titulo={`La comparación usa el Power BI de tiendas (ContaNet empieza el ${fechaLarga(primero)})`}>
+          Para fechas anteriores se compara con la venta del Power BI. Ahí hay venta y unidades, pero no tickets, horas,
           medios de pago ni clientes: esas comparaciones salen «—».
         </Aviso>
       )}
@@ -259,8 +275,13 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
                   detalle: `${entero(x.pedidos)} pedidos · ${entero(x.clientes)} clientes` })))}
               </Tarjeta>
             ) : cfg.porTienda ? (
-              <Tarjeta icono={Store} titulo={`Venta por ${cfg.dim.toLowerCase()}`} subtitulo={rango}>
-                {barras(porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.tickets)} tickets · ${entero(x.und)} und` })))}
+              <Tarjeta icono={Store} titulo={`Venta por ${cfg.dim.toLowerCase()}`}
+                       subtitulo={vistaTiendas ? `${rango} · toca una para ver solo esa` : rango}>
+                {barras(porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.tickets)} tickets · ${entero(x.und)} und`,
+                  ...(vistaTiendas ? { href: conTienda(tiendaSola === x.tienda ? null : x.tienda), activo: tiendaSola === x.tienda } : {}) })))}
+                {vistaTiendas && filtro.tiendas.length > 0 && (
+                  <a href={conTienda(null)} className="boton w-fit">Ver todas</a>
+                )}
               </Tarjeta>
             ) : (
               <Tarjeta icono={Package} titulo="Productos más vendidos" subtitulo={rango}>

@@ -115,7 +115,7 @@ export type Avance = {
   fecha: string | null; corte: string | null; actualizado: string | null; mes: number; dias_mes: number;
   /** Primer y último día del reporte de ContaNet cargado (para elegir el día). */
   primera: string | null; ultima_carga: string | null;
-  /** Mismo día de la semana del año pasado (364 días antes): solo el total del día por tienda (reporte interno). */
+  /** Mismo día de la semana del año pasado (364 días antes): solo el total del día por tienda (Power BI). */
   anio_pasado_fecha: string | null;
   /** La misma fecha del año pasado (puede ser otro día de la semana). */
   anio_pasado_misma_fecha: string | null;
