@@ -3,7 +3,7 @@
 import { LineChart, Package, PieChart, Users } from "lucide-react";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { entero, porcentaje, soles } from "@/lib/formato";
+import { entero, millones, porcentaje, soles } from "@/lib/formato";
 import { GraficoTendencia, Indicador } from "./Graficos";
 import { Tabla, type Columna } from "./Tabla";
 import { Tarjeta } from "./ui";
@@ -219,6 +219,9 @@ function IndicadoresMes({ datos, hasta, venta }: { datos: DatosEjecutivo; hasta:
   const ly = sumar(rango.map((k) => totLY.get(k) ?? { und: 0, venta: 0 }));
   const metas = datos.metas ?? null;
   const meta = metas ? rango.reduce((s, k) => s + (metas[k] ?? 0), 0) : 0;
+  // Nivel de cumplimiento: lo vendido desde el 1 de enero hasta el último día con datos ÷ la meta de todo el año (no depende de los meses elegidos).
+  const realAnio = sumar(Array.from({ length: mesFin }, (_, i) => totMes.get(clave(i + 1)) ?? { und: 0, venta: 0 })).venta;
+  const metaAnio = metas ? Object.entries(metas).filter(([k]) => k.startsWith(`${anio}-`)).reduce((s, [, v]) => s + (v ?? 0), 0) : 0;
   const hayLY = ly.venta !== 0;
   const conParcial = parcial && b === mesFin;
   const nombre = (a === b ? MESES[a - 1] : `${MESES[a - 1]}–${MESES[b - 1]}`).toLowerCase();
@@ -245,8 +248,14 @@ function IndicadoresMes({ datos, hasta, venta }: { datos: DatosEjecutivo; hasta:
                    detalle={hayLY ? `${etiqueta} · ${anio - 1}: ${soles(ly.venta)}${conParcial ? " (mismas fechas)" : ""}` : `Sin datos de ${anio - 1} en esos meses`} />
         <Indicador icono="rotacion" titulo={`Var % ${anio} vs meta`} valor={meta ? signo(real.venta / meta - 1) : "—"}
                    detalle={meta ? `${etiqueta} · meta ${soles(meta)}${notaMeta}` : datos.sinMeta ?? "Sin meta para esos meses."} />
-        <Indicador icono="cobertura" titulo="Nivel de cumplimiento" valor={meta ? porcentaje(real.venta / meta) : "—"}
-                   detalle={meta ? `${etiqueta} · real ÷ meta` : datos.sinMeta ?? "Sin meta para esos meses."} />
+        {/* Sin meses elegidos: lo vendido en el año ÷ meta de todo el año. Con meses elegidos: esos meses ÷ su meta. */}
+        {(() => {
+          const [r, mt, txt] = sel ? [real.venta, meta, `meta ${nombre}`] : [realAnio, metaAnio, "meta anual"];
+          return (
+            <Indicador icono="cobertura" titulo={sel ? `Cumplimiento ${nombre}` : `Nivel de cumplimiento ${anio}`} valor={mt ? porcentaje(r / mt) : "—"}
+                       detalle={mt ? `de ${millones(mt)} de ${txt} · faltan ${millones(Math.max(mt - r, 0))}` : datos.sinMeta ?? "Sin meta para esos meses."} />
+          );
+        })()}
       </div>
     </div>
   );

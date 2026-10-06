@@ -26,7 +26,7 @@ const claseCelda = (c: Columna, v: unknown) => {
 const conSigno = (c: Columna, v: unknown, texto: string) =>
   esVariacion(c) && typeof v === "number" && Number.isFinite(v) ? (v > 0 ? `+${texto}` : v < 0 ? `−${texto.replace("-", "")}` : texto) : texto;
 const FORMATO_EXCEL: Partial<Record<TipoColumna, string>> = {
-  entero: "#,##0", decimal1: "#,##0.0", decimal2: "#,##0.00", soles: "#,##0.00", porcentaje: "0.0%",
+  entero: "#,##0", decimal1: "#,##0.0", decimal2: "#,##0.00", soles: "#,##0.00", porcentaje: "0.00%",
 };
 
 /** Tabla ordenable (clic en el encabezado), con buscador, fila TOTAL opcional y descarga a Excel (.xlsx).

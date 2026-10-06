@@ -29,7 +29,7 @@ export function GraficoCanales({ datos, tramo, anioAnt }: { datos: PuntoCanal[];
             <ReferenceLine x={1} stroke="var(--tinta)" strokeDasharray="4 3" label={{ value: "100%", position: "top", fontSize: 11, fill: "var(--tinta)" }} />
             <Bar dataKey="cumpl" radius={RADIO_H} maxBarSize={22}>
               {cumpl.map((d) => <Cell key={d.canal} fill={colorCumpl(d.cumpl ?? 0)} />)}
-              <LabelList dataKey="cumpl" position="right" formatter={(v: unknown) => pct(Number(v))} style={{ fontSize: 11, fontWeight: 600, fill: "var(--tinta)" }} />
+              <LabelList dataKey="cumpl" position="right" formatter={(v: unknown) => porcentaje(Number(v))} style={{ fontSize: 11, fontWeight: 600, fill: "var(--tinta)" }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -47,7 +47,7 @@ export function GraficoCanales({ datos, tramo, anioAnt }: { datos: PuntoCanal[];
             <ReferenceLine x={0} stroke="var(--tinta)" />
             <Bar dataKey="var" radius={3} maxBarSize={22}>
               {crec.map((d) => <Cell key={d.canal} fill={(d.var ?? 0) >= 0 ? "var(--bueno)" : "var(--critico)"} />)}
-              <LabelList dataKey="var" position="right" formatter={(v: unknown) => `${Number(v) >= 0 ? "+" : ""}${pct(Number(v))}`}
+              <LabelList dataKey="var" position="right" formatter={(v: unknown) => `${Number(v) >= 0 ? "+" : ""}${porcentaje(Number(v))}`}
                          style={{ fontSize: 11, fontWeight: 600, fill: "var(--tinta)" }} />
             </Bar>
           </BarChart>

@@ -26,20 +26,29 @@ export async function datosEjecutivo(sb: Supabase, fuente: Fuente, desde: string
   const d = data as Record<"actual" | "anterior" | "meses" | "meses_ly", Record<string, unknown>[]>;
   const n = <T,>(xs: Record<string, unknown>[]) => (xs ?? []).map((r) => ({ ...r, und: Number(r.und ?? 0), venta: Number(r.venta ?? 0) })) as T[];
 
-  // Meta mensual del canal (consolidado). La meta es del canal completo: con filtros de tienda, producto, zona, etc. no se compara.
-  const canales = META_CANAL[fuente];
-  const filtrado = Object.keys(p_filtros).length > 0 || conGeo(fuente, geo) !== fuente;
+  // Meta mensual: la del canal (consolidado) sin filtros; con solo tiendas elegidas, la de esas tiendas (meta_tienda); en el canal
+  // digital con solo Lima o Provincia elegido, la de ese subcanal. Con otros filtros (producto, zona, días…) no hay meta que comparar.
+  const anio = Number(hasta.slice(0, 4));
+  const claves = Object.keys(p_filtros);
+  const geoUsado = Object.entries(geo ?? {}).filter(([, v]) => v && v.length);
+  const soloTiendas = (fuente === "tiendas" || fuente === "contanet_tiendas") && claves.length === 1 && claves[0] === "tienda" && !geoUsado.length;
+  const subc = fuente === "digital" && !claves.length && geoUsado.length === 1 && geoUsado[0][0] === "subc"
+    ? (geoUsado[0][1] as string[]).map((x) => x.toUpperCase()).filter((x) => x === "LIMA" || x === "PROVINCIA") : [];
+  const canales = subc.length ? subc : META_CANAL[fuente];
+  const filtrado = (claves.length > 0 || geoUsado.length > 0) && !soloTiendas && !subc.length;
   let metas: Record<string, number> | null = null;
-  let sinMeta: string | null = !canales ? "Este canal no tiene meta en el consolidado." : filtrado ? "La meta es del canal completo: quita los filtros para compararla." : null;
+  let sinMeta: string | null = !canales ? "Este canal no tiene meta en el consolidado." : filtrado ? "Hay meta por canal y por tienda: con otros filtros no se compara." : null;
   if (canales && !filtrado) {
-    const { data: m } = await sb.from("consolidado_mensual").select("anio, mes, meta").in("canal", canales).eq("anio", Number(hasta.slice(0, 4)));
+    const { data: m } = soloTiendas
+      ? await sb.from("meta_tienda").select("anio, mes, meta").in("tienda", p_filtros.tienda).eq("anio", anio)
+      : await sb.from("consolidado_mensual").select("anio, mes, meta").in("canal", canales).eq("anio", anio);
     metas = {};
     for (const r of m ?? []) {
       if (r.meta === null) continue;
       const k = `${r.anio}-${String(r.mes).padStart(2, "0")}`;
       metas[k] = (metas[k] ?? 0) + Number(r.meta);
     }
-    if (!Object.keys(metas).length) { metas = null; sinMeta = "Todavía no hay metas cargadas para este año."; }
+    if (!Object.keys(metas).length) { metas = null; sinMeta = soloTiendas ? "Esa tienda no tiene meta cargada para este año." : "Todavía no hay metas cargadas para este año."; }
   }
   return { actual: n<FilaDim>(d.actual), anterior: n<FilaDim>(d.anterior), meses: n<FilaMes>(d.meses), mesesLY: n<FilaMes>(d.meses_ly), metas, sinMeta };
 }

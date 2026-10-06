@@ -10,7 +10,7 @@ import { Marco, type TipoRetail } from "@/components/Marco";
 import { Pestanas } from "@/components/Pestanas";
 import { Tabla } from "@/components/Tabla";
 import { Tarjeta } from "@/components/ui";
-import { porcentaje, soles } from "@/lib/formato";
+import { millones, porcentaje, soles } from "@/lib/formato";
 import { fechaLarga } from "@/lib/periodos";
 import { type FilaSku, ProductosTop } from "./productos";
 
@@ -186,7 +186,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
     );
     return (
       <Tarjeta icono={Store} titulo="Tiendas: real vs meta de cada tienda"
-               subtitulo={`Meta de cada tienda (Excel «Metas tiendas ${anio}») · venta real del sistema al ${fechaLarga(hastaT)} · meses cerrados: ${tramoT}${enCursoT ? ` · ${mesTxtT} aparte` : ""}`}>
+               subtitulo={`Meta de cada tienda (Excel «Metas tiendas ${anio}») · venta real del Power BI al ${fechaLarga(hastaT)} · meses cerrados: ${tramoT}${enCursoT ? ` · ${mesTxtT} aparte` : ""}`}>
         <Tabla archivo={`resumen_general_tiendas_${hastaT}.xlsx`} hoja="Tiendas" filas={filas}
                columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "real", titulo: `Real ${tramoT} S/`, tipo: "soles" },
                  { clave: "meta", titulo: `Meta ${tramoT} S/`, tipo: "soles" }, { clave: "cumpl", titulo: "Cumplimiento", tipo: "porcentaje" },
@@ -222,7 +222,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
           </div>
           <p className="text-xs text-[var(--tenue)]">
             Real ÷ meta de cada mes · verde ≥ 100% · ámbar 90–99% · rojo &lt; 90%. Pasa el cursor para ver real y meta; toca una tienda para ver su detalle.
-            La venta real es la del sistema (Power BI hasta julio y ContaNet desde agosto), por eso agosto y septiembre pueden diferir del Excel consolidado.
+            La venta real es la del Power BI de tiendas (ContaNet va aparte y solo se compara en Tiendas → Power BI vs ContaNet).
           </p>
         </div>
       </Tarjeta>
@@ -240,7 +240,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
       <h1 className="text-[28px] font-bold leading-tight">Resumen general {anio}</h1>
       <p className="text-sm text-[var(--tenue)] max-w-4xl">
         Venta <b className="text-[var(--tinta)]">real</b> de cada canal frente a su <b className="text-[var(--tinta)]">meta</b> y frente a {anio - 1}, con
-        cierre al <b className="text-[var(--tinta)]">{fechaLarga(corte)}</b>. Fuente: «{carga.archivo}».
+        cierre al <b className="text-[var(--tinta)]">{fechaLarga(corte)}</b>. Fuente: «{carga.archivo}»{tiendas.hasta && <>; Tiendas, del Power BI al <b className="text-[var(--tinta)]">{fechaLarga(tiendas.hasta)}</b></>}.
       </p>
     </header>
   );
@@ -274,8 +274,14 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                          detalle={`${etiqueta} · ${anio - 1}: ${soles(ant)}${nota}`} />
               <Indicador icono="rotacion" titulo={`Var % ${anio} vs meta`} valor={signo(meta ? real / meta - 1 : null)}
                          detalle={`${etiqueta} · meta ${soles(meta)}${nota}`} />
-              <Indicador icono="cobertura" titulo="Nivel de cumplimiento" valor={meta ? porcentaje(real / meta) : "—"}
-                         detalle={`${etiqueta} · real ÷ meta`} />
+              {/* Sin meses elegidos: lo vendido en el año ÷ meta de todo el año. Con meses elegidos: esos meses ÷ su meta. */}
+              {(() => {
+                const [r, mt, txt] = sel ? [real, meta, `meta ${nombre}`] : [T.realFecha, T.metaAnio, "meta anual"];
+                return (
+                  <Indicador icono="cobertura" titulo={sel ? `Cumplimiento ${nombre}` : `Nivel de cumplimiento ${anio}`} valor={mt ? porcentaje(r / mt) : "—"}
+                             detalle={`de ${millones(mt)} de ${txt} · faltan ${millones(Math.max(mt - r, 0))}`} />
+                );
+              })()}
             </div>
           );
         })()}

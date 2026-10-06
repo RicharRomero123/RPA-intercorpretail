@@ -25,7 +25,7 @@ export function GraficoConsolidado({ meses, anio, mesCorte, diaCorte }: { meses:
         <Bar dataKey="meta" name={`Meta ${anio}`} fill="color-mix(in srgb, var(--serie-2) 22%, transparent)" stroke="var(--serie-2)" strokeWidth={1}
              radius={RADIO_V} maxBarSize={30} />
         <Bar dataKey="real" name={`Real ${anio}`} fill="var(--serie-1)" radius={RADIO_V} maxBarSize={30}>
-          <LabelList dataKey="cumpl" position="top" formatter={(v: unknown) => (v === null || v === undefined ? "" : `${Math.round(Number(v) * 100)}%`)}
+          <LabelList dataKey="cumpl" position="top" formatter={(v: unknown) => (v === null || v === undefined ? "" : porcentaje(Number(v)))}
                      style={{ fontSize: 10.5, fill: "var(--tinta)", fontWeight: 600 }} />
         </Bar>
         <Line dataKey="anterior" name={`Real ${anio - 1}`} stroke="var(--serie-gris)" strokeWidth={1.6} strokeDasharray={PUNTEADO} dot={false} connectNulls />

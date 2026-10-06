@@ -115,6 +115,14 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
   const textoComp = comp ? `${fechaLarga(comp[0])} – ${fechaLarga(comp[1])}` : "";
   const unidadPeriodo = agrupar === "dia" ? "día" : agrupar;
   const comparadoCon = COMPARAR_CORTO[comparar];
+  /** Enlace a la misma página con solo esa tienda (null = todas); conserva la sección, el periodo y los demás filtros. */
+  const conTienda = (x: string | null) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (k !== "tienda" && uno(v)) q.set(k, uno(v)!);
+    if (x) q.set("tienda", x);
+    return q.size ? `?${q}` : "?";
+  };
+  const tiendaSola = filtro.tiendas.length === 1 ? filtro.tiendas[0] : null;
 
   // --------------------------------------------------------------- encabezado
   const carga = fuente.carga ? await fuente.carga() : null;
@@ -130,7 +138,7 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
       <div className="grid gap-1">
         <p className="etiqueta">Tiendas · Power BI (Excel de los jefes) · Turrones Calderón</p>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[28px] font-bold leading-tight">Power BI de tiendas</h1>
+          <h1 className="text-[28px] font-bold leading-tight">Power BI de tiendas{tiendaSola && <span className="text-[var(--acento)]"> · {tiendaSola}</span>}</h1>
           {carga && <PanelCarga titulo="Cargar datos del Power BI" solo="tiendas" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario} cargas={carga.cargas} />}
         </div>
         <p className="text-sm text-[var(--tenue)]">
@@ -143,6 +151,12 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
         { clave: "prod", etiqueta: "Producto", buscar: true, opciones: m.productos.map((p) => ({ valor: p.sku, texto: p.producto })) },
         { clave: "tipo", etiqueta: "Tipo de precio", opciones: m.tipos.map((x) => ({ valor: x, texto: x })) },
       ]} />
+      {m.tiendas.length > 1 && (
+        <nav className="segmento w-fit max-w-full overflow-x-auto" aria-label="Ver una tienda">
+          <a href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</a>
+          {m.tiendas.map((x) => <a key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</a>)}
+        </nav>
+      )}
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -168,7 +182,8 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
 
   const barrasTienda = (
     <ListaBarras formato={(v) => `${soles(v)} · ${porcentaje(R.venta ? v / R.venta : 0)}`}
-                 filas={porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.und)} und · ${x.dias} días con venta` }))} />
+                 filas={porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.und)} und · ${x.dias} días con venta`,
+                   href: conTienda(tiendaSola === x.tienda ? null : x.tienda), activo: tiendaSola === x.tienda }))} />
   );
   const barrasTipo = (
     <ListaBarras formato={(v) => `${soles(v)} · ${porcentaje(R.venta ? v / R.venta : 0)}`}
@@ -186,7 +201,7 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
               <GraficoTendencia datos={tendencia} agrupar={agrupar} conPrevio={hayComp} nombrePrevio={COMPARAR[comparar]} rango={rango}
                                 metricas={["venta", "und"]} nombres={{ venta: "Venta" }} info="tEvolucion" />
             </div>
-            <Tarjeta info="tVenta" icono={Store} titulo="Venta por tienda" subtitulo={rango}>{barrasTienda}</Tarjeta>
+            <Tarjeta info="tVenta" icono={Store} titulo="Venta por tienda" subtitulo={`${rango} · toca una para ver solo esa`}>{barrasTienda}</Tarjeta>
           </div>
           <div className="grid gap-4 @5xl:grid-cols-3">
             <Tarjeta className="@5xl:col-span-2" info="tEvolucion" icono={CalendarDays} titulo={`Detalle por ${unidadPeriodo}`} subtitulo={rango}>

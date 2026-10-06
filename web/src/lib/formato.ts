@@ -8,7 +8,9 @@ export const soles = (x: number | null | undefined) => (vacio(x) ? "—" : `S/ $
 export const entero = (x: number | null | undefined) => (vacio(x) ? "—" : f0.format(x));
 export const decimal1 = (x: number | null | undefined) => (vacio(x) ? "—" : f1.format(x));
 export const decimal2 = (x: number | null | undefined) => (vacio(x) ? "—" : f2.format(x));
-export const porcentaje = (x: number | null | undefined) => (vacio(x) ? "—" : `${f1.format(x * 100)}%`);
+/** Monto corto en millones para textos de apoyo: «S/ 17.51 M». */
+export const millones = (x: number | null | undefined) => (vacio(x) ? "—" : `S/ ${f2.format(x / 1e6)} M`);
+export const porcentaje = (x: number | null | undefined) => (vacio(x) ? "—" : `${f2.format(x * 100)}%`);
 
 export type TipoColumna = "texto" | "entero" | "decimal1" | "decimal2" | "soles" | "porcentaje" | "estado";
 
