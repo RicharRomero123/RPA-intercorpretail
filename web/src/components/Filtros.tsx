@@ -1,9 +1,10 @@
 "use client";
 
-import { CalendarRange, ChevronDown, GitCompareArrows, ListFilter, LoaderCircle, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, GitCompareArrows, ListFilter, LoaderCircle, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { COMPARAR, DIAS_SEM, PERIODOS } from "@/lib/periodos";
+import { COMPARAR, DIAS_SEM, PERIODOS, type Periodo } from "@/lib/periodos";
+import { RangoFechas } from "./RangoFechas";
 
 type Opcion = { valor: string; texto: string };
 
@@ -85,21 +86,8 @@ export function Filtros({ grupos, ultimo, primero, stock = false, compararDefect
   return (
     <div className="grid gap-3" aria-label="Filtros">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="relative flex items-center">
-          <CalendarRange size={15} className="absolute left-2.5 text-[var(--tenue)] pointer-events-none" aria-hidden />
-          <select id="f-periodo" className="campo !pl-8 font-medium" value={periodo} onChange={(e) => poner({ p: e.target.value })} aria-label="Periodo">
-            {Object.entries(PERIODOS).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
-          </select>
-        </label>
-        {periodo === "personalizado" && (
-          <span className="flex items-center gap-1.5">
-            <input id="f-d1" type="date" className="campo" min={primero} max={ultimo} defaultValue={sp.get("d1") ?? ""}
-                   onChange={(e) => poner({ d1: e.target.value })} aria-label="Desde" />
-            <span className="text-sm text-[var(--tenue)]">–</span>
-            <input id="f-d2" type="date" className="campo" min={primero} max={ultimo} defaultValue={sp.get("d2") ?? ultimo}
-                   onChange={(e) => poner({ d2: e.target.value })} aria-label="Hasta" />
-          </span>
-        )}
+        <RangoFechas periodo={(periodo in PERIODOS ? periodo : periodoDefecto) as Periodo} periodoDefecto={periodoDefecto}
+                     d1={sp.get("d1") ?? undefined} d2={sp.get("d2") ?? undefined} primero={primero} ultimo={ultimo} poner={poner} />
         {comparar && (
         <label className="relative flex items-center">
           <GitCompareArrows size={15} className="absolute left-2.5 text-[var(--tenue)] pointer-events-none" aria-hidden />

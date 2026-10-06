@@ -13,6 +13,8 @@ import { Aviso, Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/co
 import type { Equivalencia } from "@/lib/cargas";
 import { conGeo, parametros, type CanalContaNet, type ClaveGeo, type FiltroContaNet, type MaestrosContaNet, type OpcionesGeo, type PanelContaNet, type Zona } from "@/lib/contanet";
 import { ClientesContaNet, type ClienteTienda } from "@/components/ClientesContaNet";
+import { ProductoTienda } from "@/components/ProductoTienda";
+import type { ProductoTienda as FilaProductoTienda } from "@/lib/contanet";
 import type { Avance } from "@/lib/contanet";
 import { seccionAvance } from "./avance";
 import { seccionAvanceMes } from "./avance-mes";
@@ -43,6 +45,8 @@ export type FuenteContaNet = {
   carga: () => Promise<{ equivalencias: Equivalencia[]; skus: string[]; cargas: CargaWeb[] }>;
   ejecutivo: (desde: string, hasta: string, f: FiltrosEjecutivo) => Promise<DatosEjecutivo>;
   clientesTiendas: (desde: string, hasta: string, f: FiltroContaNet) => Promise<ClienteTienda[]>;
+  /** Venta por tienda y producto (Detalle → Por producto: el producto líder de cada tienda). */
+  productoTienda?: (desde: string, hasta: string, f: FiltroContaNet) => Promise<FilaProductoTienda[]>;
   avance: (fecha?: string, geo?: FiltroContaNet["geo"]) => Promise<{ avance: Avance; meta: number | null }>;
   /** Avance del mes (la meta es la misma del avance del día: la del mes del consolidado). */
   avanceMes: (fecha?: string, geo?: FiltroContaNet["geo"]) => Promise<AvanceMes>;
@@ -117,6 +121,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
     fuente.clientesTiendas(desde, hasta, filtro), fuente.avance(uno(sp.dia), filtro.geo),
     fuente.geo ? fuente.geo.opciones() : Promise.resolve(null), fuente.geo ? fuente.geo.zonas(desde, hasta, filtro) : Promise.resolve([] as Zona[])]);
   const cuadre = fuente.cuadre ? await fuente.cuadre(desde, hasta) : null;
+  const prodTienda = fuente.productoTienda && cfg.porTienda ? await fuente.productoTienda(desde, hasta, filtro) : [];
   const mesAv = await fuente.avanceMes(uno(sp.dia), filtro.geo);
   const R = sumar(A.dias), RC = B ? sumar(B.dias) : null;
   const hayComp = !!B && B.dias.length > 0;
@@ -316,6 +321,12 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
             </Tarjeta>
           ) }]),
           { id: "productos", titulo: "Por producto", contenido: (
+            <div className="grid gap-4">
+            {prodTienda.length > 0 && (
+              <Tarjeta icono={Store} titulo={`Producto por ${cfg.dim.toLowerCase()}`} subtitulo={`Ingreso y volumen · ${rango}`}>
+                <ProductoTienda filas={prodTienda} dim={cfg.dim} archivo={archivo("producto_tienda")} />
+              </Tarjeta>
+            )}
             <Tarjeta icono={Package} titulo="Por producto" subtitulo={`${porProducto.length} productos · ${rango}`}>
               <Tabla archivo={archivo("productos")} hoja="Productos" alto={520} buscar filas={porProducto}
                      columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "sku", titulo: "SKU", tipo: "texto" },
@@ -323,6 +334,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
                        { clave: "precio", titulo: "Precio prom. S/", tipo: "decimal2" }, ...colComp]}
                      total={{ producto: "TOTAL", ...total }} />
             </Tarjeta>
+            </div>
           ) },
           { id: "horas", titulo: "Por hora", contenido: (
             <div className="grid gap-4 @5xl:grid-cols-2">

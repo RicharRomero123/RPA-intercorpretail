@@ -88,6 +88,13 @@ export const parametros = (f: FiltroContaNet) => ({
   p_medios: f.medios.length ? f.medios : null, p_dias: f.dias.length < 7 ? f.dias : null,
 });
 
+/** Venta y unidades por tienda y producto (Detalle → Por producto: el producto líder de cada tienda). */
+export type ProductoTienda = { tienda: string; sku: string; producto: string; und: number; venta: number };
+export async function productoTienda(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet) {
+  const filas = await leer<Record<string, unknown>[]>(sb.rpc("contanet_producto_tienda", { p_canal: conGeo(canal, f.geo), desde, hasta, ...parametros(f) }));
+  return numeros<ProductoTienda>(filas ?? [], ["und", "venta"]);
+}
+
 /** Venta de los 200 clientes principales por tienda (gráfico «en qué tiendas compró»). */
 export async function clientesPorTienda(sb: Supabase, canal: CanalContaNet, desde: string, hasta: string, f: FiltroContaNet) {
   const filas = await leer<Record<string, unknown>[]>(sb.rpc("contanet_clientes_tiendas", { p_canal: conGeo(canal, f.geo), desde, hasta, ...parametros(f) }));
