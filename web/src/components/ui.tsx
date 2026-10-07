@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, Info, TrendingDown, TrendingUp, TriangleAlert
 import type { ClaveGlosario } from "@/lib/glosario";
 import { porcentaje } from "@/lib/formato";
 import { Ayuda } from "./Ayuda";
+import { EnlaceCarga } from "./EnlaceCarga";
 
 /** Tarjeta con encabezado (ícono, título, subtítulo) y contenido. */
 export function Tarjeta({ titulo, subtitulo, icono: Icono, accion, children, className = "", info }: {
@@ -119,8 +120,8 @@ export function ListaBarras({ filas, formato }: {
         return (
           <li key={f.etiqueta} title={f.detalle}>
             {f.href
-              ? <a href={f.href} className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm rounded-md hover:bg-[var(--superficie-2)]"
-                   aria-current={f.activo || undefined}>{barra}</a>
+              ? <EnlaceCarga href={f.href} className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm rounded-md hover:bg-[var(--superficie-2)]"
+                   aria-current={f.activo || undefined}>{barra}</EnlaceCarga>
               : <div className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm">{barra}</div>}
           </li>
         );

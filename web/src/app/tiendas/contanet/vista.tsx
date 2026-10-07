@@ -2,6 +2,7 @@
 // tickets, hora, medio de pago, tipo de comprobante y clientes identificados.
 import { CalendarDays, Clock, CreditCard, FileText, IdCard, Package, Store } from "lucide-react";
 import { salir } from "@/app/login/actions";
+import { EnlaceCarga } from "@/components/EnlaceCarga";
 import { Filtros } from "@/components/Filtros";
 import { GraficoTendencia, Indicador } from "@/components/Graficos";
 import type { CargaWeb } from "@/components/HistorialCargas";
@@ -205,8 +206,8 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
       ]} />
       {vistaTiendas && (
         <nav className="segmento w-fit max-w-full overflow-x-auto" aria-label={`Ver una ${cfg.dim.toLowerCase()}`}>
-          <a href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</a>
-          {m.tiendas.map((x) => <a key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</a>)}
+          <EnlaceCarga href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</EnlaceCarga>
+          {m.tiendas.map((x) => <EnlaceCarga key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</EnlaceCarga>)}
         </nav>
       )}
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
@@ -280,7 +281,7 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
                 {barras(porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.tickets)} tickets · ${entero(x.und)} und`,
                   ...(vistaTiendas ? { href: conTienda(tiendaSola === x.tienda ? null : x.tienda), activo: tiendaSola === x.tienda } : {}) })))}
                 {vistaTiendas && filtro.tiendas.length > 0 && (
-                  <a href={conTienda(null)} className="boton w-fit">Ver todas</a>
+                  <EnlaceCarga href={conTienda(null)} className="boton w-fit">Ver todas</EnlaceCarga>
                 )}
               </Tarjeta>
             ) : (

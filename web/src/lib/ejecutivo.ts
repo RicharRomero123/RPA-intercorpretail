@@ -50,7 +50,28 @@ export async function datosEjecutivo(sb: Supabase, fuente: Fuente, desde: string
     }
     if (!Object.keys(metas).length) { metas = null; sinMeta = soloTiendas ? "Esa tienda no tiene meta cargada para este año." : "Todavía no hay metas cargadas para este año."; }
   }
-  return { actual: n<FilaDim>(d.actual), anterior: n<FilaDim>(d.anterior), meses: n<FilaMes>(d.meses), mesesLY: n<FilaMes>(d.meses_ly), metas, sinMeta };
+  // Meses del año completo: la barra de la meta y el gráfico mensual muestran siempre ene–dic, aunque el periodo elegido sea un mes
+  // pasado (la función de la base devuelve 12 meses que terminan en «hasta»). Si hace falta, se piden hasta hoy (o fin de año).
+  let meses = d.meses, mesesLY = d.meses_ly;
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+  const tope = hoy < `${anio}-12-31` ? hoy : `${anio}-12-31`;
+  if (hasta.slice(0, 7) < tope.slice(0, 7)) {
+    const r = await sb.rpc("ejecutivo", { p_fuente: conGeo(fuente, geo), desde: tope, hasta: tope, p_filtros });
+    if (!r.error) { const x = r.data as typeof d; meses = x.meses; mesesLY = x.meses_ly; }
+  }
+
+  // Meta de cada tienda (barras de tiendas contra su meta): sin filtros o con solo tiendas elegidas.
+  let metasDim: Record<string, Record<string, number>> | null = null;
+  if ((fuente === "tiendas" || fuente === "contanet_tiendas") && (soloTiendas || (!claves.length && !geoUsado.length))) {
+    let q = sb.from("meta_tienda").select("mes, tienda, meta").eq("anio", anio);
+    if (soloTiendas) q = q.in("tienda", p_filtros.tienda);
+    const { data: mt } = await q;
+    if (mt?.length) {
+      metasDim = {};
+      for (const r of mt) (metasDim[r.tienda] ??= {})[`${anio}-${String(r.mes).padStart(2, "0")}`] = Number(r.meta);
+    }
+  }
+  return { actual: n<FilaDim>(d.actual), anterior: n<FilaDim>(d.anterior), meses: n<FilaMes>(meses), mesesLY: n<FilaMes>(mesesLY), metas, sinMeta, metasDim };
 }
 
 /** Qué es «cliente» en cada canal. */

@@ -1,7 +1,9 @@
 // Vista del módulo Tiendas: recibe los filtros de la URL y una fuente de datos.
-import { CalendarDays, Grid3x3, Package, Store, Tags } from "lucide-react";
+import { CalendarDays, Grid3x3, Package, Store } from "lucide-react";
 import { salir } from "@/app/login/actions";
+import { EnlaceCarga } from "@/components/EnlaceCarga";
 import { Filtros } from "@/components/Filtros";
+import { FueraDelResumen } from "@/components/FueraDelResumen";
 import { GraficoTendencia, Indicador } from "@/components/Graficos";
 import { Marco, type TipoRetail } from "@/components/Marco";
 import { PanelCarga } from "@/components/PanelCarga";
@@ -12,7 +14,7 @@ import { Encabezado, FranjaComparacion, ListaBarras, Tarjeta } from "@/component
 import { entero, porcentaje, soles } from "@/lib/formato";
 import type { Agrupar } from "@/lib/kpi";
 import {
-  alinear, COMPARAR, COMPARAR_CORTO, DIAS_SEM, diaSemana, diasEntre, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, type Comparar, type Periodo,
+  alinear, COMPARAR, COMPARAR_CORTO, DIAS_SEM, diaSemana, fechaLarga, PERIODOS, rangoComparacion, rangoPeriodo, type Comparar, type Periodo,
 } from "@/lib/periodos";
 import * as t from "@/lib/tiendas";
 import { ResumenEjecutivo } from "@/components/ResumenEjecutivo";
@@ -61,14 +63,18 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
   const comp = rangoComparacion(comparar, desde, hasta);
   const agrupar = (["dia", "semana", "mes"].includes(uno(sp.g) ?? "") ? uno(sp.g) : "dia") as Agrupar;
   const dias = uno(sp.ds) ? [...new Set(uno(sp.ds)!.split("").map(Number).filter((d) => d >= 0 && d <= 6))] : [0, 1, 2, 3, 4, 5, 6];
-  const filtro: t.FiltroTiendas = { tiendas: lista(sp.tienda), skus: lista(sp.prod), tipos: lista(sp.tipo), dias };
+  const filtro: t.FiltroTiendas = { tiendas: lista(sp.tienda), skus: lista(sp.prod), tipos: [], dias };
 
   // --------------------------------------------------------------- datos
-  const [A, B, ej] = await Promise.all([
+  const filtrosEj = { tienda: filtro.tiendas, sku: filtro.skus, tipo: filtro.tipos, dias: filtro.dias };
+  // El resumen compara con lo elegido en «Comparar con»: el año anterior ya viene con el resumen; otro periodo se pide aparte.
+  const [A, B, ej, ejComp] = await Promise.all([
     fuente.panel(desde, hasta, filtro),
     comp ? fuente.panel(comp[0], comp[1], filtro) : Promise.resolve(null),
-    fuente.ejecutivo(desde, hasta, { tienda: filtro.tiendas, sku: filtro.skus, tipo: filtro.tipos, dias: filtro.dias }),
+    fuente.ejecutivo(desde, hasta, filtrosEj),
+    comp && comparar !== "anio" ? fuente.ejecutivo(comp[0], comp[1], filtrosEj) : Promise.resolve(null),
   ]);
+  const ejResumen = !comp ? { ...ej, anterior: [] } : ejComp ? { ...ej, anterior: ejComp.actual } : ej;
   const R = t.total(A.dias), RC = B ? t.total(B.dias) : null;
   const diasVenta = A.dias.filter((d) => d.venta > 0).length;
   const diasVentaC = B ? B.dias.filter((d) => d.venta > 0).length : 0;
@@ -96,7 +102,6 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
   const porProducto = A.productos.map((x) => ({
     ...x, pct: div(x.venta, R.venta), precio: div(x.venta, x.und), venta_c: ventaC(prodC, x.sku), var: variacion(x.venta, prodC.get(x.sku)),
   })).sort((a, b) => b.venta - a.venta);
-  const porTipo = [...A.tipos].sort((a, b) => b.venta - a.venta);
 
   // Producto × tienda: una columna de venta por tienda.
   const tiendasCols = porTienda.map((x) => x.tienda);
@@ -109,7 +114,6 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
   const totalComp = hayComp ? { venta_c: RC!.venta, var: variacion(R.venta, RC!.venta) } : {};
   const totalFila = { und: R.und, venta: R.venta, pct: R.venta ? 1 : null, precio: div(R.venta, R.und), venta_dia: div(R.venta, diasVenta), ...totalComp };
   const archivo = (n: string) => `tiendas_${n}_${desde}_${hasta}.xlsx`;
-  const nDias = diasEntre(desde, hasta);
   const vacio = <p className="text-sm text-[var(--tenue)]">No hay ventas con estos filtros.</p>;
   const rango = `${fechaLarga(desde)} – ${fechaLarga(hasta)}`;
   const textoComp = comp ? `${fechaLarga(comp[0])} – ${fechaLarga(comp[1])}` : "";
@@ -130,34 +134,27 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
     dias.length < 7 && `Días: ${dias.map((d) => DIAS_SEM[d]).join(", ")}`,
     filtro.tiendas.length && `Tienda: ${filtro.tiendas.join(", ")}`,
     filtro.skus.length && `Producto: ${m.productos.filter((p) => filtro.skus.includes(p.sku)).map((p) => p.producto).join(", ")}`,
-    filtro.tipos.length && `Tipo de precio: ${filtro.tipos.join(", ")}`,
   ].filter(Boolean) as string[];
 
   const encabezado = (
     <header className="grid gap-4">
-      <div className="grid gap-1">
-        <p className="etiqueta">Tiendas · Power BI (Excel de los jefes) · Turrones Calderón</p>
+      <div className="grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-[28px] font-bold leading-tight">Power BI de tiendas{tiendaSola && <span className="text-[var(--acento)]"> · {tiendaSola}</span>}</h1>
           {carga && <PanelCarga titulo="Cargar datos del Power BI" solo="tiendas" equivalencias={carga.equivalencias} skus={carga.skus} correo={usuario} cargas={carga.cargas} />}
         </div>
-        <p className="text-sm text-[var(--tenue)]">
-          <b className="text-[var(--tinta)]">{PERIODOS[periodo]}</b> · {rango} · {nDias} días
-          {diasVenta !== nDias && ` (${diasVenta} con venta)`}
-        </p>
       </div>
-      <Filtros ultimo={ultimo} primero={primero} compararDefecto="anio" grupos={[
+      <Filtros ultimo={ultimo} primero={primero} compararDefecto="anio" resumenPrimero grupos={[
         { clave: "tienda", etiqueta: "Tienda", opciones: m.tiendas.map((x) => ({ valor: x, texto: x })) },
         { clave: "prod", etiqueta: "Producto", buscar: true, opciones: m.productos.map((p) => ({ valor: p.sku, texto: p.producto })) },
-        { clave: "tipo", etiqueta: "Tipo de precio", opciones: m.tipos.map((x) => ({ valor: x, texto: x })) },
       ]} />
       {m.tiendas.length > 1 && (
         <nav className="segmento w-fit max-w-full overflow-x-auto" aria-label="Ver una tienda">
-          <a href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</a>
-          {m.tiendas.map((x) => <a key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</a>)}
+          <EnlaceCarga href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</EnlaceCarga>
+          {m.tiendas.map((x) => <EnlaceCarga key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</EnlaceCarga>)}
         </nav>
       )}
-      <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
+      <FueraDelResumen><FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} /></FueraDelResumen>
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-[var(--acento-suave)] text-[var(--acento)] font-medium">{c}</span>)}
@@ -185,10 +182,6 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
                  filas={porTienda.map((x) => ({ etiqueta: x.tienda, valor: x.venta, detalle: `${entero(x.und)} und · ${x.dias} días con venta`,
                    href: conTienda(tiendaSola === x.tienda ? null : x.tienda), activo: tiendaSola === x.tienda }))} />
   );
-  const barrasTipo = (
-    <ListaBarras formato={(v) => `${soles(v)} · ${porcentaje(R.venta ? v / R.venta : 0)}`}
-                 filas={porTipo.map((x) => ({ etiqueta: x.tipo, valor: x.venta, detalle: `${entero(x.und)} und` }))} />
-  );
 
   // Ventas: sumas generales y gráficos.
   const seccionVentas = (
@@ -203,8 +196,8 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
             </div>
             <Tarjeta info="tVenta" icono={Store} titulo="Venta por tienda" subtitulo={`${rango} · toca una para ver solo esa`}>{barrasTienda}</Tarjeta>
           </div>
-          <div className="grid gap-4 @5xl:grid-cols-3">
-            <Tarjeta className="@5xl:col-span-2" info="tEvolucion" icono={CalendarDays} titulo={`Detalle por ${unidadPeriodo}`} subtitulo={rango}>
+          <div className="grid gap-4">
+            <Tarjeta info="tEvolucion" icono={CalendarDays} titulo={`Detalle por ${unidadPeriodo}`} subtitulo={rango}>
               <Tabla archivo={archivo("detalle")} hoja="Detalle" alto={360}
                      filas={[...tendencia].reverse().map((s) => ({
                        ...s, var: variacion(s.venta, s.venta_c), dia: agrupar === "dia" ? DIAS_SEM[diaSemana(s.periodo)] : "",
@@ -214,7 +207,6 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
                        ...(agrupar === "dia" ? [{ clave: "dia", titulo: "", tipo: "texto" } as Columna] : []), COL.und, COL.venta])}
                      total={{ periodo: "TOTAL", ...totalFila }} />
             </Tarjeta>
-            <Tarjeta info="tTipoPrecio" icono={Tags} titulo="Venta por tipo de precio" subtitulo={rango}>{barrasTipo}</Tarjeta>
           </div>
         </>
       )}
@@ -233,10 +225,7 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
                      { clave: "dias", titulo: "Días con venta", tipo: "entero" }, COL.ventaDia])}
                    total={{ tienda: "TOTAL", dias: diasVenta, ...totalFila }} />
           </Tarjeta>
-          <div className="grid gap-4 @4xl:grid-cols-2">
-            <Tarjeta info="tVenta" icono={Store} titulo="Participación por tienda" subtitulo={rango}>{barrasTienda}</Tarjeta>
-            <Tarjeta info="tTipoPrecio" icono={Tags} titulo="Venta por tipo de precio" subtitulo={rango}>{barrasTipo}</Tarjeta>
-          </div>
+          <Tarjeta info="tVenta" icono={Store} titulo="Participación por tienda" subtitulo={rango}>{barrasTienda}</Tarjeta>
         </>
       )}
     </>
@@ -286,7 +275,8 @@ export async function vistaTiendas(sp: Params, usuario: string | undefined, fuen
 
   return (
     <Marco seccion={sp.s} ubicacion="tiendas/interno" tiposRetail={tipos} encabezado={encabezado} usuario={usuario} salir={salir} datosAl={fechaLarga(ultimo)} secciones={[
-{ id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ej} desde={desde} hasta={hasta} config={CONFIG.tiendas} archivo="tiendas_interno_ejecutivo" /> },
+{ id: "ejecutivo", titulo: "Resumen ejecutivo", contenido: <ResumenEjecutivo datos={ejResumen} desde={desde} hasta={hasta} config={CONFIG.tiendas} archivo="tiendas_interno_ejecutivo"
+                                       comparacion={comp ? { tipo: comparar, desde: comp[0], hasta: comp[1] } : null} /> },
       { id: "ventas", titulo: "Ventas", contenido: seccionVentas },
       { id: "detalle", titulo: "Detalle de ventas", contenido: seccionDetalle },
     ]} />

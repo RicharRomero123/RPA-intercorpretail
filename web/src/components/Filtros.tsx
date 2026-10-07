@@ -1,10 +1,17 @@
 "use client";
 
-import { ChevronDown, GitCompareArrows, ListFilter, LoaderCircle, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, GitCompareArrows, ListFilter, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { COMPARAR, DIAS_SEM, PERIODOS, type Periodo } from "@/lib/periodos";
+import { AvisoCargando } from "./AvisoCargando";
 import { RangoFechas } from "./RangoFechas";
+
+/** Textos cortos del selector «Comparar con». */
+const COMPARAR_SELECTOR: Record<keyof typeof COMPARAR, string> = {
+  anio: "vs. año anterior (mismas fechas)", anioSem: "vs. año anterior (mismo día de la semana)", ant: "vs. periodo anterior",
+  sem: "vs. semana anterior", no: "Sin comparar",
+};
 
 type Opcion = { valor: string; texto: string };
 
@@ -54,12 +61,14 @@ export type Grupo = {
   clave: string; etiqueta: string; opciones: (Opcion & { padres?: Record<string, string> })[]; limpia?: string[]; buscar?: boolean;
 };
 
-export function Filtros({ grupos, ultimo, primero, stock = false, compararDefecto = "anio", periodoDefecto = "mes", agruparDefecto = "dia", dias: conDias = true, comparar = true }: {
+export function Filtros({ grupos, ultimo, primero, stock = false, compararDefecto = "anio", periodoDefecto = "mes", agruparDefecto = "dia", dias: conDias = true, comparar = true, resumenPrimero = false }: {
   grupos: Grupo[]; ultimo: string; primero: string; stock?: boolean; compararDefecto?: string; periodoDefecto?: string; agruparDefecto?: string;
   /** false: la página no filtra por día de la semana. */
   dias?: boolean;
   /** false: la página no compara periodos (se oculta el selector). */
   comparar?: boolean;
+  /** true: la primera sección de la página es el Resumen ejecutivo; ahí se oculta «agrupar», que no lo afecta. */
+  resumenPrimero?: boolean;
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -77,6 +86,7 @@ export function Filtros({ grupos, ultimo, primero, stock = false, compararDefect
   }
 
   const periodo = sp.get("p") ?? periodoDefecto;
+  const enResumen = resumenPrimero && (sp.get("s") ?? "ejecutivo") === "ejecutivo";
   const agrupar = sp.get("g") ?? agruparDefecto;
   const dias = sp.get("ds") ? sp.get("ds")!.split("").map(Number) : [0, 1, 2, 3, 4, 5, 6];
   const visibles = (g: Grupo) => g.opciones.filter((o) =>
@@ -92,15 +102,15 @@ export function Filtros({ grupos, ultimo, primero, stock = false, compararDefect
         <label className="relative flex items-center">
           <GitCompareArrows size={15} className="absolute left-2.5 text-[var(--tenue)] pointer-events-none" aria-hidden />
           <select id="f-comparar" className="campo !pl-8" value={sp.get("c") ?? compararDefecto} onChange={(e) => poner({ c: e.target.value })} aria-label="Comparar con">
-            {Object.entries(COMPARAR).map(([k, t]) => <option key={k} value={k}>{k === "no" ? t : `vs. ${t.toLowerCase()}`}</option>)}
+            {(Object.keys(COMPARAR) as (keyof typeof COMPARAR)[]).map((k) => <option key={k} value={k}>{COMPARAR_SELECTOR[k]}</option>)}
           </select>
         </label>
         )}
-        <div className="segmento" role="group" aria-label="Agrupar gráficos por">
+        {!enResumen && <div className="segmento" role="group" aria-label="Agrupar gráficos por">
           {[["dia", "Día"], ["semana", "Semana"], ["mes", "Mes"]].map(([k, t]) => (
             <button key={k} type="button" aria-pressed={agrupar === k} onClick={() => poner({ g: k === agruparDefecto ? null : k })}>{t}</button>
           ))}
-        </div>
+        </div>}
 
         {(grupos.length > 0 || stock || conDias) && <details className="relative">
           <summary className={`boton list-none ${activos ? "!border-[var(--acento)] !text-[var(--acento)]" : ""}`}>
@@ -154,11 +164,7 @@ export function Filtros({ grupos, ultimo, primero, stock = false, compararDefect
             <RotateCcw size={14} aria-hidden /> Restablecer
           </button>
         )}
-        {cargando && (
-          <span className="flex items-center gap-1.5 text-xs text-[var(--tenue)]" role="status">
-            <LoaderCircle size={14} className="animate-spin" aria-hidden /> Actualizando…
-          </span>
-        )}
+        <AvisoCargando activo={cargando} />
       </div>
     </div>
   );

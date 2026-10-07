@@ -9,6 +9,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
+import { IndicadorCarga } from "./AvisoCargando";
+import { useInicioCarga } from "@/lib/cargando";
 
 const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck, cuadre: Scale, mes: CalendarCheck } satisfies Record<string, LucideIcon>;
 type IdSeccion = keyof typeof ICONOS;
@@ -96,6 +98,7 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
   const grande = useSyncExternalStore(suscribirPantalla, () => window.matchMedia(CONSULTA_GRANDE).matches, () => true);
   const contraido = grande && guardado; // en pantallas chicas el menú es una barra horizontal
   const actual = secciones.find((s) => s.id === activa) ?? secciones[0];
+  const cargando = useInicioCarga() !== null;
   const IconoActual = ICONOS[actual.id];
 
   function elegir(id: IdSeccion) {
@@ -103,7 +106,7 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
     const p = new URLSearchParams(window.location.search);
     if (id === secciones[0].id) p.delete("s"); else p.set("s", id);
     window.history.replaceState(null, "", `${window.location.pathname}${p.size ? `?${p}` : ""}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
 
   const arbol = grande && !contraido; // menú lateral completo; si no, íconos (contraído) o barra horizontal (celular)
@@ -251,9 +254,12 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
             </div>
           </div>
           <main className="px-4 sm:px-6 2xl:px-10 py-6 grid gap-6 content-start">
+            <IndicadorCarga />
             {encabezado}
             <AnimatePresence mode="wait" initial={false}>
-              <motion.div key={actual.id} className="grid gap-6"
+              {/* Mientras llegan datos nuevos, el contenido viejo se atenúa y no se puede tocar; los filtros (encabezado) siguen activos. */}
+              <motion.div key={actual.id} aria-busy={cargando} inert={cargando}
+                          className={`grid gap-6 transition-opacity duration-150 ${cargando ? "opacity-50 pointer-events-none select-none" : ""}`}
                           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
                 {actual.contenido}

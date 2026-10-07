@@ -86,3 +86,20 @@ export function rangoComparacion(c: Comparar, desde: string, hasta: string): [st
   const n = diasEntre(desde, hasta);
   return [sumarDias(desde, -n), sumarDias(desde, -1)];
 }
+
+const NOMBRES_MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const mayus = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+const finDeMesDe = (s: string) => sumarDias(`${Number(s.slice(5, 7)) === 12 ? Number(s.slice(0, 4)) + 1 : s.slice(0, 4)}-${String(Number(s.slice(5, 7)) % 12 + 1).padStart(2, "0")}-01`, -1);
+/** El periodo dicho en palabras, para que lo entienda cualquiera: «Septiembre 2026», «Enero a septiembre 2026»,
+ *  «1 al 15 de septiembre 2026», «Lunes 29 de septiembre 2026» o, si cruza años, las dos fechas. */
+export function periodoEnPalabras(desde: string, hasta: string): string {
+  const [a1, m1, d1] = [desde.slice(0, 4), Number(desde.slice(5, 7)), Number(desde.slice(8, 10))];
+  const [a2, m2, d2] = [hasta.slice(0, 4), Number(hasta.slice(5, 7)), Number(hasta.slice(8, 10))];
+  if (a1 !== a2) return `${fechaLarga(desde)} al ${fechaLarga(hasta)}`;
+  const mesCompleto = d1 === 1 && hasta === finDeMesDe(hasta);
+  if (desde === hasta) return `${mayus(["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"][diaSemana(desde)])} ${d1} de ${NOMBRES_MES[m1 - 1]} ${a1}`;
+  if (m1 === m2 && mesCompleto) return `${mayus(NOMBRES_MES[m1 - 1])} ${a1}`;
+  if (m1 === m2) return `${d1} al ${d2} de ${NOMBRES_MES[m1 - 1]} ${a1}`;
+  if (d1 === 1 && (mesCompleto || m1 === 1)) return `${mayus(NOMBRES_MES[m1 - 1])} a ${NOMBRES_MES[m2 - 1]}${mesCompleto ? "" : ` (al ${d2})`} ${a1}`;
+  return `${d1} de ${NOMBRES_MES[m1 - 1]} al ${d2} de ${NOMBRES_MES[m2 - 1]} ${a1}`;
+}
