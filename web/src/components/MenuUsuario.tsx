@@ -1,5 +1,8 @@
 "use client";
 
+import { useAcceso } from "./Acceso";
+import { puede } from "@/lib/acceso";
+
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
@@ -8,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 /** Perfil en la barra superior: al hacer clic se abre un menú con Configuración y Cerrar sesión. */
 export function MenuUsuario({ usuario, salir, oscuro = false }: { usuario?: string; salir: () => Promise<void>; oscuro?: boolean }) {
   const [abierto, setAbierto] = useState(false);
+  const acceso = useAcceso();
   const caja = useRef<HTMLDivElement>(null);
   const inicial = (usuario ?? "?").slice(0, 1).toUpperCase();
 
@@ -38,10 +42,11 @@ export function MenuUsuario({ usuario, salir, oscuro = false }: { usuario?: stri
               <p className="text-xs text-[var(--tenue)]">Sesión iniciada como</p>
               <p className="text-sm font-medium truncate" title={usuario}>{usuario}</p>
             </div>
+{puede(acceso, "configuracion") && (
             <Link href="/configuracion" role="menuitem" onClick={() => setAbierto(false)}
                   className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-[var(--superficie-2)]">
               <Settings size={16} className="text-[var(--tenue)]" aria-hidden /> Configuración
-            </Link>
+            </Link>)}
             <form action={salir}>
               <button type="submit" role="menuitem"
                       className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[var(--critico)] hover:bg-[var(--critico-suave)]">

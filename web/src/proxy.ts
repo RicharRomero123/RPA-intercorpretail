@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { inicioDe, rutaPermitida } from "@/lib/acceso";
+import { leerAcceso } from "@/lib/accesoServidor";
 
 /** Se ejecuta antes de cada página: renueva la sesión de Supabase y manda al login a quien no la tenga. */
 export async function proxy(request: NextRequest) {
@@ -31,6 +33,17 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
+  }
+  // Usuarios limitados a ciertos módulos: cualquier otra página los lleva a su inicio (la base ya les bloquea los datos).
+  if (user) {
+    const acceso = await leerAcceso(supabase);
+    const ruta = request.nextUrl.pathname;
+    if (acceso.modulos !== null && (ruta === "/" || !rutaPermitida(acceso, ruta))) {
+      const url = request.nextUrl.clone();
+      url.pathname = inicioDe(acceso);
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
   return response;
 }

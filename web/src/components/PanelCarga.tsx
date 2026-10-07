@@ -6,12 +6,14 @@ import type { Equivalencia, Tipo } from "@/lib/cargas";
 import { FORMATOS } from "@/lib/formatos";
 import { CargarDatos } from "./CargarDatos";
 import { HistorialCargas, type CargaWeb } from "./HistorialCargas";
+import { useAcceso } from "./Acceso";
 
 /** Botón «Cargar reporte» que abre, encima de la página, la carga con vista previa, confirmación e historial. */
 export function PanelCarga({ titulo, solo, equivalencias, skus, correo, cargas }: {
   titulo: string; solo: Tipo; equivalencias: Equivalencia[]; skus: string[]; correo?: string; cargas: CargaWeb[];
 }) {
   const [abierto, setAbierto] = useState(false);
+  const acceso = useAcceso();
   useEffect(() => {
     if (!abierto) return;
     const cerrar = (e: KeyboardEvent) => e.key === "Escape" && setAbierto(false);
@@ -20,6 +22,8 @@ export function PanelCarga({ titulo, solo, equivalencias, skus, correo, cargas }
     return () => { window.removeEventListener("keydown", cerrar); document.body.style.overflow = ""; };
   }, [abierto]);
 
+  // Solo usuarios con acceso completo cargan datos (la base también lo exige).
+  if (acceso.modulos !== null) return null;
   return (
     <>
       <button type="button" className="boton-primario" onClick={() => setAbierto(true)}><Upload size={15} aria-hidden /> {titulo}</button>

@@ -11,6 +11,11 @@ import { MenuUsuario } from "./MenuUsuario";
 import { useState, useSyncExternalStore } from "react";
 import { IndicadorCarga } from "./AvisoCargando";
 import { useInicioCarga } from "@/lib/cargando";
+import { useAcceso } from "./Acceso";
+import { puede, type Modulo } from "@/lib/acceso";
+
+/** Módulo de cada entrada principal del menú (B2B no tiene página: solo para acceso completo). */
+const MODULO_DE: Record<string, Modulo> = { consolidado: "consolidado", retail: "retail", tiendas: "tiendas", "canales/digital": "digital", "canales/rappi": "rappi", b2b: "consolidado" };
 
 const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck, cuadre: Scale, mes: CalendarCheck } satisfies Record<string, LucideIcon>;
 type IdSeccion = keyof typeof ICONOS;
@@ -99,6 +104,7 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
   const contraido = grande && guardado; // en pantallas chicas el menú es una barra horizontal
   const actual = secciones.find((s) => s.id === activa) ?? secciones[0];
   const cargando = useInicioCarga() !== null;
+  const acceso = useAcceso();
   const IconoActual = ICONOS[actual.id];
 
   function elegir(id: IdSeccion) {
@@ -228,9 +234,9 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
 
           {/* Módulos (canales) → tipos → secciones; cada grupo se abre y cierra con un clic en su título */}
           <nav className="flex xl:flex-col gap-1 xl:flex-1 xl:min-h-0 xl:overflow-y-auto scroll-lateral" aria-label="Módulos">
-            {rama(GENERAL, 0)}
+            {puede(acceso, "consolidado") && rama(GENERAL, 0)}
             {!contraido && <span className="hidden xl:block px-3 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-white/40">Módulos</span>}
-            {menu(tiposRetail).map((n) => rama(n, 0))}
+            {menu(tiposRetail).filter((n) => puede(acceso, MODULO_DE[n.id] ?? "consolidado")).map((n) => rama(n, 0))}
           </nav>
         </motion.aside>
 
