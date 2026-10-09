@@ -104,15 +104,15 @@ export function seccionConciliacion(c: ConciliacionSellout, nombre = "Supermerca
             <Tabla archivo={`${corto.toLowerCase()}_proyeccion.xlsx`} hoja="Proyección" filas={prods.map((x) => x.fila)}
                    columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "despachado", titulo: "Despachado und", tipo: "entero" },
                      { clave: "vendido", titulo: "Vendido und", tipo: "entero" }, { clave: "pct", titulo: "% vendido", tipo: "porcentaje" },
-                     { clave: "saldo", titulo: "Por vender und", tipo: "entero" },
-                     { clave: "ritmo", titulo: `Venta und/día (últ. ${a.ultimos.length} d)`, tipo: "decimal1" },
+                     { clave: "saldo", titulo: "Por vender (unidades)", tipo: "entero" },
+                     { clave: "ritmo", titulo: `Unidades vendidas por día (últ. ${a.ultimos.length} d)`, tipo: "decimal1" },
                      { clave: "dias", titulo: "Días para acabarse", tipo: "entero" }, { clave: "agota", titulo: "Se acaba el", tipo: "texto" },
                      { clave: "pct_fin", titulo: `% vendido al ${corta(a.tFin)}`, tipo: "porcentaje" },
                      { clave: "sobra", titulo: `Sobraría al ${corta(a.tFin)} und`, tipo: "entero" },
-                     { clave: "necesita", titulo: "Und/día para venderlo todo", tipo: "decimal1" }]}
+                     { clave: "necesita", titulo: "Unidades por día para venderlo todo", tipo: "decimal1" }]}
                    total={{ ...tot.fila, producto: "TOTAL" }} />
             <p className="text-xs text-[var(--tenue)]">
-              Por vender = despachado − vendido (incluye lo que está en tiendas y en el centro de distribución de {corto}). Días para acabarse = por vender ÷ venta
+              Todo en unidades de producto (no soles), salvo los porcentajes. Por vender = despachado − vendido (incluye lo que está en tiendas y en el centro de distribución de {corto}). Días para acabarse = por vender ÷ venta
               por día de los últimos {a.ultimos.length} días con reporte ({dias(tot.fila.dias)} en total). «Und/día para venderlo todo» es el ritmo que haría falta
               para no tener sobrante al {corta(a.tFin)}: si es mayor que la venta por día actual, sobrará producto. La proyección supone que el ritmo se mantiene;
               en campaña navideña suele subir en diciembre.
