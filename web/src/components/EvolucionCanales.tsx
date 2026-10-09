@@ -8,6 +8,7 @@ import { useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { entero, porcentaje, soles } from "@/lib/formato";
 import { CAJA, EJE, GRILLA, PUNTEADO, compacto } from "@/lib/graficos";
+import { Tabla, type Columna } from "./Tabla";
 
 export type MesDeCanal = { mes: number; real: number | null; meta: number | null; ant: number | null; und?: number | null;
   /** Unidades de cada SKU en el mes (de más a menos), para explicar el total. */ skus?: { producto: string; und: number }[] };
@@ -61,7 +62,7 @@ export function EvolucionCanales({ series, mesCorte, parcial, filtrado = false }
 }) {
   const [eleccion, setVista] = useState<Vista>("juntos");
   const vista: Vista = filtrado ? "separados" : eleccion;
-  const [medida, setMedida] = useState<Medida>("venta");
+  const [medida, setMedida] = useState<Medida>("und");   // lo que más importa: cuántas unidades se venden
   const [foco, setFoco] = useState<string | null>(null);
   const [grande, setGrande] = useState<string | null>(null);
   const etiqueta = (m: number) => `${MESES[m - 1]}${m === mesCorte && parcial ? ` (${parcial})` : ""}`;
@@ -121,7 +122,7 @@ export function EvolucionCanales({ series, mesCorte, parcial, filtrado = false }
           </div>
           <div className="flex items-center gap-2">
             <div className="segmento" role="group" aria-label="Qué medir">
-              {([["venta", "Venta S/"], ["und", "Unidades"]] as [Medida, string][]).map(([k, t]) => (
+              {([["und", "Unidades"], ["venta", "Venta S/"]] as [Medida, string][]).map(([k, t]) => (
                 <button key={k} type="button" aria-pressed={k === "und" ? enUnd : !enUnd} onClick={() => setMedida(k)}
                         disabled={k === "und" && !sGrande.conUnidades}>{t}</button>
               ))}
@@ -137,29 +138,48 @@ export function EvolucionCanales({ series, mesCorte, parcial, filtrado = false }
           {porCanalUnd ? "Unidades de cada mes · pasa el mouse por un mes para ver qué SKU las hicieron." : "Línea de color: real · punteada: meta · gris: año pasado."}
         </p>
         <div className="h-[min(56vh,460px)]">{grafico(sGrande, true)}</div>
+        {porCanalUnd ? (() => {
+          // Desglose completo: cada SKU (fila) por mes (columna), como en Excel, de más a menos unidades.
+          const filas = filasDe(sGrande).filter((x) => x.und);
+          const total = filas.reduce((a, x) => a + (x.und ?? 0), 0);
+          const porSku = new Map<string, Record<string, number | string | null>>();
+          for (const x of filas) for (const k of x.skus ?? []) {
+            const f = porSku.get(k.producto) ?? { producto: k.producto, total: 0 };
+            f[`m${x.mes}`] = Number(f[`m${x.mes}`] ?? 0) + k.und;
+            f.total = Number(f.total) + k.und;
+            porSku.set(k.producto, f);
+          }
+          const lista = [...porSku.values()].sort((a, b) => Number(b.total) - Number(a.total)).map((f) => ({ ...f, part: total ? Number(f.total) / total : null }));
+          return (
+            <div className="grid gap-1.5">
+              <h4 className="text-sm font-semibold">Unidades de cada SKU por mes · {lista.length} SKU</h4>
+              <Tabla archivo={`unidades_sku_${sGrande.canal.toLowerCase()}.xlsx`} hoja={sGrande.nombre} filas={lista} buscar alto={360}
+                     columnas={[{ clave: "producto", titulo: "Producto", tipo: "texto" },
+                       ...filas.map((x) => ({ clave: `m${x.mes}`, titulo: etiqueta(x.mes), tipo: "entero" }) as Columna),
+                       { clave: "total", titulo: "Total und", tipo: "entero" }, { clave: "part", titulo: "% del canal", tipo: "porcentaje" }]}
+                     total={{ producto: "TOTAL", total, part: 1, ...Object.fromEntries(filas.map((x) => [`m${x.mes}`, x.und])) }} />
+            </div>
+          );
+        })() : (
         <div className="overflow-x-auto rounded-lg border border-[var(--linea)]">
           <table className="datos text-[12.5px]">
             <thead>
-              <tr><th>Mes</th>{porCanalUnd
-                ? <><th className="n">Unidades</th><th>SKU que más vendió</th></>
-                : <><th className="n">Real S/</th><th className="n">Meta S/</th><th className="n">Cumplimiento</th><th className="n">Año pasado S/</th><th className="n">vs año pasado</th></>}</tr>
+              <tr><th>Mes</th><><th className="n">Real S/</th><th className="n">Meta S/</th><th className="n">Cumplimiento</th><th className="n">Año pasado S/</th><th className="n">vs año pasado</th></></tr>
             </thead>
             <tbody>
               {filasDe(sGrande).filter((x) => x.real !== null || x.und).map((x) => (
                 <tr key={x.mes}>
                   <td>{etiqueta(x.mes)}</td>
-                  {porCanalUnd
-                    ? <><td className="n num">{x.und ? entero(x.und) : "—"}</td>
-                        <td>{x.skus?.[0] ? `${x.skus[0].producto} · ${entero(x.skus[0].und)} (${porcentaje(x.skus[0].und / (x.und || 1))})` : "—"}</td></>
-                    : <><td className="n num">{x.real === null ? "—" : soles(x.real)}</td><td className="n num">{x.meta ? soles(x.meta) : "—"}</td>
+                  <><td className="n num">{x.real === null ? "—" : soles(x.real)}</td><td className="n num">{x.meta ? soles(x.meta) : "—"}</td>
                         <td className="n num">{x.real !== null && x.meta ? porcentaje(x.real / x.meta) : "—"}</td>
                         <td className="n num">{x.ant ? soles(x.ant) : "—"}</td>
-                        <td className={`n num ${x.real !== null && x.ant ? (x.real >= x.ant ? "text-[var(--bueno)]" : "text-[var(--critico)]") : ""}`}>{x.real !== null && x.ant ? signo(x.real / x.ant - 1) : "—"}</td></>}
+                        <td className={`n num ${x.real !== null && x.ant ? (x.real >= x.ant ? "text-[var(--bueno)]" : "text-[var(--critico)]") : ""}`}>{x.real !== null && x.ant ? signo(x.real / x.ant - 1) : "—"}</td></>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </dialog>
   );
@@ -175,8 +195,8 @@ export function EvolucionCanales({ series, mesCorte, parcial, filtrado = false }
           </div>
         )}
         <div className="segmento" role="group" aria-label="Qué medir">
-          {((vista === "juntos" ? [["venta", "Venta S/"], ["und", "Unidades"], ["cumpl", "Cumplimiento"], ["crec", "vs año pasado"]]
-            : [["venta", "Venta S/"], ["und", "Unidades"]]) as [Medida, string][]).map(([k, t]) => (
+          {((vista === "juntos" ? [["und", "Unidades"], ["venta", "Venta S/"], ["cumpl", "Cumplimiento"], ["crec", "vs año pasado"]]
+            : [["und", "Unidades"], ["venta", "Venta S/"]]) as [Medida, string][]).map(([k, t]) => (
             <button key={k} type="button" aria-pressed={medida === k || (vista === "separados" && k === "venta" && !enUnd)} onClick={() => setMedida(k)}>{t}</button>
           ))}
         </div>

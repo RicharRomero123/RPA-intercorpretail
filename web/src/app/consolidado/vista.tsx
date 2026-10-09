@@ -321,7 +321,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
       {/* 2b. Evolución de cada canal en curvas */}
       {canales.length > 0 && (
         <Tarjeta icono={TrendingUp} titulo={selC?.length === 1 ? `Evolución mes a mes: ${nombre(selC[0])}` : "Evolución mes a mes por canal"}
-                 subtitulo={`Venta real ${anio} ${selC?.length === 1 ? "del canal" : "de cada canal"}, con su meta y ${anio - 1}`}>
+                 subtitulo={`Unidades vendidas ${selC?.length === 1 ? "del canal" : "por canal"} cada mes de ${anio} · en Venta S/, con su meta y ${anio - 1}`}>
           <EvolucionCanales filtrado={!!selC} mesCorte={mesCorte} parcial={enCurso ? `al ${diaCorte}` : null}
                             series={canales.map((c) => {
                               // Unidades: del detalle por producto (solo los canales que lo traen; el consolidado solo tiene soles).
