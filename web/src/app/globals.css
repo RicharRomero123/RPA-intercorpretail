@@ -17,6 +17,8 @@
   --serie-2: #5c1a07;
   --serie-3: #c9a227;
   --serie-gris: #b8a79a;
+  /* Canales (productos por canal): paleta validada con dataviz (claro y oscuro, también con daltonismo). */
+  --canal-tiendas: #e07812; --canal-lima: #0a86c2; --canal-retail: #9a3f1c; --canal-provincia: #c99a1a; --canal-b2b: #2f8a66; --canal-rappi: #7a5aa6;
   --bueno: #0f8a4a;
   --bueno-suave: #e3f5ea;
   --alerta: #a45f00;
@@ -43,6 +45,7 @@
     --serie-2: #d98b6a;
     --serie-3: #e3c35a;
     --serie-gris: #6e5a4d;
+    --canal-tiendas: #d5741f; --canal-lima: #3b92d4; --canal-retail: #b04437; --canal-provincia: #b39029; --canal-b2b: #4caa85; --canal-rappi: #9b82c9;
     --bueno: #4ade80;
     --bueno-suave: #11301f;
     --alerta: #f5b544;

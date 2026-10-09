@@ -30,11 +30,24 @@ export function seccionAvanceMes(m: AvanceMes, meta: number | null, conTiendas: 
   const lySemCerrado = cerrados.reduce((a, d) => a + (d.ly_sem ?? 0), 0);
   const conLY = lySemCerrado > 0 && faltan.every((d) => d.ly_sem !== null);
   const ritmo = conLY ? realCerrado / lySemCerrado : null;
-  const promedio = cerrados.length ? realCerrado / cerrados.length : 0;
-  const esperadoDia = (d: AvanceMes["dias"][number]) => (conLY ? (d.ly_sem ?? 0) * ritmo! : promedio);
+  // Sin año pasado: promedio de los días con venta. Un día de la semana que en el mes siempre vendió 0 (p. ej. el domingo en
+  // Provincia, que no despacha) se proyecta en 0, para no repartir el promedio en días que no se trabaja.
+  const dow = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay();
+  const conVenta = cerrados.filter((d) => (d.venta ?? 0) > 0);
+  const promedio = conVenta.length ? conVenta.reduce((a, d) => a + (d.venta ?? 0), 0) / conVenta.length : 0;
+  const recientes = conVenta.slice(-5);
+  const promedioReciente = recientes.length ? recientes.reduce((a, d) => a + (d.venta ?? 0), 0) / recientes.length : 0;
+  const noSeTrabaja = (d: AvanceMes["dias"][number]) => {
+    const iguales = cerrados.filter((x) => dow(x.dia) === dow(d.dia));
+    return iguales.length > 0 && iguales.every((x) => !x.venta);
+  };
+  const esperadoDia = (d: AvanceMes["dias"][number], base = promedio) => (conLY ? (d.ly_sem ?? 0) * ritmo! : noSeTrabaja(d) ? 0 : base);
   // Hoy: lo que ya se vendió o lo esperado del día completo, lo que sea mayor.
   const proyeccion = realCerrado + faltan.reduce((a, d) => a + (hoy && d.dia === hoy.dia ? Math.max(hoy.venta ?? 0, esperadoDia(d)) : esperadoDia(d)), 0);
-  const necesario = meta !== null && faltan.length ? Math.max(0, meta - realCerrado) / faltan.length : null;
+  // Con el ritmo de los últimos 5 días con venta (sin año pasado): el otro extremo del rango.
+  const proyReciente = conLY ? null : realCerrado + faltan.reduce((a, d) => a + (hoy && d.dia === hoy.dia ? Math.max(hoy.venta ?? 0, esperadoDia(d, promedioReciente)) : esperadoDia(d, promedioReciente)), 0);
+  const diasPorVender = conLY ? faltan.length : faltan.filter((d) => !noSeTrabaja(d)).length;
+  const necesario = meta !== null && diasPorVender ? Math.max(0, meta - realCerrado) / diasPorVender : null;
 
   // Serie acumulada para el gráfico.
   let acR = 0, acP = 0, acL = 0;
@@ -69,7 +82,7 @@ export function seccionAvanceMes(m: AvanceMes, meta: number | null, conTiendas: 
 
       {(() => {
         // Titular: la conclusión en una frase (¿llego a la meta? ¿cuánto más por día?).
-        const porDia = cerrados.length ? realCerrado / cerrados.length : null;
+        const porDia = conLY ? (cerrados.length ? realCerrado / cerrados.length : null) : conVenta.length ? promedio : null;
         const llega = meta !== null && proyeccion >= meta;
         const color = meta === null ? "var(--tinta)" : llega ? "var(--bueno)" : proyeccion >= meta * 0.9 ? "var(--alerta)" : "var(--critico)";
         return (
@@ -91,6 +104,14 @@ export function seccionAvanceMes(m: AvanceMes, meta: number | null, conTiendas: 
               {lyMes ? ` · ${mes} ${anio - 1}: ${soles(lyMes)}` : ""} · con {cerrados.length} {cerrados.length === 1 ? "día cerrado" : "días cerrados"}
               {cerrados.length < 7 ? " (todavía cambia mucho; se vuelve confiable a mediados de mes)" : ""}.
             </p>
+            {proyReciente !== null && Math.abs(proyReciente - proyeccion) >= 1 && (
+              <p className="text-xs text-[var(--tenue)]">
+                Rango: <b className="num text-[var(--tinta)]">{soles(Math.min(proyeccion, proyReciente))}</b> a <b className="num text-[var(--tinta)]">{soles(Math.max(proyeccion, proyReciente))}</b>
+                {meta !== null && <> ({porcentaje(Math.min(proyeccion, proyReciente) / meta)} a {porcentaje(Math.max(proyeccion, proyReciente) / meta)} de la meta)</>}.
+                Cómo se calcula: lo vendido + cada día que falta × el promedio por día con venta ({soles(promedio)}; con el ritmo de los últimos {recientes.length} días,
+                {" "}{soles(promedioReciente)}). Los días de la semana sin venta en el mes (como el domingo) cuentan 0 · faltan {diasPorVender} días de venta.
+              </p>
+            )}
           </section>
         );
       })()}

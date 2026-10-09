@@ -277,6 +277,11 @@ def elegir(rep, nombre: str):
         rb.GetSelectionItemPattern().Select()
         time.sleep(0.3)
     if not rb.GetSelectionItemPattern().IsSelected:
+        # Algunos radios de ContaNet ignoran Select() cuando otro quedó marcado a mano (p. ej. «Dólares» en vez de «Soles», 09/10/2026):
+        # su acción por defecto (LegacyIAccessible, «Doble clic») sí los marca, sin mover el mouse.
+        rb.GetLegacyIAccessiblePattern().DoDefaultAction()
+        time.sleep(0.5)
+    if not rb.GetSelectionItemPattern().IsSelected:
         raise RuntimeError(f"No pude elegir «{nombre}».")
 
 

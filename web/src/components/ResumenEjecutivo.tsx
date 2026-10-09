@@ -68,7 +68,7 @@ function usePeriodo() {
 
 /** Tiendas (o clientes) contra su meta: barra del real con una marca de la meta (gráfico de bala). Tocar una fila filtra la página. */
 /** Variación como barra que nace en el centro: a la derecha (verde) si sube, a la izquierda (rojo) si baja. ±25% llena el lado. */
-function BarraVariacion({ v, tope = 0.25 }: { v: number | null; tope?: number }) {
+export function BarraVariacion({ v, tope = 0.25 }: { v: number | null; tope?: number }) {
   const ancho = v === null ? 0 : Math.min(Math.abs(v) / tope, 1) * 50;
   return (
     <div className="relative h-2 rounded-full bg-[var(--neutro-suave)]" aria-hidden>
@@ -80,7 +80,7 @@ function BarraVariacion({ v, tope = 0.25 }: { v: number | null; tope?: number })
 }
 
 /** Cumplimiento como medidor: se llena hasta el % y una raya café marca la meta (o, en el año a la fecha, dónde deberías ir hoy). */
-function Medidor({ c, marca, color }: { c: number | null; marca: number; color: string }) {
+export function Medidor({ c, marca, color }: { c: number | null; marca: number; color: string }) {
   const escala = Math.max(1, marca, (c ?? 0) * 1.05);
   return (
     <div className="relative h-2 rounded-full bg-[var(--neutro-suave)]" aria-hidden>

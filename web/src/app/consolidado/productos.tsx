@@ -1,27 +1,31 @@
 // Productos más vendidos entre todos los canales: unidades de cada SKU por mes (función sku_mensual).
 // Entran los canales con detalle por producto (Tiendas, Lima, Provincia y Retail); B2B y Rappi no lo tienen.
+import { GraficosProductos } from "@/components/GraficosProductos";
 import { Pestanas } from "@/components/Pestanas";
 import { Tabla, type Columna } from "@/components/Tabla";
 import { porcentaje } from "@/lib/formato";
 
 export type FilaSku = { mes: number; canal: string; sku: string; producto: string; und: number; venta: number };
 
-const CANALES = ["TIENDAS", "RETAIL", "LIMA", "PROVINCIA"];
+const TODOS = ["TIENDAS", "RETAIL", "LIMA", "PROVINCIA"];
 type Reg = { sku: string; producto: string; und: number; venta: number; puesto?: number; part?: number | null;
              [k: string]: string | number | null | undefined };
 const nombreCanal = (c: string) => c.charAt(0) + c.slice(1).toLowerCase();
 
-export function ProductosTop({ filas, mesCorte, etiquetaMes, sinDetalle, totalNegocio, archivo }: {
-  filas: FilaSku[]; mesCorte: number; etiquetaMes: (m: number) => string;
+export function ProductosTop({ filas, meses, periodo, canales: elegidos, nombreTotal = "Total del negocio", etiquetaMes, sinDetalle, totalNegocio, archivo }: {
+  filas: FilaSku[]; /** Meses a sumar (seguidos o no). */ meses: number[]; /** Los meses en palabras, p. ej. «ene–mar, sep». */ periodo: string; nombreTotal?: string; /** Canales elegidos arriba (sin elegir: los 4 con detalle). */ canales?: string[];
+  etiquetaMes: (m: number) => string;
   sinDetalle: { canal: string; monto: number }[]; totalNegocio: number; archivo: string;
 }) {
-  const meses = Array.from({ length: mesCorte }, (_, i) => i + 1);
+  const CANALES = TODOS.filter((c) => !elegidos || elegidos.includes(c));
   const porSku = new Map<string, Reg>();
   for (const f of filas) {
-    if (f.mes > mesCorte) continue;
+    if (!meses.includes(f.mes)) continue;
     const x: Reg = porSku.get(f.sku) ?? { sku: f.sku, producto: f.producto, und: 0, venta: 0 };
     x[`m${f.mes}`] = Number(x[`m${f.mes}`] ?? 0) + f.und;
+    x[`v_m${f.mes}`] = Number(x[`v_m${f.mes}`] ?? 0) + f.venta;
     x[f.canal] = Number(x[f.canal] ?? 0) + f.und;
+    x[`v_${f.canal}`] = Number(x[`v_${f.canal}`] ?? 0) + f.venta;
     x[`${f.canal}_m${f.mes}`] = Number(x[`${f.canal}_m${f.mes}`] ?? 0) + f.und;
     x.und += f.und;
     x.venta += f.venta;
@@ -45,7 +49,6 @@ export function ProductosTop({ filas, mesCorte, etiquetaMes, sinDetalle, totalNe
   const ventaSku = todos.reduce((s, x) => s + x.venta, 0);
   const cuadre = totalNegocio - ventaSku - sinDetalle.reduce((s, x) => s + x.monto, 0);
   const exacto = (x: number) => `S/ ${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const maxUnd = Number(top[0]?.und ?? 0);
   const partTop = totalUnd ? suma(top, "und") / totalUnd : null;
 
   // Tabla de doble entrada: cada producto del top 10 con una fila por canal (y su total), los meses en columnas.
@@ -103,18 +106,6 @@ export function ProductosTop({ filas, mesCorte, etiquetaMes, sinDetalle, totalNe
 
   const ranking = (
     <div className="grid gap-4">
-      <ol className="grid gap-1.5">
-        {top.map((x) => (
-          <li key={String(x.sku)} className="grid grid-cols-[1.5rem_minmax(0,14rem)_1fr_auto] items-center gap-3 text-sm">
-            <span className="num text-[var(--tenue)] text-right">{x.puesto}</span>
-            <span className="truncate" title={`${x.producto} · ${x.sku}`}>{String(x.producto)}</span>
-            <span className="h-3 rounded bg-[var(--acento-suave)]">
-              <span className="block h-3 rounded bg-[var(--acento)]" style={{ width: `${maxUnd ? (Number(x.und) / maxUnd) * 100 : 0}%` }} />
-            </span>
-            <span className="num text-right whitespace-nowrap">{Number(x.und).toLocaleString("en-US")} und · {porcentaje(x.part)}</span>
-          </li>
-        ))}
-      </ol>
       <Tabla archivo={`top10_sku_${archivo}.xlsx`} hoja="Top 10" filas={top} columnas={porMes} total={total(top, "TOTAL TOP 10")} />
     </div>
   );
@@ -122,9 +113,17 @@ export function ProductosTop({ filas, mesCorte, etiquetaMes, sinDetalle, totalNe
   return (
     <div className="grid gap-4">
       <p className="text-sm text-[var(--tenue)] max-w-4xl">
-        Los 10 productos con más <b className="text-[var(--tinta)]">unidades</b> vendidas en el año sumando todos los canales: concentran
+        Los 10 productos con más <b className="text-[var(--tinta)]">unidades</b> vendidas en el periodo sumando todos los canales: concentran
         el <b className="text-[var(--tinta)]">{porcentaje(partTop)}</b> de las {totalUnd.toLocaleString("en-US")} unidades.
       </p>
+      <GraficosProductos soloGrupos={CANALES} meses={meses} etiquetas={Object.fromEntries(meses.map((m) => [m, etiquetaMes(m)]))}
+                         total={{ und: totalUnd, venta: todos.reduce((s, x) => s + x.venta, 0) }}
+                         productos={top.map((x) => ({
+                           sku: String(x.sku), producto: String(x.producto), und: Number(x.und), venta: Number(x.venta),
+                           canales: Object.fromEntries(CANALES.map((c) => [c, { und: Number(x[c] ?? 0), venta: Number(x[`v_${c}`] ?? 0) }])),
+                           meses: Object.fromEntries(meses.map((m) => [m, { und: Number(x[`m${m}`] ?? 0), venta: Number(x[`v_m${m}`] ?? 0) }])),
+                         }))} />
+      <h4 className="text-sm font-semibold">Los números, en detalle</h4>
       <Pestanas pestanas={[
         { id: "top", titulo: "Top 10 por mes", contenido: ranking },
         { id: "canal", titulo: "Top 10 por canal y mes", contenido: cruce },
@@ -134,11 +133,11 @@ export function ProductosTop({ filas, mesCorte, etiquetaMes, sinDetalle, totalNe
       {/* Cuadre con el total del negocio: productos + canales sin detalle por producto */}
       <div className="w-fit max-w-full overflow-x-auto rounded-lg border border-[var(--linea)]">
         <table className="datos text-[12.5px]">
-          <thead><tr><th>Cuadre con el total del negocio (ene–{etiquetaMes(mesCorte).toLowerCase()})</th><th className="n">Venta S/</th></tr></thead>
+          <thead><tr><th>Cuadre con el {nombreTotal.toLowerCase()} ({periodo})</th><th className="n">Venta S/</th></tr></thead>
           <tbody>
             <tr><td>Productos (Tiendas, Retail, Lima y Provincia)</td><td className="n num">{exacto(ventaSku)}</td></tr>
             {sinDetalle.map((x) => <tr key={x.canal}><td>+ {x.canal} (no trae detalle por producto)</td><td className="n num">{exacto(x.monto)}</td></tr>)}
-            <tr className="total"><td>= Total del negocio</td><td className="n num">{exacto(totalNegocio)}</td></tr>
+            <tr className="total"><td>= {nombreTotal}</td><td className="n num">{exacto(totalNegocio)}</td></tr>
             {Math.abs(cuadre) >= 1 && <tr><td>Diferencia por revisar</td><td className="n num text-[var(--critico)]">{exacto(cuadre)}</td></tr>}
           </tbody>
         </table>

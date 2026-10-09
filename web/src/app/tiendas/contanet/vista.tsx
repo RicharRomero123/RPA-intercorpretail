@@ -1,6 +1,6 @@
 // Vista Tiendas · ContaNet: venta de las tiendas según el ERP (comprobantes), con más detalle que el Power BI:
 // tickets, hora, medio de pago, tipo de comprobante y clientes identificados.
-import { CalendarDays, Clock, CreditCard, FileText, IdCard, Package, Store } from "lucide-react";
+import { CalendarDays, Clock, CreditCard, FileText, IdCard, Map as IconoMapa, Package, Store } from "lucide-react";
 import { salir } from "@/app/login/actions";
 import { EnlaceCarga } from "@/components/EnlaceCarga";
 import { Filtros } from "@/components/Filtros";
@@ -15,6 +15,7 @@ import type { Equivalencia } from "@/lib/cargas";
 import { conGeo, parametros, type CanalContaNet, type ClaveGeo, type FiltroContaNet, type MaestrosContaNet, type OpcionesGeo, type PanelContaNet, type Zona } from "@/lib/contanet";
 import { ClientesContaNet, type ClienteTienda } from "@/components/ClientesContaNet";
 import { ProductoTienda } from "@/components/ProductoTienda";
+import { MapaDepartamentos, type FilaDepartamento } from "@/components/MapaDepartamentos";
 import type { ProductoTienda as FilaProductoTienda } from "@/lib/contanet";
 import type { Avance } from "@/lib/contanet";
 import { seccionAvance } from "./avance";
@@ -175,6 +176,21 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   const tiendaSola = filtro.tiendas.length === 1 ? filtro.tiendas[0] : null;
   // Vista rápida por tienda: botones arriba (solo si son pocas, como las 7 tiendas o Lima/Provincia).
   const vistaTiendas = cfg.porTienda && m.tiendas.length > 1 && m.tiendas.length <= 12;
+  /** Enlace a la misma página cambiando un filtro (null = quitarlo) y, si se pide, la sección; conserva el resto. */
+  const conFiltro = (cambios: Record<string, string | null>) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (uno(v) && !(k in cambios)) q.set(k, uno(v)!);
+    for (const [k, v] of Object.entries(cambios)) if (v) q.set(k, v);
+    return q.size ? `?${q}` : "?";
+  };
+  // Filtros activos, a la vista en todas las secciones (con ✕ para quitar cada uno).
+  const activos: { etiqueta: string; quitar: string }[] = [
+    ...GEO.flatMap((g) => (filtro.geo?.[g.clave] ?? []).map((v) => ({ etiqueta: `${g.etiqueta}: ${v}`, quitar: conFiltro({ [g.clave]: null }) }))),
+    ...(!vistaTiendas && filtro.tiendas.length ? [{ etiqueta: `${cfg.dim}: ${filtro.tiendas.join(", ")}`, quitar: conFiltro({ tienda: null }) }] : []),
+    ...(filtro.skus.length ? [{ etiqueta: `Producto: ${m.productos.filter((p) => filtro.skus.includes(p.sku)).map((p) => p.producto).join(", ")}`, quitar: conFiltro({ prod: null }) }] : []),
+    ...(filtro.medios.length ? [{ etiqueta: `Medio de pago: ${filtro.medios.join(", ")}`, quitar: conFiltro({ medio: null }) }] : []),
+  ];
+  const zonaElegida = filtro.geo?.dist?.[0] ?? filtro.geo?.prov?.[0] ?? filtro.geo?.dep?.[0] ?? null;
   const archivo = (n: string) => `tiendas_contanet_${n}_${desde}_${hasta}.xlsx`;
   const vacio = <p className="text-sm text-[var(--tenue)]">No hay ventas con estos filtros.</p>;
   const etiqueta = (p: string) => (agrupar === "mes" ? `${p.slice(5, 7)}/${p.slice(0, 4)}` : fechaLarga(p));
@@ -209,6 +225,16 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
           <EnlaceCarga href={conTienda(null)} aria-current={!filtro.tiendas.length || undefined}>Todas</EnlaceCarga>
           {m.tiendas.map((x) => <EnlaceCarga key={x} href={conTienda(x)} aria-current={tiendaSola === x || undefined}>{x}</EnlaceCarga>)}
         </nav>
+      )}
+      {activos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Filtros activos">
+          {activos.map((a) => (
+            <EnlaceCarga key={a.etiqueta} href={a.quitar} title="Quitar este filtro"
+                         className="presionable inline-flex items-center gap-1.5 rounded-full bg-[var(--acento-suave)] px-3 py-1 text-xs font-medium text-[var(--acento)] hover:brightness-95">
+              {a.etiqueta} <span aria-hidden>✕</span><span className="sr-only">(quitar)</span>
+            </EnlaceCarga>
+          ))}
+        </div>
       )}
       <FranjaComparacion desde={desde} hasta={hasta} comp={comp} tipo={comparar} hayDatos={hayComp} />
       {esDigital && (() => {
@@ -251,6 +277,28 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
   })();
   const nombreZona = zonaClave === "distrito" ? "Distrito" : "Provincia";
 
+  // Compras por departamento (mapa). Lima delivery no trae departamento: cuenta como Lima, y sus distritos del Callao como Callao.
+  // Lima y Callao con delivery no se filtran desde el mapa (el filtro por departamento solo alcanza a los pedidos de provincia).
+  const CALLAO = new Set(["CALLAO", "BELLAVISTA", "CARMEN DE LA LEGUA REYNOSO", "CARMEN DE LA LEGUA", "LA PERLA", "LA PUNTA", "VENTANILLA", "MI PERU"]);
+  const norma = (x: string) => (x ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim();
+  const porDepartamento = (() => {
+    const mm = new Map<string, { departamento: string; venta: number; pedidos: number; clientes: number; delivery: number; prov: number }>();
+    let sinUbicar = 0;
+    for (const z of zonas) {
+      const lima = z.subcanal === "Lima";
+      const dep = lima ? (CALLAO.has(norma(z.distrito)) ? "Callao" : "Lima") : z.departamento && z.departamento !== "Sin departamento" ? z.departamento : null;
+      if (!dep) { sinUbicar += z.venta; continue; }
+      const a = mm.get(dep) ?? { departamento: dep, venta: 0, pedidos: 0, clientes: 0, delivery: 0, prov: 0 };
+      a.venta += z.venta; a.pedidos += z.pedidos; a.clientes += z.clientes;
+      if (lima) a.delivery += z.venta; else a.prov += z.venta;
+      mm.set(dep, a);
+    }
+    const filas: FilaDepartamento[] = [...mm.values()].map((x) => ({ departamento: x.departamento, venta: x.venta, pedidos: x.pedidos, clientes: x.clientes,
+      detalle: x.delivery && x.prov ? `Delivery ${soles(x.delivery)} · provincias ${soles(x.prov)}` : x.delivery ? "Delivery (Lima Metropolitana)" : undefined,
+      filtrable: !x.delivery }));
+    return { filas, sinUbicar };
+  })();
+
   const seccionVentas = (
     <>
       <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
@@ -271,9 +319,15 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
                                 metricas={["venta", "und"]} nombres={{ venta: "Venta" }} />
             </div>
             {fuente.geo && porZona.length > 0 ? (
-              <Tarjeta icono={Store} titulo={`${nombreZona === "Distrito" ? "Distritos" : "Provincias"} que más compran`} subtitulo={rango}>
-                {barras(porZona.slice(0, 10).map((x) => ({ etiqueta: zonaClave === "provincia" ? `${x.zona} · ${x.departamento}` : x.zona, valor: x.venta,
-                  detalle: `${entero(x.pedidos)} pedidos · ${entero(x.clientes)} clientes` })))}
+              <Tarjeta icono={Store} titulo={`${nombreZona === "Distrito" ? "Distritos" : "Provincias"} que más compran`} subtitulo={`${rango} · toca una para ver solo esa`}>
+                {barras(porZona.slice(0, 10).map((x) => {
+                  const clave = zonaClave === "distrito" ? "dist" : "prov", sola = filtro.geo?.[clave]?.length === 1 && filtro.geo[clave]![0] === x.zona;
+                  return { etiqueta: zonaClave === "provincia" ? `${x.zona} · ${x.departamento}` : x.zona, valor: x.venta,
+                    detalle: `${entero(x.pedidos)} pedidos · ${entero(x.clientes)} clientes`, href: conFiltro({ [clave]: sola ? null : x.zona }), activo: sola };
+                }))}
+                {zonaElegida && (
+                  <EnlaceCarga href={conFiltro({ s: "detalle" })} className="boton-primario presionable w-fit">Ver el detalle de {zonaElegida} →</EnlaceCarga>
+                )}
               </Tarjeta>
             ) : cfg.porTienda ? (
               <Tarjeta icono={Store} titulo={`Venta por ${cfg.dim.toLowerCase()}`}
@@ -290,6 +344,11 @@ export async function vistaContaNet(canal: CanalContaNet, sp: Params, usuario: s
               </Tarjeta>
             )}
           </div>
+          {fuente.geo && canal !== "digital_lima" && porDepartamento.filas.length > 0 && (
+            <Tarjeta icono={IconoMapa} titulo="Compras por departamento" subtitulo={`${rango} · más oscuro, más compras`}>
+              <MapaDepartamentos filas={porDepartamento.filas} sinUbicar={porDepartamento.sinUbicar} />
+            </Tarjeta>
+          )}
           <div className="grid gap-4 @5xl:grid-cols-3">
             <Tarjeta className="@5xl:col-span-2" icono={CalendarDays} titulo={`Detalle por ${agrupar === "dia" ? "día" : agrupar}`} subtitulo={rango}>
               <Tabla archivo={archivo("detalle")} hoja="Detalle" alto={360}

@@ -1,16 +1,19 @@
 // Vista del Resumen general: el Excel «Consolidado-all-canales» (VENTAS NEGOCIO) mapeado a la web.
 // Por canal y por mes: 2025, real, meta, variación vs 2025, variación vs meta y cumplimiento.
-import { CalendarRange, Grid3x3, Layers, Package, Store } from "lucide-react";
+import { CalendarRange, Grid3x3, Layers, Package, Store, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { salir } from "@/app/login/actions";
 import { GraficoCanales } from "@/components/GraficoCanales";
+import { EvolucionCanales } from "@/components/EvolucionCanales";
 import { GraficoConsolidado } from "@/components/GraficoConsolidado";
-import { Indicador } from "@/components/Graficos";
+import { BarraVariacion, Medidor } from "@/components/ResumenEjecutivo";
 import { Marco, type TipoRetail } from "@/components/Marco";
-import { Pestanas } from "@/components/Pestanas";
+import { SelectorCanales } from "@/components/SelectorCanales";
+import { SelectorMeses } from "@/components/SelectorMeses";
 import { Tabla } from "@/components/Tabla";
 import { Tarjeta } from "@/components/ui";
 import { millones, porcentaje, soles } from "@/lib/formato";
+import { leerMeses, nombrarMeses, rangoMeses } from "@/lib/meses";
 import { fechaLarga } from "@/lib/periodos";
 import { type FilaSku, ProductosTop } from "./productos";
 
@@ -35,6 +38,10 @@ export type DatosTiendas = {
 /** Color del cumplimiento: verde ≥ 100%, ámbar 90–99%, rojo < 90%. */
 const colorCumpl = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x >= 1 ? "bg-[var(--bueno-suave)] text-[var(--bueno)]"
   : x >= 0.9 ? "bg-[var(--alerta-suave)] text-[var(--alerta)]" : "bg-[var(--critico-suave)] text-[var(--critico)]");
+/** Etiqueta del cumplimiento, igual que en el resumen de cada canal. */
+const estado = (c: number | null) => (c === null ? null : c >= 1 ? { texto: "En meta", tinta: "text-[var(--bueno)]", fondo: "bg-[var(--bueno-suave)]" }
+  : c >= 0.9 ? { texto: "Cerca de la meta", tinta: "text-[var(--alerta)]", fondo: "bg-[var(--alerta-suave)]" }
+  : { texto: "Bajo la meta", tinta: "text-[var(--critico)]", fondo: "bg-[var(--critico-suave)]" });
 const colorVar = (x: number | null) => (x === null ? "text-[var(--tenue)]" : x >= 0 ? "text-[var(--bueno)]" : "text-[var(--critico)]");
 
 export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; corte: string } | null, tipos: TipoRetail[], usuario: string | undefined,
@@ -47,44 +54,47 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
   const corte = String(carga.corte);
   const anio = Number(corte.slice(0, 4)), mesCorte = Number(corte.slice(5, 7)), diaCorte = Number(corte.slice(8, 10));
   const enCurso = new Date(Date.UTC(anio, mesCorte, 0)).getUTCDate() !== diaCorte;
-  const val = (canal: string, a: number, mes: number, tipo: "real" | "meta") => celdas.find((c) => c.canal === canal && c.anio === a && c.mes === mes)?.[tipo] ?? null;
-  const suma = (canal: string, a: number, hasta: number, tipo: "real" | "meta", desde = 1) => {
-    let s = 0;
-    for (let m = desde; m <= hasta; m++) s += val(canal, a, m, tipo) ?? 0;
-    return s;
-  };
-  const canales = [...new Set(celdas.map((c) => c.canal))].filter((c) => c !== TOTAL)
+  const todosCanales = [...new Set(celdas.map((c) => c.canal))].filter((c) => c !== TOTAL)
     .sort((a, b) => (ORDEN.indexOf(a) + 1 || 99) - (ORDEN.indexOf(b) + 1 || 99))
-    .filter((c) => suma(c, anio, 12, "real") || suma(c, anio, 12, "meta"));
+    .filter((c) => celdas.some((x) => x.canal === c && x.anio === anio && (x.real || x.meta)));
+  // Canales elegidos arriba (?c=TIENDAS,LIMA), como el filtro de Excel: el total pasa a ser la suma de esos canales.
+  const pedidoC = String(Array.isArray(sp.c) ? sp.c[0] : sp.c ?? "").split(",").filter((c) => todosCanales.includes(c));
+  const selC = pedidoC.length && pedidoC.length < todosCanales.length ? todosCanales.filter((c) => pedidoC.includes(c)) : null;
+  const canales = selC ?? todosCanales;
+  const datos = !selC ? celdas : [...celdas.filter((c) => selC.includes(c.canal)),
+    ...Object.values(celdas.filter((c) => selC.includes(c.canal)).reduce<Record<string, Celda>>((t, c) => {
+      const k = `${c.anio}-${c.mes}`, x = (t[k] ??= { canal: TOTAL, anio: c.anio, mes: c.mes, real: null, meta: null });
+      if (c.real !== null) x.real = (x.real ?? 0) + c.real;
+      if (c.meta !== null) x.meta = (x.meta ?? 0) + c.meta;
+      return t;
+    }, {}))];
+  const nombreTotal = selC ? (selC.length === 1 ? nombre(selC[0]) : "Total de los canales elegidos") : "Total del negocio";
+  /** Página de detalle: la del canal, o la del único canal elegido cuando el total es ese canal. */
+  const rutaDe = (c: string) => RUTA[c === TOTAL && selC?.length === 1 ? selC[0] : c];
+  const nombreDe = (c: string) => (c === TOTAL ? nombreTotal : nombre(c));
+  const val = (canal: string, a: number, mes: number, tipo: "real" | "meta") => datos.find((c) => c.canal === canal && c.anio === a && c.mes === mes)?.[tipo] ?? null;
+  /** Suma de una lista de meses (seguidos o no). */
+  const sumaEn = (canal: string, a: number, meses: number[], tipo: "real" | "meta") => meses.reduce((s, m) => s + (val(canal, a, m, tipo) ?? 0), 0);
+  const suma = (canal: string, a: number, hasta: number, tipo: "real" | "meta", desde = 1) => sumaEn(canal, a, rangoMeses(desde, hasta), tipo);
   // Resúmenes justos: solo meses cerrados (el mes en curso tiene meta y año anterior de mes completo). El mes en curso va aparte.
   const cerr = enCurso ? mesCorte - 1 : mesCorte;
-  const tramo = cerr ? `ene–${MESES[cerr - 1].toLowerCase()}` : "—";
+  // Meses elegidos arriba (?m=9, ?m=1-3,9): mandan en toda la página. Sin elegir: los meses cerrados del año.
+  const sel = leerMeses(Array.isArray(sp.m) ? sp.m[0] : sp.m, mesCorte);
+  const lista = sel ?? rangoMeses(1, cerr);
+  const tramo = lista.length ? nombrarMeses(lista, true) : "—";
+  const tipoTramo = sel ? (sel.length > 1 ? "elegidos" : "elegido") : "cerrado";
   const mesTxt = `${MESES[mesCorte - 1]} al ${diaCorte}`;
 
   /** Cifras de un canal: real a la fecha (incluye el mes en curso), cumplimiento y variación con meses cerrados, y el mes en curso aparte. */
   const aLaFecha = (c: string) => {
-    const real = suma(c, anio, cerr, "real"), meta = suma(c, anio, cerr, "meta"), ant = suma(c, anio - 1, cerr, "real");
+    const real = sumaEn(c, anio, lista, "real"), meta = sumaEn(c, anio, lista, "meta"), ant = sumaEn(c, anio - 1, lista, "real");
     const realMes = enCurso ? val(c, anio, mesCorte, "real") : null, metaMes = enCurso ? val(c, anio, mesCorte, "meta") : null;
     const realFecha = suma(c, anio, mesCorte, "real"), metaAnio = suma(c, anio, 12, "meta");
-    return { canal: nombre(c), real, meta, cumpl: div(real, meta), ant, var: div(real, ant) === null ? null : real / ant - 1,
+    return { canal: nombreDe(c), real, meta, cumpl: div(real, meta), ant, var: div(real, ant) === null ? null : real / ant - 1,
              realMes, metaMes, avanceMes: realMes !== null && metaMes ? realMes / metaMes : null,
              realFecha, metaAnio, avance: div(realFecha, metaAnio), realAnt: suma(c, anio - 1, 12, "real") };
   };
   const T = aLaFecha(TOTAL);
-  // Filtro de meses de las 4 tarjetas: un mes («m=8») o un rango («m=3-6»). Sin filtro: los meses cerrados.
-  const pedido = String(Array.isArray(sp.m) ? sp.m[0] : sp.m ?? "").split("-").map(Number);
-  const valido = (x: number) => Number.isInteger(x) && x >= 1 && x <= mesCorte;
-  const sel: [number, number] | null = pedido.length && pedido.every(valido)
-    ? [Math.min(...pedido), Math.max(...pedido)] : null;
-  /** Enlace de cada mes: con un mes ya marcado, el segundo clic arma el rango entre los dos; si no, marca solo ese mes. */
-  const enlaceMes = (m: number | null) => {
-    const q = new URLSearchParams();
-    if (typeof sp.s === "string") q.set("s", sp.s);
-    let r: [number, number] | null = m ? [m, m] : null;
-    if (m && sel && sel[0] === sel[1]) r = m === sel[0] ? null : [Math.min(m, sel[0]), Math.max(m, sel[0])];
-    if (r) q.set("m", r[0] === r[1] ? String(r[0]) : `${r[0]}-${r[1]}`);
-    return `?${q.toString()}`;
-  };
   const porCanal = canales.map(aLaFecha).map((x) => ({ ...x, part: div(x.realFecha, T.realFecha) })).sort((a, b) => b.realFecha - a.realFecha);
 
   /** Bloque mensual de un canal, igual que en el Excel: filas 2025 / real / meta / variaciones / cumplimiento. */
@@ -121,9 +131,9 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
           <table className="datos text-[12.5px]">
             <thead>
               <tr>
-                <th>{nombre(c)}</th>
+                <th>{nombreDe(c)}</th>
                 {MESES.map((m, i) => <th key={m} className="n">{m}{i + 1 === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}</th>)}
-                <th className="n !bg-[var(--acento-suave)]">{tramo.charAt(0).toUpperCase() + tramo.slice(1)} (cerrado)</th>
+                <th className="n !bg-[var(--acento-suave)]">{tramo.charAt(0).toUpperCase() + tramo.slice(1)} ({tipoTramo})</th>
                 <th className="n">Año {anio - 1} · a la fecha · meta</th>
               </tr>
             </thead>
@@ -144,30 +154,30 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
           </table>
         </div>
         <p className="text-xs text-[var(--tenue)]">
-          La columna «{tramo} (cerrado)» suma solo meses cerrados para comparar parejo.{enCurso && <> {MESES[mesCorte - 1]} va al {diaCorte}: su meta y su {anio - 1} son
+          La columna «{tramo} ({tipoTramo})» suma {sel ? "los meses elegidos arriba" : "solo meses cerrados para comparar parejo"}.{enCurso && <> {MESES[mesCorte - 1]} va al {diaCorte}: su meta y su {anio - 1} son
           del mes completo, por eso su cumplimiento sube hasta el cierre.</>} Última columna: {anio - 1} completo · real {anio} a la fecha · meta {anio} del año.
         </p>
-        {RUTA[c] && <Link href={RUTA[c]} className="text-sm font-medium text-[var(--acento)] hover:underline w-fit">Ver el detalle de {nombre(c)} →</Link>}
+        {rutaDe(c) && <Link href={rutaDe(c)!} className="text-sm font-medium text-[var(--acento)] hover:underline w-fit">Ver el detalle de {nombreDe(c)} →</Link>}
       </div>
     );
   };
 
   /** Tiendas: cada tienda contra su meta (Excel «Metas tiendas»), con la venta real de la base al último día cargado. */
   const seccionTiendas = (() => {
-    if (!tiendas.metas.length || !tiendas.hasta) return null;
+    if (!tiendas.metas.length || !tiendas.hasta || (selC && !selC.includes("TIENDAS"))) return null;
     const hastaT = tiendas.hasta, mesT = Number(hastaT.slice(5, 7)), diaT = Number(hastaT.slice(8, 10));
     const enCursoT = new Date(Date.UTC(anio, mesT, 0)).getUTCDate() !== diaT;
-    const cerrT = enCursoT ? mesT - 1 : mesT;
-    const tramoT = cerrT ? `ene–${MESES[cerrT - 1].toLowerCase()}` : "—";
+    const listaT = sel ? sel.filter((m) => m <= mesT) : rangoMeses(1, enCursoT ? mesT - 1 : mesT);
+    const tramoT = listaT.length ? nombrarMeses(listaT, true) : "—";
     const mesTxtT = `${MESES[mesT - 1]} al ${diaT}`;
     const metaDe = (t: string, m: number) => tiendas.metas.find((x) => x.tienda === t && x.mes === m)?.meta ?? null;
     const realDe = (t: string, a: number, m: number) => tiendas.ventas.find((x) => x.tienda === t && x.anio === a && x.mes === m)?.venta ?? null;
-    const sumaT = (f: (m: number) => number | null, hasta: number) => Array.from({ length: hasta }, (_, i) => f(i + 1) ?? 0).reduce((a, x) => a + x, 0);
+    const sumaT = (f: (m: number) => number | null, meses: number[]) => meses.reduce((a, m) => a + (f(m) ?? 0), 0);
     const nombres = [...new Set(tiendas.metas.map((x) => x.tienda))];
     const filas = nombres.map((t) => {
-      const real = sumaT((m) => realDe(t, anio, m), cerrT), meta = sumaT((m) => metaDe(t, m), cerrT), ant = sumaT((m) => realDe(t, anio - 1, m), cerrT);
+      const real = sumaT((m) => realDe(t, anio, m), listaT), meta = sumaT((m) => metaDe(t, m), listaT), ant = sumaT((m) => realDe(t, anio - 1, m), listaT);
       const realMes = enCursoT ? realDe(t, anio, mesT) ?? 0 : null, metaMes = enCursoT ? metaDe(t, mesT) : null;
-      const realFecha = sumaT((m) => realDe(t, anio, m), mesT), metaAnio = sumaT((m) => metaDe(t, m), 12);
+      const realFecha = sumaT((m) => realDe(t, anio, m), rangoMeses(1, mesT)), metaAnio = sumaT((m) => metaDe(t, m), rangoMeses(1, 12));
       return { tienda: t, real, meta, cumpl: div(real, meta), ant, var: ant ? real / ant - 1 : null, realMes, metaMes,
                avanceMes: realMes !== null && metaMes ? realMes / metaMes : null, realFecha, metaAnio, avance: div(realFecha, metaAnio) };
     }).sort((a, b) => b.metaAnio - a.metaAnio);
@@ -186,7 +196,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
     );
     return (
       <Tarjeta icono={Store} titulo="Tiendas: real vs meta de cada tienda"
-               subtitulo={`Meta de cada tienda (Excel «Metas tiendas ${anio}») · venta real del Power BI al ${fechaLarga(hastaT)} · meses cerrados: ${tramoT}${enCursoT ? ` · ${mesTxtT} aparte` : ""}`}>
+               subtitulo={`Meta de cada tienda (Excel «Metas tiendas ${anio}») · venta real del Power BI al ${fechaLarga(hastaT)} · ${sel ? "meses elegidos" : "meses cerrados"}: ${tramoT}${enCursoT ? ` · ${mesTxtT} aparte` : ""}`}>
         <Tabla archivo={`resumen_general_tiendas_${hastaT}.xlsx`} hoja="Tiendas" filas={filas}
                columnas={[{ clave: "tienda", titulo: "Tienda", tipo: "texto" }, { clave: "real", titulo: `Real ${tramoT} S/`, tipo: "soles" },
                  { clave: "meta", titulo: `Meta ${tramoT} S/`, tipo: "soles" }, { clave: "cumpl", titulo: "Cumplimiento", tipo: "porcentaje" },
@@ -229,6 +239,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
     );
   })();
 
+  const productosV = selC ? productos.filter((f) => selC.includes(f.canal)) : productos;
   const semaforo = [...canales, TOTAL].map((c) => ({ canal: c, celdas: Array.from({ length: mesCorte }, (_, i) => {
     const r = val(c, anio, i + 1, "real"), mt = val(c, anio, i + 1, "meta");
     return { mes: i + 1, r, cumpl: r !== null && mt ? r / mt : null };
@@ -236,7 +247,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
 
   const encabezado = (
     <header className="grid gap-1">
-      <p className="etiqueta">Todos los canales · Turrones Calderón</p>
+      <p className="etiqueta">{selC ? selC.map(nombre).join(" · ") : "Todos los canales"} · Turrones Calderón</p>
       <h1 className="text-[28px] font-bold leading-tight">Resumen general {anio}</h1>
       <p className="text-sm text-[var(--tenue)] max-w-4xl">
         Venta <b className="text-[var(--tinta)]">real</b> de cada canal frente a su <b className="text-[var(--tinta)]">meta</b> y frente a {anio - 1}, con
@@ -250,47 +261,77 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
       {/* 1. Total del negocio en los meses elegidos (por defecto, los cerrados): real, var. vs año pasado, var. vs meta y cumplimiento */}
       <div className="grid gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <nav className="segmento w-fit max-w-full overflow-x-auto" aria-label="Meses de los indicadores">
-            <Link href={enlaceMes(null)} aria-current={sel === null}>Acumulado {tramo}</Link>
-            {Array.from({ length: mesCorte }, (_, i) => i + 1).map((m) => (
-              <Link key={m} href={enlaceMes(m)} aria-current={sel !== null && m >= sel[0] && m <= sel[1]}>
-                {MESES[m - 1]}{m === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}
-              </Link>
-            ))}
-          </nav>
-          <span className="text-xs text-[var(--tenue)]">Un clic: un mes · otro clic en otro mes: el rango entre los dos</span>
+          <SelectorMeses key={`meses-${sp.m ?? ""}`} elegidos={sel} hasta={mesCorte} cerrados={cerr} enCurso={enCurso ? `al ${diaCorte}` : null} />
+          <SelectorCanales key={`canales-${sp.c ?? ""}`} opciones={todosCanales.map((c) => ({ clave: c, nombre: nombre(c) }))} elegidos={selC} />
+          <span className="text-xs text-[var(--tenue)]">Estos filtros cambian toda la página</span>
         </div>
         {(() => {
-          const [a, b] = sel ?? [1, cerr];
-          const nombre = a === b ? MESES[a - 1].toLowerCase() : `${MESES[a - 1].toLowerCase()}–${MESES[b - 1].toLowerCase()}`;
-          const parcial = enCurso && b === mesCorte;
-          const real = suma(TOTAL, anio, b, "real", a), meta = suma(TOTAL, anio, b, "meta", a), ant = suma(TOTAL, anio - 1, b, "real", a);
-          const etiqueta = `${nombre}${parcial ? ` (${MESES[b - 1].toLowerCase()} al ${diaCorte})` : sel ? "" : " cerrado"}`;
-          const nota = parcial ? ` · ${MESES[b - 1]} va al ${diaCorte}: su meta y ${anio - 1} son del mes completo` : "";
+          const nombre = tramo;
+          const parcial = enCurso && lista.includes(mesCorte);
+          const real = sumaEn(TOTAL, anio, lista, "real"), meta = sumaEn(TOTAL, anio, lista, "meta"), ant = sumaEn(TOTAL, anio - 1, lista, "real");
+          const etiqueta = `${nombre}${parcial ? ` (${MESES[mesCorte - 1].toLowerCase()} al ${diaCorte})` : sel ? "" : " cerrado"}`;
+          const nota = parcial ? ` · ${MESES[mesCorte - 1]} va al ${diaCorte}: su meta y ${anio - 1} son del mes completo` : "";
+          // Mismo diseño que el resumen de cada canal: la venta grande y tres cifras con color (verde bien, rojo mal) y su barra.
+          const vAnt = ant ? real / ant - 1 : null, vMeta = meta ? real / meta - 1 : null;
+          const diasMes = new Date(Date.UTC(anio, mesCorte, 0)).getUTCDate();
+          // Sin meses elegidos: lo vendido en el año ÷ meta del año; la raya marca dónde deberías ir hoy. Con meses elegidos: esos meses ÷ su meta.
+          const metaHoy = suma(TOTAL, anio, mesCorte - 1, "meta") + (val(TOTAL, anio, mesCorte, "meta") ?? 0) * (diaCorte / diasMes);
+          const [r, mt] = sel ? [real, meta] : [T.realFecha, T.metaAnio];
+          const nivel = mt ? r / mt : null, esperado = !sel && mt ? metaHoy / mt : 1;
+          const est = estado(sel ? nivel : metaHoy ? T.realFecha / metaHoy : null);
+          const stats = [
+            { titulo: `Var % ${anio} vs ${anio - 1}`, valor: vAnt === null ? "—" : `${vAnt >= 0 ? "▲" : "▼"} ${signo(vAnt)}`, clase: colorVar(vAnt),
+              grafico: <BarraVariacion v={vAnt} />, contexto: <>{etiqueta} · {anio - 1}: {soles(ant)}{nota}</> },
+            { titulo: `Var % ${anio} vs meta`, valor: vMeta === null ? "—" : `${vMeta >= 0 ? "▲" : "▼"} ${signo(vMeta)}`, clase: colorVar(vMeta),
+              grafico: <BarraVariacion v={vMeta} />, contexto: <>{etiqueta} · meta {soles(meta)}{nota}</> },
+            { titulo: sel ? `Cumplimiento ${nombre}` : `Nivel de cumplimiento ${anio}`, valor: nivel === null ? "—" : porcentaje(nivel), clase: sel ? est?.tinta : "",
+              grafico: mt ? <Medidor c={nivel} marca={esperado} color={sel ? (nivel !== null && nivel >= 1 ? "var(--bueno)" : nivel !== null && nivel >= 0.9 ? "var(--alerta)" : "var(--critico)") : "var(--serie-1)"} /> : null,
+              contexto: <>{!sel && <>A hoy debías ir en {porcentaje(esperado)} · </>}Meta {sel ? nombre : "anual"} {millones(mt)} · faltan {millones(Math.max(mt - r, 0))}
+                {est && <span className={`ml-1.5 rounded px-1.5 py-0.5 font-medium ${est.fondo} ${est.tinta}`}>{est.texto}</span>}</> },
+          ];
           return (
-            <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @5xl:grid-cols-4">
-              <Indicador icono="venta" titulo={`Real ${anio}`} valor={soles(real)} detalle={etiqueta} />
-              <Indicador icono="ingreso" titulo={`Var % ${anio} vs ${anio - 1}`} valor={signo(ant ? real / ant - 1 : null)}
-                         detalle={`${etiqueta} · ${anio - 1}: ${soles(ant)}${nota}`} />
-              <Indicador icono="rotacion" titulo={`Var % ${anio} vs meta`} valor={signo(meta ? real / meta - 1 : null)}
-                         detalle={`${etiqueta} · meta ${soles(meta)}${nota}`} />
-              {/* Sin meses elegidos: lo vendido en el año ÷ meta de todo el año. Con meses elegidos: esos meses ÷ su meta. */}
-              {(() => {
-                const [r, mt, txt] = sel ? [real, meta, `meta ${nombre}`] : [T.realFecha, T.metaAnio, "meta anual"];
-                return (
-                  <Indicador icono="cobertura" titulo={sel ? `Cumplimiento ${nombre}` : `Nivel de cumplimiento ${anio}`} valor={mt ? porcentaje(r / mt) : "—"}
-                             detalle={`de ${millones(mt)} de ${txt} · faltan ${millones(Math.max(mt - r, 0))}`} />
-                );
-              })()}
+            <div className="grid gap-5 rounded-xl border border-[var(--linea)] bg-[var(--superficie)] p-4 @4xl:grid-cols-[minmax(200px,0.8fr)_2.6fr] @4xl:gap-6 @4xl:px-5">
+              <div className="grid content-center gap-1">
+                <p className="text-[13px] text-[var(--tenue)]">Real {anio} · {nombreTotal.toLowerCase()}</p>
+                <p key={real} className="cifra num text-[28px] @5xl:text-[30px] font-semibold leading-tight tracking-[-0.02em]">{soles(real)}</p>
+                <p className="text-xs text-[var(--tenue)]">{etiqueta}</p>
+              </div>
+              <dl className="grid gap-5 @2xl:gap-0 @2xl:grid-cols-3 @2xl:divide-x divide-[var(--linea)]">
+                {stats.map((k) => (
+                  <div key={k.titulo} className="grid content-start gap-1.5 @2xl:px-4 @2xl:first:pl-0 @2xl:last:pr-0">
+                    <dt className="text-[13px] text-[var(--tenue)]">{k.titulo}</dt>
+                    <dd key={k.valor} className={`cifra num text-[20px] font-semibold leading-tight tracking-[-0.015em] ${k.clase ?? ""}`}>{k.valor}</dd>
+                    <dd>{k.grafico}</dd>
+                    <dd className="text-xs leading-relaxed text-[var(--tenue)]">{k.contexto}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           );
         })()}
       </div>
 
       {/* 2. Mes a mes: el total del negocio (primera pestaña) y cada canal, como el Excel */}
-      <Tarjeta icono={CalendarRange} titulo="Mes a mes: total del negocio y por canal" subtitulo={`Como en el Excel: ${anio - 1}, real, meta, variaciones y cumplimiento de cada mes`}>
-        <Pestanas pestanas={[TOTAL, ...canales].map((c) => ({ id: c, titulo: c === TOTAL ? "Total" : nombre(c), contenido: bloque(c) }))} />
+      {/* Un solo bloque: el canal o la suma de los canales elegidos arriba (el filtro de Canales reemplaza a las pestañas). */}
+      <Tarjeta icono={CalendarRange} titulo={`Mes a mes: ${nombreTotal.charAt(0).toLowerCase() + nombreTotal.slice(1)}`}
+               subtitulo={`Como en el Excel: ${anio - 1}, real, meta, variaciones y cumplimiento de cada mes · para ver un canal, elígelo en «Canales» arriba`}>
+        {bloque(TOTAL)}
       </Tarjeta>
+
+      {/* 2b. Evolución de cada canal en curvas */}
+      {canales.length > 0 && (
+        <Tarjeta icono={TrendingUp} titulo={selC?.length === 1 ? `Evolución mes a mes: ${nombre(selC[0])}` : "Evolución mes a mes por canal"}
+                 subtitulo={`Venta real ${anio} ${selC?.length === 1 ? "del canal" : "de cada canal"}, con su meta y ${anio - 1}`}>
+          <EvolucionCanales filtrado={!!selC} mesCorte={mesCorte} parcial={enCurso ? `al ${diaCorte}` : null}
+                            series={canales.map((c) => {
+                              // Unidades: del detalle por producto (solo los canales que lo traen; el consolidado solo tiene soles).
+                              const conUnidades = productos.some((f) => f.canal === c);
+                              return { canal: c, nombre: nombre(c), conUnidades, meses: rangoMeses(1, mesCorte).map((m) => ({
+                                mes: m, real: val(c, anio, m, "real"), meta: val(c, anio, m, "meta"), ant: val(c, anio - 1, m, "real"),
+                                und: conUnidades ? productos.filter((f) => f.canal === c && f.mes === m).reduce((a, f) => a + f.und, 0) || null : null })) };
+                            })} />
+        </Tarjeta>
+      )}
 
       {/* 3. Análisis por canal: cumplimiento y crecimiento de cada uno */}
       <Tarjeta icono={Layers} titulo="Análisis por canal" subtitulo={`Meses cerrados (${tramo}): real vs meta y vs ${anio - 1}${enCurso ? ` · ${mesTxt} aparte` : ""} · año: avance de la meta`}>
@@ -310,14 +351,14 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
       {seccionTiendas}
 
       {/* 4. Productos más vendidos entre todos los canales */}
-      {productos.length > 0 && (
-        <Tarjeta icono={Package} titulo="Productos más vendidos: todos los canales"
-                 subtitulo={`Unidades de cada SKU por mes, ene–${MESES[mesCorte - 1].toLowerCase()} ${anio}, sumando los canales con detalle por producto`}>
-          <ProductosTop filas={productos} mesCorte={mesCorte} archivo={corte}
+      {productosV.length > 0 && (
+        <Tarjeta icono={Package} titulo={`Productos más vendidos: ${selC ? selC.map(nombre).join(", ") : "todos los canales"}`}
+                 subtitulo={`Unidades de cada SKU por mes, ${sel ? tramo : `ene–${MESES[mesCorte - 1].toLowerCase()}`} ${anio}, sumando los canales con detalle por producto`}>
+          <ProductosTop filas={productosV} canales={selC ?? undefined} nombreTotal={nombreTotal} meses={sel ?? rangoMeses(1, mesCorte)} periodo={sel ? tramo : nombrarMeses(rangoMeses(1, mesCorte), true)} archivo={corte}
                         etiquetaMes={(m) => `${MESES[m - 1]}${m === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}`}
-                        totalNegocio={T.realFecha}
+                        totalNegocio={sel ? sumaEn(TOTAL, anio, sel, "real") : T.realFecha}
                         sinDetalle={canales.filter((c) => c === "B2B" || c === "RAPPI")
-                          .map((c) => ({ canal: nombre(c), monto: suma(c, anio, mesCorte, "real") })).filter((x) => x.monto)} />
+                          .map((c) => ({ canal: nombre(c), monto: sel ? sumaEn(c, anio, sel, "real") : suma(c, anio, mesCorte, "real") })).filter((x) => x.monto)} />
         </Tarjeta>
       )}
 
@@ -337,7 +378,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                   <td>{f.canal === TOTAL ? "TOTAL" : nombre(f.canal)}</td>
                   {f.celdas.map((c) => (
                     <td key={c.mes} className="n !p-1">
-                      <span className={`block rounded px-2 py-1 num text-center ${c.mes === mesCorte && enCurso ? "opacity-60" : ""} ${colorCumpl(c.cumpl)}`}
+                      <span className={`block rounded px-2 py-1 num text-center ${c.mes === mesCorte && enCurso ? "opacity-60" : ""} ${sel && !sel.includes(c.mes) ? "opacity-30" : ""} ${colorCumpl(c.cumpl)}`}
                             title={c.r === null ? "sin dato" : `real ${soles(c.r)}`}>{c.cumpl === null ? "—" : porcentaje(c.cumpl)}</span>
                     </td>
                   ))}

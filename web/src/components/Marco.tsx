@@ -97,6 +97,12 @@ export function Marco({ ubicacion, tiposRetail, secciones, encabezado, usuario, 
   // La sección elegida va en la URL (?s=detalle) para que se mantenga al recargar o al compartir el enlace.
   const pedida = Array.isArray(seccion) ? seccion[0] : seccion;
   const [activa, setActiva] = useState(() => secciones.find((x) => x.id === pedida)?.id ?? secciones[0].id);
+  // Un enlace dentro de la página puede pedir otra sección (?s=detalle): se ajusta al cambiar la URL, sin recargar.
+  const [pedidaAntes, setPedidaAntes] = useState(pedida);
+  if (pedida !== pedidaAntes) {
+    setPedidaAntes(pedida);
+    setActiva(secciones.find((x) => x.id === pedida)?.id ?? secciones[0].id);
+  }
   // Abiertos al entrar: el módulo y el tipo de la página actual (retail, retail/spsa).
   const [abiertos, setAbiertos] = useState<string[]>(() => ubicacion.split("/").map((_, i, xs) => xs.slice(0, i + 1).join("/")));
   const guardado = useSyncExternalStore(suscribirMenu, leerContraido, () => false);

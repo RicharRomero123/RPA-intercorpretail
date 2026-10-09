@@ -31,6 +31,25 @@ async function todas<T>(consulta: (desde: number, hasta: number) => PromiseLike<
   }
 }
 
+/** Venta total por día de un cliente (para ver si sube o baja). Sin filtros de local, cadena o zona sale de la tabla diaria por
+ *  producto, que es liviana; con esos filtros se suma el detalle por local. */
+export async function ventaDiaria(sb: Supabase, desde: string, hasta: string, f: Filtro, cliente: string = CLIENTE) {
+  const filas = f.cadenas.length || f.zonas.length || f.locales.length
+    ? await ventas(sb, desde, hasta, f, cliente)
+    : await todas<{ fecha: string; und: unknown; venta: unknown }>((a, b) => {
+        let q = sb.from("venta_producto_dia").select("fecha, und, venta").eq("cliente", cliente).gte("fecha", desde).lte("fecha", hasta);
+        if (f.skus.length) q = q.in("sku", f.skus);
+        return q.order("fecha").order("sku").range(a, b);
+      });
+  const dias = new Map<string, { fecha: string; venta: number; und: number }>();
+  for (const r of filas) {
+    const d = dias.get(r.fecha) ?? { fecha: r.fecha, venta: 0, und: 0 };
+    d.venta += num(r.venta); d.und += num(r.und);
+    dias.set(r.fecha, d);
+  }
+  return [...dias.values()].filter((d) => d.venta || d.und).sort((x, y) => x.fecha.localeCompare(y.fecha));
+}
+
 export async function limites(sb: Supabase, cliente: string = CLIENTE) {
   const ult = await sb.from("venta_producto_dia").select("fecha").eq("cliente", cliente).order("fecha", { ascending: false }).limit(1);
   const pri = await sb.from("venta_producto_dia").select("fecha").eq("cliente", cliente).gt("und", 0).order("fecha").limit(1);

@@ -91,6 +91,7 @@ def leer(ruta: Path, eq: dict[str, str], skus: set[str]) -> pd.DataFrame:
     d = pd.read_excel(ruta, sheet_name=hoja)
     d = d[d["Fecha Registro"].notna()].copy()
     # Líneas sin número de comprobante (pocas): se cargan igual con la serie «SN» para no perder venta.
+    d["Nro Comprobante"] = d["Nro Comprobante"].astype("object")   # si ninguna línea trae número, pandas la lee como números vacíos
     sin_num = d["Nro Comprobante"].isna()
     d.loc[sin_num, "Nro Comprobante"] = [f"SN-{i + 1}" for i in range(int(sin_num.sum()))]
     malos = d[d["Nro Comprobante"].map(comprobante).isna()]

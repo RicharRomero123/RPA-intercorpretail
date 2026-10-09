@@ -53,6 +53,8 @@ export type ConciliacionSellout = {
   productos: { sku: string; producto: string; primero: string | null; ultimo: string | null; despachado: number; monto: number;
                vendido: number; costo: number; venta: number; stock: number; locales: number | null }[];
   despachos: { fecha: string; sku: string; producto: string; und: number; precio: number; monto: number; status: string | null }[];
+  /** Venta y stock de cada producto por día desde el primer despacho (evolución y proyección). */
+  ventas_dia: { fecha: string; sku: string; und: number }[]; stock_dia: { fecha: string; sku: string; und: number }[];
 };
 export type ConciliacionSPSA = ConciliacionSellout;
 /** Despachado (Excel Ventas RETAIL) vs vendido y stock en tiendas de un cliente con sell-out (SPSA, OXXO). */
@@ -61,5 +63,6 @@ export async function conciliacionSellout(sb: Supabase, cliente: string, tipo: s
   const n = <T extends object>(xs: T[], claves: (keyof T)[]) =>
     xs.map((x) => ({ ...x, ...Object.fromEntries(claves.map((k) => [k, num(x[k])])) })) as T[];
   return { ...d, productos: n(d.productos ?? [], ["despachado", "monto", "vendido", "costo", "venta", "stock"]),
-           despachos: n(d.despachos ?? [], ["und", "precio", "monto"]) };
+           despachos: n(d.despachos ?? [], ["und", "precio", "monto"]),
+           ventas_dia: n(d.ventas_dia ?? [], ["und"]), stock_dia: n(d.stock_dia ?? [], ["und"]) };
 }

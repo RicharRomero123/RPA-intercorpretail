@@ -2,7 +2,7 @@
 import { PanelCarga } from "@/components/PanelCarga";
 import { datosCarga } from "@/lib/cargasServidor";
 import {
-  CalendarDays, CircleAlert, MapPinned, Package, PackageX, PieChart, Store, Timer, TriangleAlert, Warehouse,
+  CalendarDays, CircleAlert, TrendingUp, MapPinned, Package, PackageX, PieChart, Store, Timer, TriangleAlert, Warehouse,
 } from "lucide-react";
 import { salir } from "@/app/login/actions";
 import { Filtros } from "@/components/Filtros";
@@ -22,6 +22,8 @@ import {
 } from "@/lib/periodos";
 import { conciliacionSellout, tiposRetail } from "@/lib/retail";
 import { seccionConciliacion } from "./spsa/conciliacion";
+import { TopSku } from "./topSku";
+import { TendenciaDiaria } from "@/components/TendenciaDiaria";
 import { clienteSupabase } from "@/lib/supabase/server";
 import { ResumenEjecutivo } from "@/components/ResumenEjecutivo";
 import { datosEjecutivo, type Fuente } from "@/lib/ejecutivo";
@@ -95,13 +97,14 @@ export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
   const filtro: db.Filtro = { skus: lista(sp.prod), cadenas: lista(sp.cad), zonas: lista(sp.zona), locales: lista(sp.loc).map(Number) };
 
   // --------------------------------------------------------------- datos
-  const [maestro, actual, previo, recientes, inv, ej] = await Promise.all([
+  const [maestro, actual, previo, recientes, inv, ej, historia] = await Promise.all([
     db.maestros(sb, cfg.cliente),
     db.ventas(sb, desde, hasta, filtro, cfg.cliente),
     comp ? db.ventas(sb, comp[0], comp[1], filtro, cfg.cliente) : Promise.resolve([]),
     db.ventas(sb, sumarDias(ultimo, -(ventana - 1)), ultimo, filtro, cfg.cliente),
     lim.fechaInventario ? db.inventario(sb, lim.fechaInventario, filtro, cfg.cliente) : Promise.resolve([]),
     datosEjecutivo(sb, cfg.fuente, desde, hasta, { sku: filtro.skus, cadena: filtro.cadenas, zona: filtro.zonas, local: filtro.locales, dias }),
+    db.ventaDiaria(sb, primero, ultimo, filtro, cfg.cliente),   // toda la historia, para ver si la venta sube o baja
   ]);
   const L = filtrarDias(actual, dias);
   const LC = filtrarDias(previo, dias);
@@ -240,6 +243,12 @@ export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
   const seccionVentas = (
     <>
       {indicadores}
+      {historia.length > 1 && (
+        <Tarjeta icono={TrendingUp} titulo="¿La venta sube o baja? Día a día"
+                 subtitulo={`Todos los días con reporte de ${cfg.corto}, del ${fechaLarga(historia[0].fecha)} al ${fechaLarga(historia[historia.length - 1].fecha)}${filtro.skus.length || filtro.cadenas.length || filtro.zonas.length || filtro.locales.length ? " · con los filtros elegidos" : ""}`}>
+          <TendenciaDiaria dias={historia} nombre={cfg.corto} />
+        </Tarjeta>
+      )}
       {L.length === 0 ? vacio : (
         <>
           <div className="grid gap-4 @5xl:grid-cols-3">
@@ -253,6 +262,10 @@ export async function vistaSellout(sp: Awaited<Params>, cfg: ConfigSellout) {
               <p className="text-xs text-[var(--tenue)]">Junto a cada {cfg.cadena.toLowerCase()}: cuántos de sus locales vendieron en el periodo. A la derecha: su venta y su % del total.</p>
             </Tarjeta>
           </div>
+          {/* Productos más vendidos por SKU: el mismo bloque que en el Resumen general */}
+          <Tarjeta icono={Package} titulo={`Productos más vendidos en ${cfg.corto}`} subtitulo={`${rango} · unidades vendidas al público por SKU`}>
+            <TopSku filas={L} agrupar={agrupar} archivo={`retail_${cfg.cliente.toLowerCase()}_${desde}_${hasta}`} nombreCadena={cfg.cadena} />
+          </Tarjeta>
           <div className="grid gap-4 @5xl:grid-cols-3">
             <Tarjeta className="@5xl:col-span-2" info="evolucion" icono={CalendarDays} titulo={`Detalle por ${unidadPeriodo}`} subtitulo={rango}>
               <Tabla archivo={archivo("detalle")} hoja="Detalle" alto={360}
