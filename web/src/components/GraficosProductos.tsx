@@ -15,6 +15,7 @@ export type ProductoGrafico = {
 const CANALES: { clave: string; nombre: string; color: string }[] = [
   { clave: "TIENDAS", nombre: "Tiendas", color: "var(--canal-tiendas)" }, { clave: "LIMA", nombre: "Lima", color: "var(--canal-lima)" },
   { clave: "RETAIL", nombre: "Retail", color: "var(--canal-retail)" }, { clave: "PROVINCIA", nombre: "Provincia", color: "var(--canal-provincia)" },
+  { clave: "B2B", nombre: "B2B", color: "var(--canal-b2b)" },
 ];
 type Medida = "und" | "venta";
 

@@ -328,7 +328,10 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
                               const conUnidades = productos.some((f) => f.canal === c);
                               return { canal: c, nombre: nombre(c), conUnidades, meses: rangoMeses(1, mesCorte).map((m) => ({
                                 mes: m, real: val(c, anio, m, "real"), meta: val(c, anio, m, "meta"), ant: val(c, anio - 1, m, "real"),
-                                und: conUnidades ? productos.filter((f) => f.canal === c && f.mes === m).reduce((a, f) => a + f.und, 0) || null : null })) };
+                                und: conUnidades ? productos.filter((f) => f.canal === c && f.mes === m).reduce((a, f) => a + f.und, 0) || null : null,
+                                skus: conUnidades ? Object.entries(productos.filter((f) => f.canal === c && f.mes === m && f.und)
+                                  .reduce<Record<string, number>>((t, f) => ({ ...t, [f.producto]: (t[f.producto] ?? 0) + f.und }), {}))
+                                  .map(([producto, und]) => ({ producto, und })).sort((a, b) => b.und - a.und) : undefined })) };
                             })} />
         </Tarjeta>
       )}
@@ -357,7 +360,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
           <ProductosTop filas={productosV} canales={selC ?? undefined} nombreTotal={nombreTotal} meses={sel ?? rangoMeses(1, mesCorte)} periodo={sel ? tramo : nombrarMeses(rangoMeses(1, mesCorte), true)} archivo={corte}
                         etiquetaMes={(m) => `${MESES[m - 1]}${m === mesCorte && enCurso ? ` (al ${diaCorte})` : ""}`}
                         totalNegocio={sel ? sumaEn(TOTAL, anio, sel, "real") : T.realFecha}
-                        sinDetalle={canales.filter((c) => c === "B2B" || c === "RAPPI")
+                        sinDetalle={canales.filter((c) => c === "RAPPI" || (c === "B2B" && !productos.some((f) => f.canal === "B2B")))
                           .map((c) => ({ canal: nombre(c), monto: sel ? sumaEn(c, anio, sel, "real") : suma(c, anio, mesCorte, "real") })).filter((x) => x.monto)} />
         </Tarjeta>
       )}

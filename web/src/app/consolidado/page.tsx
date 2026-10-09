@@ -19,6 +19,23 @@ export default async function ResumenGeneral({ searchParams }: { searchParams: P
   const { data: sku } = corte ? await sb.rpc("sku_mensual", { p_anio: Number(corte.slice(0, 4)),
     p_corte: new Date(Date.UTC(Number(corte.slice(0, 4)), Number(corte.slice(5, 7)), 0)).toISOString().slice(0, 10) }) : { data: [] };
   const productos: FilaSku[] = ((sku ?? []) as FilaSku[]).map((f) => ({ ...f, und: Number(f.und), venta: Number(f.venta) }));
+  // B2B: sus pedidos (Excel «Ventas B2B», ya con SKU de ContaNet) hasta el fin del mes del corte, como un canal más con detalle por producto.
+  if (corte) {
+    const finCorte = new Date(Date.UTC(Number(corte.slice(0, 4)), Number(corte.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const [{ data: b2b }, { data: nombres }] = await Promise.all([
+      sb.from("b2b_ventas").select("fecha, sku, und, venta").gte("fecha", `${corte.slice(0, 4)}-01-01`).lte("fecha", finCorte),
+      sb.from("sku_maestro").select("sku, producto"),
+    ]);
+    const nombre = new Map((nombres ?? []).map((n) => [String(n.sku), String(n.producto)]));
+    const porMesSku = new Map<string, FilaSku>();
+    for (const f of b2b ?? []) {
+      const mes = Number(String(f.fecha).slice(5, 7)), s = String(f.sku ?? "SIN SKU"), k = `${mes}|${s}`;
+      const x = porMesSku.get(k) ?? { mes, canal: "B2B", sku: s, producto: nombre.get(s) ?? s, und: 0, venta: 0 };
+      x.und += Number(f.und); x.venta += Number(f.venta);
+      porMesSku.set(k, x);
+    }
+    productos.push(...porMesSku.values());
+  }
   // Tiendas: meta de cada tienda (Excel «Metas tiendas») y su venta real por mes (Power BI).
   const anio = corte ? Number(corte.slice(0, 4)) : null;
   const [{ data: metasT }, { data: ventasT }] = anio ? await Promise.all([

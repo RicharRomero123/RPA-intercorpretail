@@ -14,7 +14,7 @@ import { useInicioCarga } from "@/lib/cargando";
 import { useAcceso } from "./Acceso";
 import { puede, type Modulo } from "@/lib/acceso";
 
-/** Módulo de cada entrada principal del menú (B2B no tiene página: solo para acceso completo). */
+/** Módulo de cada entrada principal del menú (B2B se ve con el módulo del Resumen general). */
 const MODULO_DE: Record<string, Modulo> = { consolidado: "consolidado", retail: "retail", tiendas: "tiendas", "canales/digital": "digital", "canales/rappi": "rappi", b2b: "consolidado" };
 
 const ICONOS = { ejecutivo: Presentation, avance: Clock, ventas: ChartLine, detalle: TableProperties, stock: Warehouse, despachos: Truck, cuadre: Scale, mes: CalendarCheck } satisfies Record<string, LucideIcon>;
@@ -57,7 +57,7 @@ function menu(tipos: TipoRetail[]): Nodo[] {
       { id: "canales/digital/provincia", titulo: "Provincia", icono: Map, ruta: "/canales/digital/provincia", secciones: CONTANET },
     ] },
     { id: "canales/rappi", titulo: "Rappi", icono: Bike, ruta: "/canales/rappi", secciones: CONTANET },
-    { id: "b2b", titulo: "B2B", icono: Building2 },
+    { id: "b2b", titulo: "B2B", icono: Building2, ruta: "/b2b" },
   ];
 }
 const ANCHO = { abierto: 236, cerrado: 76 };

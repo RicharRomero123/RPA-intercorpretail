@@ -1,5 +1,5 @@
 // Productos más vendidos entre todos los canales: unidades de cada SKU por mes (función sku_mensual).
-// Entran los canales con detalle por producto (Tiendas, Lima, Provincia y Retail); B2B y Rappi no lo tienen.
+// Entran los canales con detalle por producto (Tiendas, Lima, Provincia, Retail y B2B, del Excel «Ventas B2B»); Rappi no lo tiene.
 import { GraficosProductos } from "@/components/GraficosProductos";
 import { Pestanas } from "@/components/Pestanas";
 import { Tabla, type Columna } from "@/components/Tabla";
@@ -7,10 +7,10 @@ import { porcentaje } from "@/lib/formato";
 
 export type FilaSku = { mes: number; canal: string; sku: string; producto: string; und: number; venta: number };
 
-const TODOS = ["TIENDAS", "RETAIL", "LIMA", "PROVINCIA"];
+const TODOS = ["TIENDAS", "RETAIL", "LIMA", "PROVINCIA", "B2B"];
 type Reg = { sku: string; producto: string; und: number; venta: number; puesto?: number; part?: number | null;
              [k: string]: string | number | null | undefined };
-const nombreCanal = (c: string) => c.charAt(0) + c.slice(1).toLowerCase();
+const nombreCanal = (c: string) => (c.length <= 3 ? c : c.charAt(0) + c.slice(1).toLowerCase());
 
 export function ProductosTop({ filas, meses, periodo, canales: elegidos, nombreTotal = "Total del negocio", etiquetaMes, sinDetalle, totalNegocio, archivo }: {
   filas: FilaSku[]; /** Meses a sumar (seguidos o no). */ meses: number[]; /** Los meses en palabras, p. ej. «ene–mar, sep». */ periodo: string; nombreTotal?: string; /** Canales elegidos arriba (sin elegir: los 4 con detalle). */ canales?: string[];
@@ -135,7 +135,7 @@ export function ProductosTop({ filas, meses, periodo, canales: elegidos, nombreT
         <table className="datos text-[12.5px]">
           <thead><tr><th>Cuadre con el {nombreTotal.toLowerCase()} ({periodo})</th><th className="n">Venta S/</th></tr></thead>
           <tbody>
-            <tr><td>Productos (Tiendas, Retail, Lima y Provincia)</td><td className="n num">{exacto(ventaSku)}</td></tr>
+            <tr><td>Productos ({CANALES.filter((c) => filas.some((f) => f.canal === c)).map(nombreCanal).join(", ").replace(/, ([^,]*)$/, " y $1")})</td><td className="n num">{exacto(ventaSku)}</td></tr>
             {sinDetalle.map((x) => <tr key={x.canal}><td>+ {x.canal} (no trae detalle por producto)</td><td className="n num">{exacto(x.monto)}</td></tr>)}
             <tr className="total"><td>= {nombreTotal}</td><td className="n num">{exacto(totalNegocio)}</td></tr>
             {Math.abs(cuadre) >= 1 && <tr><td>Diferencia por revisar</td><td className="n num text-[var(--critico)]">{exacto(cuadre)}</td></tr>}

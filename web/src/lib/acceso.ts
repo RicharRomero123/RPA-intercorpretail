@@ -7,7 +7,7 @@ export type Acceso = { modulos: Modulo[] | null };
 
 /** Rutas de cada módulo (prefijos). */
 export const RUTAS: Record<Modulo, string[]> = {
-  consolidado: ["/consolidado"], retail: ["/retail"], tiendas: ["/tiendas"], digital: ["/canales/digital"], rappi: ["/canales/rappi"],
+  consolidado: ["/consolidado", "/b2b"], retail: ["/retail"], tiendas: ["/tiendas"], digital: ["/canales/digital"], rappi: ["/canales/rappi"],
   configuracion: ["/configuracion"],
 };
 /** Página de entrada de cada módulo (la primera permitida es el inicio del usuario). */
