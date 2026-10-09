@@ -12,7 +12,7 @@ export const RUTAS: Record<Modulo, string[]> = {
 };
 /** Página de entrada de cada módulo (la primera permitida es el inicio del usuario). */
 const INICIO: Record<Modulo, string> = {
-  consolidado: "/consolidado", retail: "/retail", tiendas: "/tiendas", digital: "/canales/digital", rappi: "/canales/rappi", configuracion: "/configuracion",
+  consolidado: "/consolidado", retail: "/retail", tiendas: "/tiendas/interno", digital: "/canales/digital", rappi: "/canales/rappi", configuracion: "/configuracion",
 };
 
 export const puede = (a: Acceso, m: Modulo) => a.modulos === null || a.modulos.includes(m);

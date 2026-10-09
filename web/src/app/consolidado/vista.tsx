@@ -19,7 +19,7 @@ import { type FilaSku, ProductosTop } from "./productos";
 
 const TOTAL = "CALDERON";
 const ORDEN = ["TIENDAS", "RETAIL", "LIMA", "PROVINCIA", "B2B", "RAPPI", "B2C-DESCONTINUADO"];
-const RUTA: Record<string, string> = { TIENDAS: "/tiendas", RETAIL: "/retail", RAPPI: "/canales/rappi" };
+const RUTA: Record<string, string> = { TIENDAS: "/tiendas/interno", RETAIL: "/retail", RAPPI: "/canales/rappi" };
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const nombre = (c: string) => (c === TOTAL ? "Total del negocio" : c.length <= 3 ? c
   : c.charAt(0) + c.slice(1).toLowerCase().replace("-descontinuado", " (descontinuado)"));
@@ -232,7 +232,7 @@ export function vistaConsolidado(celdas: Celda[], carga: { archivo: string; cort
           </div>
           <p className="text-xs text-[var(--tenue)]">
             Real ÷ meta de cada mes · verde ≥ 100% · ámbar 90–99% · rojo &lt; 90%. Pasa el cursor para ver real y meta; toca una tienda para ver su detalle.
-            La venta real es la del Power BI de tiendas (ContaNet va aparte y solo se compara en Tiendas → Power BI vs ContaNet).
+            La venta real es la del Power BI de tiendas (ContaNet va aparte, en Tiendas → ContaNet).
           </p>
         </div>
       </Tarjeta>

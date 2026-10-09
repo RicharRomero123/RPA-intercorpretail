@@ -14,6 +14,8 @@ export function seccionCuadre(c: CuadreDigital, rango: string) {
   const cn = c.resumen.reduce((a, x) => a + x.contanet, 0), rep = c.resumen.reduce((a, x) => a + x.reporte, 0), dif = cn - rep;
   const n = (e: string) => c.resumen.find((x) => x.estado === e);
   const cuadra = n("Cuadra");
+  // Las notas de crédito emparejadas con su venta son anulaciones: es correcto que el reporte no las tenga, no son diferencia.
+  const anul = n("Anulación (cuadra)")?.contanet ?? 0, difReal = dif - anul;
   const resumen = c.resumen.map((x) => ({ ...x, dif: x.contanet - x.reporte }));
   const dias = c.por_dia.map((d) => ({ ...d, dif: d.contanet - d.reporte })).filter((d) => Math.abs(d.dif) > 0.005).reverse();
 
@@ -26,12 +28,13 @@ export function seccionCuadre(c: CuadreDigital, rango: string) {
         <b>Cuadra:</b> mismo comprobante y monto; el comprobante puede emitirse de 0 a 2 días después del pago (cuando no había stock).
         <b> Cuadra con otro número:</b> el número del reporte no existe en ContaNet, pero hay un comprobante del mismo cliente (DNI/RUC) y
         el mismo monto emitido hasta 10 días después: es la misma venta (la de ContaNet toma la clasificación del reporte).
+        <b> Anulación (cuadra):</b> nota de crédito que anula una venta del reporte; se resta en su mismo canal (Lima o Provincia) y es correcto que el reporte no la tenga.
         <b> Sobra en ContaNet:</b> venta o anulación que el reporte no trae (queda «Sin clasificar»). <b>Falta en ContaNet:</b> el reporte
         trae una venta sin comprobante (no se cuenta). Si el monto difiere, vale el de ContaNet.
       </Aviso>
-      <Aviso tipo={Math.abs(dif) < 0.01 ? "bueno" : "alerta"}
-             titulo={Math.abs(dif) < 0.01 ? `Cuadra: ContaNet y el reporte suman ${soles(cn)}`
-               : `ContaNet ${soles(cn)} vs reporte ${soles(rep)}: ${dif > 0 ? "sobran" : "faltan"} ${soles(Math.abs(dif))} en ContaNet`}>
+      <Aviso tipo={Math.abs(difReal) < 0.01 ? "bueno" : "alerta"}
+             titulo={Math.abs(difReal) < 0.01 ? `Cuadra: ContaNet y el reporte suman ${soles(rep)}${anul ? `; ContaNet resta ${soles(Math.abs(anul))} de anulaciones con nota de crédito` : ""}`
+               : `ContaNet ${soles(cn)} vs reporte ${soles(rep)}: ${difReal > 0 ? "sobran" : "faltan"} ${soles(Math.abs(difReal))} en ContaNet${anul ? ` (sin contar ${soles(Math.abs(anul))} de anulaciones)` : ""}`}>
         {cuadra && <>{entero(cuadra.comprobantes)} comprobantes cuadran exacto ({soles(cuadra.contanet)}). </>}
         La diferencia sale solo de los comprobantes marcados abajo como «Sobra», «Falta» o «Monto distinto».
       </Aviso>

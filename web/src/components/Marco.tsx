@@ -45,14 +45,13 @@ function menu(tipos: TipoRetail[]): Nodo[] {
       ...tipos.filter((t) => t.slug !== "supermercados-peruanos" && t.slug !== "oxxo").map((t) => ({ id: `retail/${t.slug}`, titulo: t.tipo, icono: Tag, ruta: `/retail/tipo/${t.slug}`, secciones: VENTAS })),
     ] },
     { id: "tiendas", titulo: "Tiendas", icono: Store, hijos: [
-      { id: "tiendas/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/tiendas", secciones: [EJECUTIVO, { id: "ventas", titulo: "Power BI vs ContaNet" }] },
       { id: "tiendas/interno", titulo: "Power BI", icono: FileSpreadsheet, ruta: "/tiendas/interno", secciones: VENTAS },
       { id: "tiendas/contanet", titulo: "ContaNet", icono: Database, ruta: "/tiendas/contanet", secciones: CONTANET },
     ] },
     // Canal digital (usuario VENTAS01): total y su división en Lima (delivery) y Provincia, según el reporte de ventas virtuales.
     { id: "canales/digital", titulo: "Canal digital", icono: Globe, hijos: [
       { id: "canales/digital/resumen", titulo: "Resumen", icono: LayoutDashboard, ruta: "/canales/digital",
-        secciones: [...CONTANET, { id: "cuadre", titulo: "Cuadre con ContaNet" }] },
+        secciones: [{ id: "ventas", titulo: "Resumen" }, { id: "cuadre", titulo: "Cuadre con ContaNet" }] },
       { id: "canales/digital/lima", titulo: "Lima · delivery", icono: MapPin, ruta: "/canales/digital/lima", secciones: CONTANET },
       { id: "canales/digital/provincia", titulo: "Provincia", icono: Map, ruta: "/canales/digital/provincia", secciones: CONTANET },
     ] },
