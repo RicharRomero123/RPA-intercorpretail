@@ -223,6 +223,48 @@ def ventana_principal(auto, esperar: int = 90):
     return w
 
 
+def _nodos_menu(auto, w) -> list:
+    """Filas visibles del menú (UIA solo expone las que se ven): (texto, acción por defecto, control)."""
+    out = []
+    for c, _ in auto.WalkControl(w, maxDepth=14):
+        if c.ControlTypeName == "TreeItemControl":
+            try:
+                lg = c.GetLegacyIAccessiblePattern()
+                out.append((lg.Value.strip(), lg.DefaultAction, c))
+            except Exception:
+                pass
+    return out
+
+
+def buscar_en_menu(auto, w, texto: str):
+    """Busca una opción del menú. Si ContaNet se abrió de cero (carpetas cerradas) o una carpeta abierta tapa a las demás
+    (el árbol solo expone las filas visibles), cierra las carpetas abiertas y las abre una por una hasta encontrarla.
+    Las carpetas no tienen ExpandCollapse: se usa la acción por defecto («Expandir»/«Contraer»)."""
+    def hallar():
+        return next((c for v, _, c in _nodos_menu(auto, w) if v == texto), None)
+
+    def accion(nombre: str, que: str):
+        c = next((c for v, a, c in _nodos_menu(auto, w) if v == nombre and a == que), None)
+        if c is not None:
+            c.GetLegacyIAccessiblePattern().DoDefaultAction()
+            time.sleep(0.6)
+
+    if (n := hallar()) is not None:
+        return n
+    log.info(f"No veo «{texto}» en el menú: cierro las carpetas abiertas y lo busco carpeta por carpeta")
+    for v, a, _ in _nodos_menu(auto, w):
+        if a == "Contraer":
+            accion(v, "Contraer")
+    if (n := hallar()) is not None:
+        return n
+    for v in [v for v, a, _ in _nodos_menu(auto, w) if a == "Expandir"]:
+        accion(v, "Expandir")
+        if (n := hallar()) is not None:
+            return n
+        accion(v, "Contraer")
+    return None
+
+
 def abrir_reporte(auto, w):
     rep = w.WindowControl(AutomationId="RptConsultaVentasProductoDetallado", searchDepth=6)
     if rep.Exists(2):
@@ -230,15 +272,7 @@ def abrir_reporte(auto, w):
     log.info("Abro Ventas -> Reporte de ventas por producto")
     w.ButtonControl(Name="VENTAS", searchDepth=8).GetInvokePattern().Invoke()
     time.sleep(1.5)
-    nodo = None
-    for c, _ in auto.WalkControl(w, maxDepth=14):
-        if c.ControlTypeName == "TreeItemControl":
-            try:
-                if c.GetLegacyIAccessiblePattern().Value.strip() == "Reporte de ventas por producto":
-                    nodo = c
-                    break
-            except Exception:
-                pass
+    nodo = buscar_en_menu(auto, w, "Reporte de ventas por producto")
     if nodo is None:
         raise RuntimeError("No encontré «Reporte de ventas por producto» en el menú de Ventas.")
     # Esta opción del menú solo se abre con doble clic: se trae ContaNet al frente y se confirma antes de hacer clic,

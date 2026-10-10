@@ -83,6 +83,13 @@ type Comprobante = { comprobante: string; tipo: string; fecha_hora: string; tien
 type Historial = { dias: { fecha: string; venta: number; und: number; comprobantes: number }[]; hasta: string };
 
 type Ranking = { posicion: number; total: number; participacion: number };
+/** Una línea del reporte de ventas virtuales (canal digital): 2025 y lo anterior a ContaNet, con ubicación y contacto. */
+type CompraVirtual = {
+  fecha: string; comprobante: string; tipo_comprobante: string | null; cliente: string | null; sku: string | null; producto: string | null; und: number;
+  precio_unit: number | null; total: number; medio_pago: string | null; canal: string; distrito: string | null; provincia: string | null;
+  departamento: string | null; salio_de: string | null; agencia: string | null; telefono: string | null; direccion: string | null;
+  cliente_de: string | null; observacion: string | null;
+};
 
 function PanelCliente({ cliente, consulta, referencia, ranking, cerrar }: {
   cliente: ClienteContaNet; consulta: ConsultaCompras; referencia: Referencia; ranking: Ranking; cerrar: () => void;
@@ -90,6 +97,8 @@ function PanelCliente({ cliente, consulta, referencia, ranking, cerrar }: {
   const [lineas, setLineas] = useState<Linea[] | null>(null);
   const [historial, setHistorial] = useState<Historial | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [virtualLeido, setVirtual] = useState<CompraVirtual[] | null>(null);
+  const virtual = consulta.canal.startsWith("digital") ? virtualLeido : [];   // fuera del canal digital no hay reporte virtual
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const clave = JSON.stringify(consulta);
 
@@ -108,6 +117,14 @@ function PanelCliente({ cliente, consulta, referencia, ranking, cerrar }: {
         if (e) setError(e.message);
         else setLineas(((data ?? []) as Record<string, unknown>[]).map((r) => ({ ...(r as Linea), und: Number(r.und), precio_unit: Number(r.precio_unit), total: Number(r.total) })));
       });
+    // Canal digital: también sus compras del reporte de ventas virtuales (2025 y antes de ContaNet), con ubicación y contacto.
+    if (q.canal.startsWith("digital")) {
+      clienteNavegador().rpc("digital_compras_cliente", { p_canal: q.canal, p_doc: cliente.doc }).then(({ data }) => {
+        if (!vivo) return;
+        setVirtual(((data ?? []) as Record<string, unknown>[]).map((r) => ({ ...(r as CompraVirtual), und: Number(r.und), total: Number(r.total),
+          precio_unit: r.precio_unit === null ? null : Number(r.precio_unit) })));
+      });
+    }
     return () => { vivo = false; };
   }, [cliente.doc, clave]);
 
@@ -132,13 +149,65 @@ function PanelCliente({ cliente, consulta, referencia, ranking, cerrar }: {
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {error ? <p className="text-sm text-[var(--critico)]">No se pudo leer el detalle: {error}</p>
-            : !lineas ? <p className="flex items-center gap-2 text-sm text-[var(--tenue)]"><LoaderCircle size={14} className="animate-spin" aria-hidden /> Cargando compras…</p>
-            : <Analisis lineas={lineas} historial={historial} referencia={referencia} ranking={ranking} abiertos={abiertos} alternar={(c) => setAbiertos((xs) => {
-                const n = new Set(xs); if (n.has(c)) n.delete(c); else n.add(c); return n;
-              })} />}
+            : !lineas || !virtual ? <p className="flex items-center gap-2 text-sm text-[var(--tenue)]"><LoaderCircle size={14} className="animate-spin" aria-hidden /> Cargando compras…</p>
+            : <div className="grid gap-8">
+                {(lineas.length > 0 || virtual.length === 0) && (
+                  <Analisis lineas={lineas} historial={historial} referencia={referencia} ranking={ranking} abiertos={abiertos} alternar={(c) => setAbiertos((xs) => {
+                    const n = new Set(xs); if (n.has(c)) n.delete(c); else n.add(c); return n;
+                  })} />
+                )}
+                {virtual.length > 0 && <ReporteVirtual compras={virtual} soloVirtual={lineas.length === 0} />}
+              </div>}
         </div>
       </aside>
     </div>
+  );
+}
+
+/** Compras del cliente en el reporte de ventas virtuales: el detalle es distinto al de ContaNet (sin hora ni comprobante en 2025),
+ *  pero trae de dónde es el cliente, su teléfono, dirección y la agencia de envío. Muestra todo su historial en ese reporte. */
+function ReporteVirtual({ compras, soloVirtual }: { compras: CompraVirtual[]; soloVirtual: boolean }) {
+  const reciente = <K extends keyof CompraVirtual>(k: K) => compras.find((c) => c[k] !== null && c[k] !== "")?.[k] ?? null;   // vienen de la más nueva a la más vieja
+  const fechas = [...new Set(compras.map((c) => c.fecha))].sort();
+  // Sin comprobante (2025: SN25-n, uno por línea) el pedido es el día de compra; con boleta o factura, el comprobante.
+  const pedidos = new Set(compras.map((c) => (c.comprobante?.startsWith("SN") ? c.fecha : `${c.fecha}|${c.comprobante}`))).size;
+  const total = compras.reduce((a, c) => a + c.total, 0), und = compras.reduce((a, c) => a + c.und, 0);
+  const lugar = [reciente("distrito"), reciente("provincia"), reciente("departamento")].filter(Boolean).join(", ") || "—";
+  const anios = [...new Set(compras.map((c) => c.fecha.slice(0, 4)))].sort().join(" y ");
+  const agencias = [...new Set(compras.map((c) => c.agencia).filter(Boolean))].join(", ");
+  const filas = compras.map((c) => ({
+    ...c, dia: fechaLarga(c.fecha), lugar: [c.distrito, c.provincia, c.departamento].filter(Boolean).join(", "),
+    comprobante: c.comprobante?.startsWith("SN") ? "—" : c.comprobante,
+  }));
+  return (
+    <section className="grid gap-4">
+      <div className="grid gap-0.5">
+        <h3 className="text-[15px] font-semibold">Compras en el reporte de ventas virtuales ({anios})</h3>
+        <p className="text-xs text-[var(--tenue)]">
+          {soloVirtual ? "Este cliente no tiene comprobantes en ContaNet en el periodo: estas son sus compras según el reporte de ventas virtuales. "
+            : "Además de lo de ContaNet, su historial en el reporte de ventas virtuales. "}
+          Este reporte no trae la hora ni, en 2025, el número de comprobante; sí de dónde es el cliente y cómo se le envió.
+        </p>
+      </div>
+      <div className="grid gap-2 grid-cols-2 @lg:grid-cols-4">
+        <Dato titulo="Total comprado" valor={soles(total)} detalle={`${entero(und)} unidades`} />
+        <Dato titulo="Pedidos" valor={entero(pedidos)} detalle={`${fechas.length} día(s) de compra`} />
+        <Dato titulo="Primera compra" valor={fechaLarga(fechas[0])} />
+        <Dato titulo="Última compra" valor={fechaLarga(fechas[fechas.length - 1])} />
+        <Dato titulo="De dónde es" valor={lugar} detalle={reciente("canal") ?? undefined} />
+        <Dato titulo="Teléfono" valor={reciente("telefono") ?? "—"} />
+        <Dato titulo="Dirección" valor={reciente("direccion") ?? "—"} />
+        <Dato titulo="Agencia de envío" valor={agencias || "—"} detalle={reciente("cliente_de") ? `Cliente de ${reciente("cliente_de")}` : undefined} />
+      </div>
+      <Tabla archivo="compras_reporte_virtual.xlsx" hoja="Compras" filas={filas} alto={360}
+             columnas={[{ clave: "dia", titulo: "Fecha", tipo: "texto" }, { clave: "comprobante", titulo: "Comprobante", tipo: "texto" },
+               { clave: "producto", titulo: "Producto", tipo: "texto" }, { clave: "und", titulo: "Und", tipo: "entero" },
+               { clave: "precio_unit", titulo: "Precio S/", tipo: "decimal2" }, { clave: "total", titulo: "Total S/", tipo: "soles" },
+               { clave: "canal", titulo: "Canal", tipo: "texto" }, { clave: "lugar", titulo: "Ubicación", tipo: "texto" },
+               { clave: "agencia", titulo: "Agencia", tipo: "texto" }, { clave: "salio_de", titulo: "Salió de", tipo: "texto" },
+               { clave: "medio_pago", titulo: "Pago", tipo: "texto" }]}
+             total={{ dia: "TOTAL", und, total }} />
+    </section>
   );
 }
 
@@ -179,6 +248,11 @@ function Analisis({ lineas, historial, referencia, ranking, abiertos, alternar }
     return { sku, producto: lineas.find((l) => l.sku === sku)?.producto ?? sku, ...x, precio: x.und ? x.total / x.und : 0 };
   });
   const max = Math.max(...productos.map((p) => p.total), 1);
+
+  // Clientes que solo están en el reporte virtual (antes de ContaNet): no hay comprobantes que mostrar.
+  if (!lineas.length) {
+    return <p className="text-sm text-[var(--tenue)]">Este cliente no tiene compras en ContaNet en el periodo elegido: sus ventas vienen solo del reporte de ventas virtuales, que no trae el detalle por comprobante.</p>;
+  }
 
   return (
     <div className="grid gap-6">

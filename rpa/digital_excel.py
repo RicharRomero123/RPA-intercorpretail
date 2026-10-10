@@ -25,14 +25,18 @@ SISTEMA = "00000000-0000-0000-0000-00000000c0a7"  # usuario del robot (si no se 
 # Cada regla: palabras que deben estar (sin tildes, en minúscula) → SKU. Si ninguna calza, queda sin SKU (pendiente), nunca uno adivinado.
 REGLAS_SKU = [
     (("promocion", "30", "turroncitos", "ajonjoli"), "TUR12477"), (("promocion", "30", "turroncitos", "tradicional"), "TUR12478"),
+    (("navideno", "ajonjoli"), "TUR1113"), (("turron", "navideno"), "TTN1121"),
     (("ramo", "san val"), "RTSV1116"), (("turroncito", "madre"), "TUR1110"), (("turroncito", "san valentin"), "TUR1111"),
     (("turroncito", "ajonjoli"), "TA1115"), (("turroncito", "tradicional"), "TT1114"), (("turron", "fiestas patrias"), "TFP1119"),
     (("turron", "ajonjoli", "900"), "TKA1111"), (("turron", "ajonjoli", "450"), "TMA1113"),
     (("turron", "tradicional", "950"), "TK1110"), (("turron", "tradicional", "500"), "TMT1112"),
+    (("chocopaneton", "madre"), "PAN1127"), (("bizcochuelo", "madre"), "PAN1127"),
     (("chocopaneton",), "CHP1126"), (("paneton", "ziploc"), "PZ1125"), (("paneton", "caja"), "PAN1124"), (("paneton", "bolsa"), "PB1124"),
     (("taper", "alfaj"), "ALFA1145"), (("alfajores", "taper"), "ALFA1145"), (("taper", "oreja"), "OREJA1146"), (("oreja", "taper"), "OREJA1146"),
     (("taper", "empanada"), "EMP1147"), (("taper", "milhoja"), "MH11152"), (("taper", "pionono"), "PIONONO1149"),
     (("empanada",), "EMP1132"), (("milhoja",), "MH1135"), (("rosquita",), "ROS1133"), (("pie de manzana",), "PYE1134"),
+    (("taper", "brownie"), "BROWNIE1150"), (("brownie",), "BROWNIE1136"), (("cremolada",), "CM1140"),
+    (("alfajor",), "ALFA1130"), (("oreja",), "OREJA1131"),
 ]
 
 
@@ -64,6 +68,10 @@ def comprobante(v) -> tuple[str, int] | None:
     """«B008-3140», «BOL/B008/00004837», «OTR/NV08/00000001» → ('B008', 3140)."""
     m = re.match(r"^(?:[A-Z]{3}/)?([A-Z]{1,2}\d{2,3}|SN)[-/]0*(\d+)$", str(v).strip().upper())
     return (m.group(1), int(m.group(2))) if m else None
+
+
+def norm_col(c) -> str:
+    return unicodedata.normalize("NFD", str(c)).encode("ascii", "ignore").decode().strip().lower()
 
 
 def texto(v) -> str | None:
@@ -101,6 +109,10 @@ def leer(ruta: Path, eq: dict[str, str], skus: set[str]) -> pd.DataFrame:
     if len(sin_canal):
         raise SystemExit(f"Filas con canal desconocido: {sin_canal.Canal.unique()}")
     sn = d["Nro Comprobante"].map(comprobante)
+    # Datos de contacto y envío: solo si el Excel los trae (el de 2025 sí; el reporte 2026 trae «Cliente de»).
+    def opcional(*nombres):
+        col = next((c for c in d.columns if norm_col(c) in {norm_col(n) for n in nombres}), None)
+        return d[col].map(texto) if col else pd.Series([None] * len(d), index=d.index)
     codigo = d["Código"].map(texto).str.upper()
     out = pd.DataFrame({
         "fecha": pd.to_datetime(d["Fecha Registro"]).dt.date,
@@ -115,6 +127,8 @@ def leer(ruta: Path, eq: dict[str, str], skus: set[str]) -> pd.DataFrame:
         "medio_pago": d["Medio pago"].map(medio), "canal": d.Canal.astype(str).str.strip().str.upper().map(CANAL),
         "distrito": d["Distrito"].map(lugar), "provincia": d["Provincia"].map(lugar), "departamento": d["Departamento"].map(lugar),
         "salio_de": d["Salió de"].map(texto), "observacion": d["Observación"].map(texto),
+        "telefono": opcional("Celular", "Teléfono", "Telefono"), "direccion": opcional("Dirección", "Direccion"),
+        "agencia": opcional("Agencia"), "cliente_de": opcional("Cliente de"),
     })
     out["comprobante"] = out.serie + "-" + out.numero.astype(str)
     out["tipo_comprobante"] = out.serie.str[0].map(TIPO).where(out.serie != "SN").fillna("Otro")
@@ -139,7 +153,8 @@ def main():
         if len(sin_sku):
             print(f"Códigos sin SKU oficial (se cargan igual): {list(sin_sku)}")
         cols = ["fecha", "comprobante", "serie", "numero", "tipo_comprobante", "cliente", "doc_cliente", "codigo", "sku", "producto",
-                "und", "precio_unit", "total", "medio_pago", "canal", "distrito", "provincia", "departamento", "salio_de", "observacion"]
+                "und", "precio_unit", "total", "medio_pago", "canal", "distrito", "provincia", "departamento", "salio_de", "observacion",
+                "telefono", "direccion", "agencia", "cliente_de"]
         filas_json = json.loads(d[cols].assign(fecha=d.fecha.astype(str)).to_json(orient="records", force_ascii=False))
         uid = con.execute("select id from auth.users where email = %s", (a.correo,)).fetchone() if a.correo else None
         sub = str(uid[0]) if uid else SISTEMA
